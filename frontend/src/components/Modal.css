@@ -1,0 +1,184 @@
+/* Pop-up COD form container (Requirements 3.17-3.18, 8.19-8.20).
+   Mobile-first: a bottom sheet, because the buyer holds the phone in one hand
+   and the primary action must sit in the thumb zone. From 640px up it becomes
+   a centered dialog. The sheet never exceeds the viewport: the header and the
+   action footer stay put and only the field list scrolls, so the confirm
+   button is reachable without hunting for it. */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(20, 24, 28, 0.55);
+  padding: 0;
+  animation: lp-fade-in 140ms var(--lp-ease) both;
+}
+
+@media (min-width: 640px) {
+  .modal-backdrop {
+    align-items: center;
+    padding: var(--lp-space-lg);
+  }
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  /* dvh keeps the sheet correct while mobile browser chrome shows/hides. */
+  max-height: 92dvh;
+  background: var(--lp-bg);
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--lp-shadow-overlay);
+  /* The one authored entrance on this surface: the sheet rises from the edge
+     the thumb just touched, decelerating hard. */
+  animation: lp-sheet-up 320ms var(--lp-ease-out) both;
+}
+
+.modal:focus {
+  outline: none;
+}
+
+@media (min-width: 640px) {
+  .modal {
+    border-radius: var(--lp-radius-md);
+    max-height: 88dvh;
+    animation: lp-dialog-in 220ms var(--lp-ease-out) both;
+  }
+}
+
+@keyframes lp-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lp-sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes lp-dialog-in {
+  from {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal {
+    animation: none;
+  }
+}
+
+/* The grab handle reads as "this panel came from the bottom edge and can go
+   back", the affordance a sheet needs on touch. Decorative only — closing is
+   done with the labelled button, Escape, or the backdrop. */
+.modal::before {
+  content: "";
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--lp-hairline);
+  margin: 10px auto 0;
+  flex: none;
+}
+
+@media (min-width: 640px) {
+  .modal::before {
+    display: none;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lp-space-sm);
+  padding: var(--lp-space-md) var(--lp-space-md) var(--lp-space-sm);
+  flex: none;
+}
+
+@media (min-width: 640px) {
+  .modal-header {
+    padding: var(--lp-space-lg) var(--lp-space-lg) var(--lp-space-sm);
+  }
+}
+
+.modal-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--lp-ink);
+}
+
+.modal-subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--lp-ink-quiet);
+}
+
+.modal-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--lp-ink-quiet);
+  font-size: 1.75rem;
+  line-height: 1;
+  /* 44px minimum touch target. */
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--lp-radius-sm);
+  flex: none;
+}
+
+.modal-close:hover {
+  background: var(--lp-surface);
+  color: var(--lp-ink);
+}
+
+.modal-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 var(--lp-space-md) var(--lp-space-md);
+}
+
+@media (min-width: 640px) {
+  .modal-body {
+    padding: 0 var(--lp-space-lg) var(--lp-space-md);
+  }
+}
+
+.modal-footer {
+  flex: none;
+  padding: var(--lp-space-md);
+  padding-bottom: calc(var(--lp-space-md) + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--lp-hairline);
+  background: var(--lp-bg);
+}
+
+@media (min-width: 640px) {
+  .modal-footer {
+    padding: var(--lp-space-md) var(--lp-space-lg) var(--lp-space-lg);
+  }
+}

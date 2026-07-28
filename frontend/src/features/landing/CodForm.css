@@ -1,0 +1,206 @@
+/* COD form inside the pop-up. One column, 16px controls, and a confirm action
+   that stays on screen while the field list scrolls. */
+
+.cod-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lp-space-md);
+}
+
+/* Offer recap — what the buyer is committing to, restated where the
+   commitment is asked for. */
+.cod-form__recap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--lp-space-md);
+  background: var(--lp-surface);
+  border-radius: var(--lp-radius-md);
+}
+
+.cod-form__recap-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lp-space-sm);
+  font-size: 0.9375rem;
+}
+
+.cod-form__recap-name {
+  font-weight: 600;
+  color: var(--lp-ink);
+}
+
+.cod-form__recap-unit {
+  flex: none;
+  color: var(--lp-ink-quiet);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cod-form__recap-line--total {
+  color: var(--lp-ink-quiet);
+  padding-top: 6px;
+  border-top: 1px solid var(--lp-hairline);
+}
+
+.cod-form__recap-total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lp-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cod-form__recap-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--lp-ink-quiet);
+}
+
+.cod-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--lp-space-md);
+}
+
+@media (max-width: 420px) {
+  .cod-form__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Quantity: the labelled input keeps its full behavior; the stepper sits
+   beside it as the fast path for touch. */
+.cod-form__quantity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--lp-space-sm);
+}
+
+.cod-form__quantity .form-field-input,
+.cod-form__quantity .form-field-input--error {
+  max-width: 96px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cod-form__stepper {
+  display: flex;
+  gap: var(--lp-space-sm);
+  padding-bottom: 1px;
+}
+
+.cod-form__stepper-button {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  border: 1px solid var(--lp-hairline);
+  border-radius: var(--lp-radius-sm);
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--lp-duration) var(--lp-ease);
+}
+
+.cod-form__stepper-button:hover:not(:disabled) {
+  background: var(--lp-surface);
+}
+
+.cod-form__stepper-button:disabled {
+  color: var(--lp-ink-quiet);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cod-form__error {
+  margin: 0;
+  padding: var(--lp-space-sm) var(--lp-space-md);
+  background: var(--lp-error-bg);
+  color: #9c2b20;
+  border-radius: var(--lp-radius-sm);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/* Sticky action: the sheet body is the scroll container, so the primary
+   action stays in the thumb zone no matter how far down the buyer is. */
+.cod-form__actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--lp-space-md) 0 calc(var(--lp-space-sm) + env(safe-area-inset-bottom, 0px));
+  margin-top: var(--lp-space-xs);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6), var(--lp-bg) 28%);
+}
+
+.cod-form__submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lp-space-sm);
+  appearance: none;
+  border: none;
+  border-radius: var(--lp-radius-md);
+  background: var(--lp-action);
+  color: var(--lp-action-ink);
+  font-family: var(--lp-font);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  padding: 16px 20px;
+  min-height: 54px;
+  cursor: pointer;
+  transition: background-color var(--lp-duration) var(--lp-ease);
+}
+
+.cod-form__submit:hover:not(:disabled) {
+  background: var(--lp-action-deep);
+}
+
+.cod-form__submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.cod-form__submit:disabled {
+  background: var(--lp-action-deep);
+  opacity: 0.8;
+  cursor: progress;
+}
+
+.cod-form__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: cod-spin 700ms linear infinite;
+}
+
+@keyframes cod-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cod-form__spinner {
+    animation-duration: 2s;
+  }
+}
+
+.cod-form__note {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--lp-ink-quiet);
+}

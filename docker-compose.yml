@@ -1,0 +1,47 @@
+# Local test services for the backend suite (see docs/testing.md).
+#
+# Postgres is published on 55432, not 5432, so it never collides with a native
+# PostgreSQL install on the host — the port docs/testing.md documents for the
+# throwaway test database.
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: cod_postgres_test
+    environment:
+      POSTGRES_USER: cod_user
+      POSTGRES_PASSWORD: cod_password
+      POSTGRES_DB: cod_platform_test
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cod_user -d cod_platform_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cod_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: cod_redis_test
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cod_network
+    command: redis-server --appendonly yes
+
+networks:
+  cod_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Same-origin, self-hosted UI face (see src/styles/landing.css). Preloaded
+         because it renders the buyer's first readable text on a cold 4G visit;
+         `crossorigin` is required even same-origin for font requests. -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/archivo-latin-var.woff2"
+      crossorigin
+    />
+    <title>COD Commerce Platform</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

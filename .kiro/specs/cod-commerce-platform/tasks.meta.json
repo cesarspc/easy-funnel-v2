@@ -1,0 +1,262 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Establish repository scaffolding and tooling": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873749055
+      },
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873761588
+      }
+    ],
+    "2.1 Wire the Prisma client and migration integration": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873749869
+      }
+    ],
+    "2.2 Wire the Upstash Redis client module": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873750522
+      }
+    ],
+    "3.1 Products, landings, banners, image assets/variants": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873750665
+      }
+    ],
+    "3.2 Orders, fraud flags, and fraud configuration": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873750739
+      }
+    ],
+    "3.3 Analytics, admin users, and audit models": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873750839
+      }
+    ],
+    "4. Implement core settings, logging, and request context": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873750911
+      }
+    ],
+    "5.1 JWT issuance/validation and Argon2id hashing": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873750990
+      }
+    ],
+    "5.2 Login rate limiting (Upstash Redis) and auth audit": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751068
+      }
+    ],
+    "6. Implement the products domain and lifecycle service": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751160
+      }
+    ],
+    "7.1 Slug, banner ordering, and CTA placement rules": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751282
+      }
+    ],
+    "7.2 Publication validation and public not-found policy": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751349
+      }
+    ],
+    "8.1 Validation, EXIF stripping, variant generation, R2 upload, opaque keys": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751436
+      }
+    ],
+    "8.2 Atomic completion and upload-outage behavior": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751527
+      }
+    ],
+    "9. Implement the orders domain (validation, normalization, status graph)": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751600
+      }
+    ],
+    "10.1 Fraud config, blacklist, and GeoIP rule management": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751667
+      }
+    ],
+    "10.2 The four fraud checks and multi-flag aggregation": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751737
+      }
+    ],
+    "11. Implement the GeoIP resolver over the bundled database": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751843
+      }
+    ],
+    "12. Implement the order-submission orchestration service": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873751938
+      }
+    ],
+    "13. Implement analytics domain and query service": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752036
+      }
+    ],
+    "14. Implement the CSV export service with formula-injection neutralization": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752141
+      }
+    ],
+    "15. Wire the auth and operational-read API routers": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752243
+      }
+    ],
+    "16. Wire the product and landing/banner admin API routers": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752337
+      }
+    ],
+    "17. Wire the public landing and checkout API routers": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752433
+      }
+    ],
+    "18. Wire the order-management, fraud, and analytics admin API routers": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752559
+      }
+    ],
+    "19. Build the frontend API client and shared components": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752634
+      }
+    ],
+    "20. Build the public landing and COD checkout flow": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752720
+      }
+    ],
+    "21.1 Admin auth guard and product/landing management UI": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752804
+      }
+    ],
+    "21.2 Order management, fraud settings, and analytics UI": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752910
+      }
+    ],
+    "22.1 Neon backup monitoring and restore verification": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873752995
+      }
+    ],
+    "22.2 GeoIP update task (validate-before-activate)": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873753116
+      }
+    ],
+    "22.3 Image orphan cleanup task (R2)": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873753234
+      }
+    ],
+    "22.4 Expose task status to the operational read interface": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873753349
+      }
+    ],
+    "23.1 Backend Dockerfile and Koyeb service manifest": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873753454
+      }
+    ],
+    "23.2 Cloudflare Pages, DNS/routing, R2, and env example": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873753551
+      }
+    ],
+    "24. Assemble end-to-end integration and performance/accessibility validation": [
+      {
+        "executionId": "f5923880-c785-43db-9e23-03955276d5d8",
+        "chatSessionId": "sess_0e0a524b-82cb-4235-80c4-623936df8b6b",
+        "timestamp": 1784873753629
+      }
+    ]
+  }
+}

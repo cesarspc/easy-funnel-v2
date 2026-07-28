@@ -1,0 +1,28 @@
+# Environment / secrets — never commit actual values.
+.env
+.env.*
+!.env.example
+
+# Backend (Python)
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/.mypy_cache/
+backend/htmlcov/
+backend/.coverage
+
+# Prisma generated client (regenerated via `prisma generate`, never hand-edited)
+backend/app/generated/
+
+# GeoIP licensed database files — never committed, provisioned at build/deploy time.
+infrastructure/geoip/*.mmdb
+
+# Local uploads / database volumes must never be committed.
+**/uploads/
+**/*.sqlite3
+
+# Editor / OS
+.DS_Store
+Thumbs.db

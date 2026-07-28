@@ -1,0 +1,56 @@
+# Koyeb Service Manifest for COD Commerce Platform
+# Single FastAPI container on Koyeb
+
+services:
+  - name: cod-commerce-backend
+    type: web
+    replicas: 1
+    health_checks:
+      - path: /health
+        interval: 30s
+        timeout: 10s
+        restart_grace_period: 60s
+    env:
+      - key: DATABASE_URL
+        description: Neon PostgreSQL connection string
+      - key: UPSTASH_REDIS_REST_URL
+        description: Upstash Redis REST URL
+      - key: UPSTASH_REDIS_REST_TOKEN
+        description: Upstash Redis REST token
+      - key: R2_ENDPOINT
+        description: Cloudflare R2 endpoint URL
+      - key: R2_ACCESS_KEY_ID
+        description: Cloudflare R2 access key ID
+      - key: R2_SECRET_ACCESS_KEY
+        description: Cloudflare R2 secret access key
+      - key: R2_BUCKET
+        description: Cloudflare R2 bucket name
+      - key: R2_PUBLIC_HOST
+        description: Cloudflare R2 public host URL
+      - key: JWT_SECRET
+        description: JWT signing secret
+      - key: JWT_ALGORITHM
+        description: JWT algorithm (default: HS256)
+      - key: JWT_EXPIRY_MINUTES
+        description: JWT expiry in minutes (default: 60)
+      - key: JWT_ISSUER
+        description: JWT issuer (default: cod-commerce-platform)
+      - key: JWT_AUDIENCE
+        description: JWT audience (default: cod-commerce-admin)
+      - key: GEOIP_DATABASE_PATH
+        description: Path to GeoLite2 database (bundled in image)
+      - key: APP_VERSION
+        description: Application version
+      - key: ENVIRONMENT
+        description: Environment (development, staging, production)
+    build:
+      docker:
+        dockerfile: backend/Dockerfile
+    ports:
+      - port: 8080
+        protocol: tcp
+        health_check:
+          path: /health
+    routes:
+      - path: /
+        type: http

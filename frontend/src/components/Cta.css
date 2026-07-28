@@ -1,0 +1,48 @@
+/* CTA control (Requirement 3.12-3.14). Full-width, large tap target,
+   the one repeated conversion action on the page — every instance uses
+   the same fill since, unlike the Dashboard's per-row actions, each CTA
+   here is the single decision point for that scroll position. */
+
+.cta-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lp-space-sm);
+  width: 100%;
+  appearance: none;
+  border: none;
+  border-radius: var(--lp-radius-md);
+  background: var(--lp-action);
+  color: var(--lp-action-ink);
+  font-family: var(--lp-font);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  padding: 16px 20px;
+  min-height: 52px;
+  cursor: pointer;
+  transition:
+    background-color var(--lp-duration) var(--lp-ease),
+    transform var(--lp-duration) var(--lp-ease);
+}
+
+.cta-button:hover:not(:disabled) {
+  background: var(--lp-action-deep);
+}
+
+.cta-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+}
+
+.cta-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cta-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.cta-label {
+  white-space: nowrap;
+}

@@ -1,0 +1,18 @@
+# Cloudflare Pages configuration
+
+name = "cod-commerce-platform"
+account_id = ""
+pages_build_output_dir = "dist"
+compatibility_date = "2024-01-01"
+
+# SPA fallback for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# API routing (handled by Cloudflare DNS, not Pages)
+[[redirects]]
+  from = "/api/*"
+  to = "https://backend.example.com/api/:splat"
+  status = 200

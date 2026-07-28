@@ -1,0 +1,226 @@
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--gf-paper);
+}
+
+/* Sidebar (graphite chrome) */
+
+.admin-shell__sidebar {
+  width: var(--gf-sidebar-width);
+  flex-shrink: 0;
+  background: var(--gf-graphite-panel);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.admin-shell__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--gf-space-sm);
+  padding: var(--gf-space-lg) var(--gf-space-md);
+  height: var(--gf-topbar-height);
+  box-sizing: content-box;
+}
+
+.admin-shell__brand-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gf-signal-amber);
+  box-shadow: 0 0 6px 1px rgba(232, 134, 44, 0.5);
+  flex-shrink: 0;
+}
+
+.admin-shell__brand-name {
+  color: var(--gf-graphite-text-strong);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.admin-shell__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--gf-space-sm);
+}
+
+.admin-shell__nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--gf-space-sm);
+  padding: 10px 12px;
+  border-radius: var(--gf-radius-md);
+  color: var(--gf-graphite-text);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-left: 2px solid transparent;
+  transition: background-color var(--gf-duration-standard) var(--gf-ease-standard);
+  white-space: nowrap;
+}
+
+.admin-shell__nav-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.admin-shell__nav-item:hover {
+  background: var(--gf-graphite-panel-raised);
+  color: var(--gf-graphite-text-strong);
+}
+
+.admin-shell__nav-item--active {
+  background: var(--gf-graphite-panel-raised);
+  color: var(--gf-graphite-text-strong);
+  border-left-color: var(--gf-signal-amber);
+}
+
+/* Main column */
+
+.admin-shell__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-shell__topbar {
+  height: var(--gf-topbar-height);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--gf-space-sm);
+  padding: 0 var(--gf-space-lg);
+  background: var(--gf-paper);
+  border-bottom: 1px solid var(--gf-hairline);
+}
+
+.admin-shell__topbar-spacer {
+  flex: 1;
+}
+
+.admin-shell__menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--gf-radius-md);
+  border: none;
+  background: transparent;
+  color: var(--gf-ink);
+  cursor: pointer;
+}
+
+.admin-shell__menu-toggle:hover {
+  background: var(--gf-paper-raised);
+}
+
+.admin-shell__logout {
+  background: transparent;
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  color: var(--gf-ink);
+  font-family: var(--gf-font-ui);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background-color var(--gf-duration-standard) var(--gf-ease-standard);
+}
+
+.admin-shell__logout:hover {
+  background: var(--gf-paper-raised);
+}
+
+.admin-shell__content {
+  flex: 1;
+  padding: var(--gf-space-lg);
+  min-width: 0;
+}
+
+.admin-shell__scrim {
+  display: none;
+}
+
+/* Tablet: icon rail */
+
+@media (max-width: 1023px) {
+  .admin-shell__sidebar {
+    width: var(--gf-sidebar-width-collapsed);
+  }
+
+  .admin-shell__brand-name,
+  .admin-shell__nav-label {
+    display: none;
+  }
+
+  .admin-shell__brand {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .admin-shell__nav-item {
+    justify-content: center;
+    padding: 12px;
+  }
+}
+
+/* Mobile: off-canvas drawer */
+
+@media (max-width: 639px) {
+  .admin-shell__sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform var(--gf-duration-standard) var(--gf-ease-standard);
+    z-index: 30;
+  }
+
+  .admin-shell__sidebar--open {
+    transform: translateX(0);
+  }
+
+  .admin-shell__brand-name,
+  .admin-shell__nav-label {
+    display: inline;
+  }
+
+  .admin-shell__brand {
+    justify-content: flex-start;
+    padding: var(--gf-space-lg) var(--gf-space-md);
+  }
+
+  .admin-shell__nav-item {
+    justify-content: flex-start;
+    padding: 10px 12px;
+  }
+
+  .admin-shell__menu-toggle {
+    display: flex;
+  }
+
+  .admin-shell__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    border: none;
+    padding: 0;
+    z-index: 20;
+  }
+
+  .admin-shell__content {
+    padding: var(--gf-space-md);
+  }
+}

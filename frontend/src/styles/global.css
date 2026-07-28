@@ -1,0 +1,115 @@
+/*
+ * Easy Funnel Admin Dashboard — design tokens.
+ * Direction: "The Instrument Panel" (see DESIGN.md at project root).
+ * Graphite chrome + paper work surface; color rationed to state and action.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Chrome (graphite) */
+  --gf-graphite-panel: #1c1f22;
+  --gf-graphite-panel-raised: #242830;
+  --gf-graphite-line: #33383f;
+  --gf-graphite-text: #c9ccd1;
+  --gf-graphite-text-strong: #ffffff;
+
+  /* Work surface (paper) */
+  --gf-paper: #f7f6f3;
+  --gf-paper-raised: #ffffff;
+  --gf-ink: #1a1c1e;
+  --gf-ink-quiet: #5b6169;
+  --gf-ink-faint: #8a9099;
+  --gf-hairline: #e4e2dd;
+
+  /* Signal accent — the one lit LED */
+  --gf-signal-amber: #e8862c;
+  --gf-signal-amber-deep: #c56a17;
+  --gf-signal-amber-ink: #1a1206;
+
+  /* Order_Status vocabulary */
+  --gf-status-pending: #8a7245;
+  --gf-status-confirmed: #3d6b8f;
+  --gf-status-shipped: #5c5a8f;
+  --gf-status-delivered: #3f7d52;
+  --gf-status-cancelled: #8a9099;
+  --gf-status-flagged: #b8402f;
+
+  /* Danger (destructive-on-intent) */
+  --gf-danger: #b8402f;
+  --gf-danger-deep: #96331f;
+
+  /* Typography */
+  --gf-font-ui: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --gf-font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Radius */
+  --gf-radius-sm: 4px;
+  --gf-radius-md: 6px;
+  --gf-radius-lg: 10px;
+
+  /* Spacing */
+  --gf-space-xs: 4px;
+  --gf-space-sm: 8px;
+  --gf-space-md: 16px;
+  --gf-space-lg: 24px;
+  --gf-space-xl: 40px;
+
+  /* Elevation (overlays only — see DESIGN.md Flat Instrument Rule) */
+  --gf-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.18);
+
+  /* Motion */
+  --gf-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --gf-duration-fast: 150ms;
+  --gf-duration-standard: 200ms;
+
+  /* Layout */
+  --gf-sidebar-width: 240px;
+  --gf-sidebar-width-collapsed: 64px;
+  --gf-topbar-height: 56px;
+
+  font-family: var(--gf-font-ui);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--gf-paper);
+  color: var(--gf-ink);
+  font-family: var(--gf-font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Global focus-visible: never removed, per DESIGN.md accessibility floor. */
+:focus-visible {
+  outline: 2px solid var(--gf-signal-amber);
+  outline-offset: 2px;
+}
+
+/* Tactile pressed feedback, per DESIGN.md's every-state requirement. */
+button:not(:disabled):active {
+  transform: translateY(1px);
+  filter: brightness(0.94);
+}

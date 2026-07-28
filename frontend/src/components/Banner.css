@@ -1,0 +1,16 @@
+/* Responsive banner (Requirement 4.13-4.14, 8.19-8.20). Full-bleed within
+   the page's max-width; the product imagery is the whole visual system
+   here, so this chrome adds nothing beyond a loading placeholder. */
+
+.banner {
+  display: block;
+  width: 100%;
+  line-height: 0;
+  background: var(--lp-surface);
+}
+
+.banner-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}

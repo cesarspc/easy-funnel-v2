@@ -1,0 +1,10 @@
+# Development dependencies for testing and linting
+
+# Testing
+httpx==0.26.0
+pytest>=7.0.0
+pytest-asyncio>=0.24.0
+pytest-cov>=4.0.0
+
+# Extras for testing
+-e .

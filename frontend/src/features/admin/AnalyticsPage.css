@@ -1,0 +1,214 @@
+.analytics-page__header {
+  margin-bottom: var(--gf-space-lg);
+}
+
+.analytics-page__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--gf-ink);
+  margin: 0;
+}
+
+.analytics-page__error {
+  color: var(--gf-status-flagged);
+  font-size: 0.875rem;
+  margin: 0 0 var(--gf-space-md);
+}
+
+.analytics-page__muted {
+  color: var(--gf-ink-quiet);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.analytics-range {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--gf-space-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--gf-space-lg);
+}
+
+.analytics-range__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.analytics-range__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gf-ink-quiet);
+}
+
+.analytics-range__input {
+  font-family: var(--gf-font-ui);
+  font-size: 0.875rem;
+  color: var(--gf-ink);
+  background: var(--gf-paper-raised);
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  padding: 8px 10px;
+}
+
+.analytics-range__input[aria-invalid="true"] {
+  border-color: var(--gf-status-flagged);
+}
+
+.analytics-range__error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--gf-status-flagged);
+}
+
+.analytics-panel {
+  background: var(--gf-paper-raised);
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-lg);
+  padding: var(--gf-space-lg);
+  margin-bottom: var(--gf-space-lg);
+}
+
+.analytics-panel__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--gf-ink);
+  margin: 0 0 var(--gf-space-md);
+}
+
+.analytics-table-wrap {
+  background: var(--gf-paper);
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  overflow-x: auto;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+}
+
+.analytics-table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gf-ink-quiet);
+  border-bottom: 1px solid var(--gf-hairline);
+  white-space: nowrap;
+}
+
+.analytics-table td {
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  color: var(--gf-ink);
+  border-bottom: 1px solid var(--gf-hairline);
+  height: 44px;
+}
+
+.analytics-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.analytics-table__data {
+  font-family: var(--gf-font-data);
+  font-size: 0.8125rem;
+  color: var(--gf-ink-quiet);
+  white-space: nowrap;
+}
+
+.analytics-table__empty {
+  text-align: center;
+  color: var(--gf-ink-faint);
+  padding: var(--gf-space-xl);
+}
+
+.analytics-table__action {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  color: var(--gf-ink);
+  font-family: var(--gf-font-ui);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background-color var(--gf-duration-standard) var(--gf-ease-standard),
+    border-color var(--gf-duration-standard) var(--gf-ease-standard),
+    color var(--gf-duration-standard) var(--gf-ease-standard);
+}
+
+.analytics-table__action:hover:not(:disabled) {
+  background: var(--gf-paper);
+}
+
+.analytics-table__action--primary {
+  border-color: var(--gf-signal-amber);
+  color: var(--gf-signal-amber-deep);
+}
+
+.analytics-table__action--primary:hover:not(:disabled) {
+  background: var(--gf-signal-amber);
+  border-color: var(--gf-signal-amber);
+  color: var(--gf-signal-amber-ink);
+}
+
+.analytics-chart {
+  margin-bottom: var(--gf-space-md);
+}
+
+.analytics-chart__svg {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+
+.analytics-chart__axis {
+  stroke: var(--gf-hairline);
+  stroke-width: 1;
+}
+
+.analytics-chart__line {
+  stroke: var(--gf-signal-amber);
+  stroke-width: 2;
+}
+
+.analytics-chart__point {
+  fill: var(--gf-signal-amber-deep);
+}
+
+.analytics-chart__empty {
+  color: var(--gf-ink-faint);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: var(--gf-space-lg) 0;
+  margin: 0 0 var(--gf-space-md);
+}
+
+.analytics-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gf-space-md);
+  font-size: 0.75rem;
+  color: var(--gf-ink-quiet);
+  font-family: var(--gf-font-data);
+}
+
+.analytics-chart__legend-item strong {
+  color: var(--gf-ink);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+@media (max-width: 639px) {
+  .analytics-range {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

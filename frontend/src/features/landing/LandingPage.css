@@ -1,0 +1,13 @@
+/* Page-level layout only; shared tokens and states live in
+   ../../styles/landing.css (lp-page, lp-skeleton, etc.). */
+
+.lp-page__banners > div {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure no gap between banners and CTA bands */
+.lp-page__banners > div > .banner,
+.lp-page__banners > div > .lp-page__cta-band {
+  margin: 0;
+}

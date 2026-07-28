@@ -1,0 +1,174 @@
+"""ProductLifecycleService: product creation + lifecycle transitions.
+
+Composes `app.domains.products` validation/lifecycle rules with the
+`ProductRepository` / `LandingRepository` / `AuditLogRepository`, running
+every mutation inside one Prisma transaction so a product is never left
+without its single draft landing, and a rejected transition never partially
+mutates the record (Requirements 2.1, 2.7, 2.9-2.21).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from decimal import Decimal
+
+from prisma import Prisma
+from prisma.models import Landing, Product
+
+from app.db.client import utcnow
+from app.db.repositories import AuditLogRepository, LandingRepository, ProductRepository
+from app.domains.products.errors import DuplicateSkuError, ProductNotFoundError
+from app.domains.products.lifecycle import (
+    next_status_on_activate,
+    next_status_on_pause,
+    next_status_on_retire,
+)
+from app.domains.products.validation import (
+    validate_creation_status,
+    validate_description,
+    validate_name,
+    validate_price,
+    validate_sku,
+)
+
+_TransitionFn = Callable[[int, str], str]
+
+# Draft landings are created with a sensible, valid-by-construction default
+# configuration; the Administrator edits slug/CTA/presentation via the
+# landings domain (task 7) before publishing.
+_DEFAULT_DRAFT_CTA_MODE = "after_every"
+_DEFAULT_DRAFT_FORM_PRESENTATION = "inline"
+
+
+@dataclass(frozen=True)
+class ProductCreationResult:
+    product: Product
+    landing: Landing
+
+
+class ProductLifecycleService:
+    def __init__(self, db: Prisma) -> None:
+        self._db = db
+
+    async def create_product(
+        self,
+        *,
+        name: str,
+        sku: str,
+        price: Decimal | str,
+        description: str = "",
+        status: str | None = None,
+        actor: str,
+    ) -> ProductCreationResult:
+        """Validate, then atomically create a Product and its single draft
+        Landing (Requirements 2.1, 2.2-2.6, 2.7, 2.10).
+
+        Raises `ProductValidationError` on any invalid field and
+        `DuplicateSkuError` if the SKU is already used by any non-retired
+        or retired product — neither the product nor a landing is created
+        on failure.
+        """
+        validated_name = validate_name(name)
+        validated_description = validate_description(description)
+        validated_price = validate_price(price)
+        validated_sku = validate_sku(sku)
+        validated_status = validate_creation_status(status)
+
+        async with self._db.tx() as tx:
+            products = ProductRepository(tx)
+            landings = LandingRepository(tx)
+            audit_log = AuditLogRepository(tx)
+
+            existing = await products.get_by_sku(validated_sku)
+            if existing is not None:
+                raise DuplicateSkuError(validated_sku)
+
+            product = await products.create(
+                {
+                    "name": validated_name,
+                    "description": validated_description,
+                    "price": validated_price,
+                    "sku": validated_sku,
+                    "status": validated_status,
+                }
+            )
+            landing = await landings.create(
+                {
+                    "productId": product.id,
+                    "slug": f"draft-{product.id}",
+                    "ctaMode": _DEFAULT_DRAFT_CTA_MODE,
+                    "formPresentation": _DEFAULT_DRAFT_FORM_PRESENTATION,
+                }
+            )
+            await audit_log.record(
+                actor=actor,
+                action="product.create",
+                target_type="product",
+                target_id=str(product.id),
+                result="success",
+            )
+
+        return ProductCreationResult(product=product, landing=landing)
+
+    async def activate(self, product_id: int, *, actor: str) -> Product:
+        return await self._transition(
+            product_id,
+            actor=actor,
+            action="product.activate",
+            compute_next=next_status_on_activate,
+        )
+
+    async def pause(self, product_id: int, *, actor: str) -> Product:
+        return await self._transition(
+            product_id,
+            actor=actor,
+            action="product.pause",
+            compute_next=next_status_on_pause,
+        )
+
+    async def retire(self, product_id: int, *, actor: str) -> Product:
+        """Soft-delete (retire) a product (Requirements 2.13-2.16, 2.21).
+
+        Never performs physical erasure: only the `status`/`retired_at`
+        columns change. Historical Landing/Banner/Order/FraudFlag/AuditLog
+        references are untouched (enforced by restrict FKs at the schema
+        level, task 3).
+        """
+        product = await self._transition(
+            product_id, actor=actor, action="product.retire", compute_next=next_status_on_retire
+        )
+        async with self._db.tx() as tx:
+            updated = await ProductRepository(tx).update(product.id, {"retiredAt": utcnow()})
+        return updated if updated is not None else product
+
+    async def _transition(
+        self,
+        product_id: int,
+        *,
+        actor: str,
+        action: str,
+        compute_next: _TransitionFn,
+    ) -> Product:
+        async with self._db.tx() as tx:
+            products = ProductRepository(tx)
+            audit_log = AuditLogRepository(tx)
+
+            product = await products.get_by_id(product_id)
+            if product is None:
+                raise ProductNotFoundError(product_id)
+
+            next_status = compute_next(product_id, product.status)
+
+            updated = await products.update(product_id, {"status": next_status})
+            if updated is None:
+                raise ProductNotFoundError(product_id)
+
+            await audit_log.record(
+                actor=actor,
+                action=action,
+                target_type="product",
+                target_id=str(product_id),
+                result="success",
+            )
+            return updated

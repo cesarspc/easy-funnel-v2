@@ -1,0 +1,677 @@
+/**
+ * Landing editor (Requirement 8.3, 8.19, 8.20): banner upload/removal/order
+ * and alternative text, plus slug, CTA placement mode, COD form presentation,
+ * and publish/unpublish controls for one landing.
+ *
+ * Every field-specific backend error (`{field, message}`) is bound to the
+ * control that produced it through `aria-describedby` and announced with
+ * `role="alert"` (Requirement 8.19). All controls are native buttons, inputs,
+ * and selects so keyboard focus and activation come for free (Requirement 8.20).
+ */
+
+import { useCallback, useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { StatusPill } from "../../components";
+import type {
+  CtaBandStyle,
+  CtaMode,
+  FormPresentation,
+  LandingBanner,
+  LandingDetail,
+} from "../../api";
+import { ApiError, landingsApi } from "../../api";
+import "./LandingsPage.css";
+
+const MAX_BANNERS = 15;
+
+interface ConfigForm {
+  slug: string;
+  ctaMode: CtaMode;
+  ctaInterval: string;
+  ctaPositions: string;
+  formPresentation: FormPresentation;
+  ctaBandStyle: CtaBandStyle;
+}
+
+function toConfigForm(landing: LandingDetail): ConfigForm {
+  return {
+    slug: landing.slug,
+    ctaMode: landing.cta_mode,
+    ctaInterval: landing.cta_interval === null ? "" : String(landing.cta_interval),
+    ctaPositions: landing.cta_positions.join(", "),
+    formPresentation: landing.form_presentation,
+    ctaBandStyle: landing.cta_band_style ?? "gradient",
+  };
+}
+
+function parsePositions(raw: string): number[] {
+  return raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .map((part) => Number(part));
+}
+
+/** Smallest JPEG candidate, used for the admin thumbnail. */
+function thumbnailUrl(banner: LandingBanner): string | null {
+  const jpeg = banner.variants
+    .filter((variant) => variant.format === "jpeg")
+    .sort((a, b) => a.width - b.width);
+  return jpeg[0]?.url ?? banner.variants[0]?.url ?? null;
+}
+
+export function LandingEditorPage() {
+  const { landingId } = useParams<{ landingId: string }>();
+  const id = Number(landingId);
+
+  const [landing, setLanding] = useState<LandingDetail | null>(null);
+  const [banners, setBanners] = useState<LandingBanner[]>([]);
+  const [config, setConfig] = useState<ConfigForm | null>(null);
+  const [altTextDrafts, setAltTextDrafts] = useState<Record<number, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadAltText, setUploadAltText] = useState("");
+  const [brokenPreviews, setBrokenPreviews] = useState<number[]>([]);
+
+  const applyDetail = useCallback((detail: LandingDetail) => {
+    setLanding(detail);
+    setBanners(detail.banners);
+    setConfig(toConfigForm(detail));
+    setAltTextDrafts(
+      Object.fromEntries(detail.banners.map((banner) => [banner.id, banner.alt_text])),
+    );
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    landingsApi
+      .get(id)
+      .then((detail) => {
+        if (active) applyDetail(detail);
+      })
+      .catch((err) => {
+        if (active) {
+          setError(err instanceof ApiError ? err.message : "No se pudo cargar la landing.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, applyDetail]);
+
+  function resetMessages() {
+    setError(null);
+    setNotice(null);
+    setFieldErrors({});
+  }
+
+  function handleFailure(err: unknown, fallback: string) {
+    if (err instanceof ApiError) {
+      setError(err.message);
+      if (err.fieldErrors) setFieldErrors(err.fieldErrors);
+    } else {
+      setError(fallback);
+    }
+  }
+
+  function applyBanners(next: LandingBanner[]) {
+    setBanners(next);
+    setAltTextDrafts(Object.fromEntries(next.map((banner) => [banner.id, banner.alt_text])));
+    setLanding((current) =>
+      current ? { ...current, banners: next, banner_count: next.length } : current,
+    );
+  }
+
+  async function handleUpload(event: React.FormEvent) {
+    event.preventDefault();
+    resetMessages();
+    if (!file) {
+      setFieldErrors({ file: "Selecciona una imagen JPEG, PNG o WebP." });
+      return;
+    }
+    setBusy(true);
+    try {
+      await landingsApi.uploadBanner(id, file, uploadAltText);
+      const detail = await landingsApi.get(id);
+      applyDetail(detail);
+      setFile(null);
+      setUploadAltText("");
+      setNotice("Banner subido.");
+    } catch (err) {
+      handleFailure(err, "No se pudo subir el banner.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSaveAltText(bannerId: number) {
+    resetMessages();
+    setBusy(true);
+    try {
+      const response = await landingsApi.updateBanner(id, bannerId, {
+        alt_text: altTextDrafts[bannerId] ?? "",
+      });
+      applyBanners(response.banners);
+      setNotice("Texto alternativo actualizado.");
+    } catch (err) {
+      handleFailure(err, "No se pudo actualizar el texto alternativo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleMove(bannerId: number, direction: -1 | 1) {
+    resetMessages();
+    const current = banners.findIndex((banner) => banner.id === bannerId);
+    const target = current + direction;
+    if (current < 0 || target < 0 || target >= banners.length) return;
+    setBusy(true);
+    try {
+      const response = await landingsApi.updateBanner(id, bannerId, { order_index: target });
+      applyBanners(response.banners);
+    } catch (err) {
+      handleFailure(err, "No se pudo cambiar el orden del banner.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete(bannerId: number) {
+    resetMessages();
+    setBusy(true);
+    try {
+      const response = await landingsApi.deleteBanner(id, bannerId);
+      applyBanners(response.banners);
+      setNotice("Banner eliminado.");
+    } catch (err) {
+      handleFailure(err, "No se pudo eliminar el banner.");
+    } finally {
+      setBusy(false);
+      setConfirmDeleteId(null);
+    }
+  }
+
+  async function handleSaveConfig(event: React.FormEvent) {
+    event.preventDefault();
+    if (!config) return;
+    resetMessages();
+    setBusy(true);
+    try {
+      const detail = await landingsApi.updateConfig(id, {
+        slug: config.slug,
+        cta_mode: config.ctaMode,
+        cta_interval: config.ctaMode === "every_n" ? Number(config.ctaInterval) : null,
+        cta_positions:
+          config.ctaMode === "fixed_positions" ? parsePositions(config.ctaPositions) : [],
+        form_presentation: config.formPresentation,
+        cta_band_style: config.ctaBandStyle,
+      });
+      applyDetail(detail);
+      setNotice("Configuración guardada.");
+    } catch (err) {
+      handleFailure(err, "No se pudo guardar la configuración.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePublicationChange(publish: boolean) {
+    resetMessages();
+    setBusy(true);
+    try {
+      const detail = publish ? await landingsApi.publish(id) : await landingsApi.unpublish(id);
+      applyDetail(detail);
+      setNotice(publish ? "Landing publicada." : "Landing en borrador.");
+    } catch (err) {
+      handleFailure(err, "No se pudo cambiar el estado de publicación.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="landings-page__muted">Cargando landing…</p>;
+  }
+
+  if (!landing || !config) {
+    return (
+      <div className="landings-page">
+        <p className="landings-page__error" role="alert">
+          {error ?? "Landing no encontrada."}
+        </p>
+        <Link className="landings-table__action" to="/admin/landings">
+          Volver a landings
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="landings-page">
+      <div className="landings-page__header">
+        <div>
+          <h1 className="landings-page__title">{landing.product_name}</h1>
+          <p className="landings-page__subtitle">
+            <StatusPill status={landing.status} /> <span>/p/{landing.slug}</span>
+          </p>
+        </div>
+        <div className="landings-page__header-actions">
+          {landing.status === "draft" ? (
+            <button
+              type="button"
+              className="landings-table__action landings-table__action--primary"
+              disabled={busy}
+              onClick={() => void handlePublicationChange(true)}
+            >
+              Publicar
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="landings-table__action"
+              disabled={busy}
+              onClick={() => void handlePublicationChange(false)}
+            >
+              Despublicar
+            </button>
+          )}
+          <Link className="landings-table__action" to="/admin/landings">
+            Volver
+          </Link>
+        </div>
+      </div>
+
+      {error && (
+        <p className="landings-page__error" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p className="landings-page__notice" role="status">
+          {notice}
+        </p>
+      )}
+
+      <section className="landings-panel" aria-labelledby="banners-heading">
+        <h2 className="landings-panel__title" id="banners-heading">
+          Banners ({banners.length}/{MAX_BANNERS})
+        </h2>
+
+        {banners.length === 0 ? (
+          <p className="landings-page__muted">
+            Sube al menos un banner para poder publicar la landing.
+          </p>
+        ) : (
+          <ul className="banner-list">
+            {banners.map((banner, index) => {
+              const preview = thumbnailUrl(banner);
+              const altFieldId = `alt-text-${banner.id}`;
+              return (
+                <li key={banner.id} className="banner-list__item">
+                  <span className="banner-list__position" aria-hidden="true">
+                    {index + 1}
+                  </span>
+                  {preview && !brokenPreviews.includes(banner.id) ? (
+                    <img
+                      className="banner-list__thumb"
+                      src={preview}
+                      alt={banner.alt_text}
+                      width={96}
+                      height={64}
+                      loading="lazy"
+                      onError={() => setBrokenPreviews((ids) => [...ids, banner.id])}
+                    />
+                  ) : (
+                    <span className="banner-list__thumb banner-list__thumb--empty">
+                      Sin previsualización
+                    </span>
+                  )}
+
+                  <div className="banner-list__fields">
+                    <label className="landings-field__label" htmlFor={altFieldId}>
+                      Texto alternativo
+                    </label>
+                    <input
+                      id={altFieldId}
+                      className="landings-field__input"
+                      type="text"
+                      maxLength={200}
+                      value={altTextDrafts[banner.id] ?? ""}
+                      onChange={(event) =>
+                        setAltTextDrafts((drafts) => ({
+                          ...drafts,
+                          [banner.id]: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="banner-list__actions">
+                    <button
+                      type="button"
+                      className="landings-table__action"
+                      disabled={busy || altTextDrafts[banner.id] === banner.alt_text}
+                      onClick={() => void handleSaveAltText(banner.id)}
+                    >
+                      Guardar texto
+                    </button>
+                    <button
+                      type="button"
+                      className="landings-table__action"
+                      disabled={busy || index === 0}
+                      aria-label={`Subir banner ${index + 1}`}
+                      onClick={() => void handleMove(banner.id, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="landings-table__action"
+                      disabled={busy || index === banners.length - 1}
+                      aria-label={`Bajar banner ${index + 1}`}
+                      onClick={() => void handleMove(banner.id, 1)}
+                    >
+                      ↓
+                    </button>
+                    {confirmDeleteId === banner.id ? (
+                      <>
+                        <button
+                          type="button"
+                          className="landings-table__action landings-table__action--danger"
+                          disabled={busy}
+                          onClick={() => void handleDelete(banner.id)}
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          type="button"
+                          className="landings-table__action"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="landings-table__action"
+                        disabled={busy}
+                        onClick={() => setConfirmDeleteId(banner.id)}
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <form className="landings-form" onSubmit={handleUpload}>
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="banner-file">
+              Imagen (JPEG, PNG o WebP, ancho 480-8000 px, máx. 10 MiB)
+            </label>
+            <input
+              id="banner-file"
+              className="landings-field__input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              aria-describedby={fieldErrors.file ? "banner-file-error" : undefined}
+              aria-invalid={fieldErrors.file ? true : undefined}
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+            {fieldErrors.file && (
+              <p className="landings-field__error" id="banner-file-error" role="alert">
+                {fieldErrors.file}
+              </p>
+            )}
+          </div>
+
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="banner-alt-text">
+              Texto alternativo (1-200 caracteres)
+            </label>
+            <input
+              id="banner-alt-text"
+              className="landings-field__input"
+              type="text"
+              maxLength={200}
+              value={uploadAltText}
+              aria-describedby={fieldErrors.alt_text ? "banner-alt-text-error" : undefined}
+              aria-invalid={fieldErrors.alt_text ? true : undefined}
+              onChange={(event) => setUploadAltText(event.target.value)}
+            />
+            {fieldErrors.alt_text && (
+              <p className="landings-field__error" id="banner-alt-text-error" role="alert">
+                {fieldErrors.alt_text}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="landings-table__action landings-table__action--primary"
+            disabled={busy || banners.length >= MAX_BANNERS}
+          >
+            Subir banner
+          </button>
+          {banners.length >= MAX_BANNERS && (
+            <p className="landings-page__muted">
+              Una landing admite como máximo {MAX_BANNERS} banners.
+            </p>
+          )}
+        </form>
+      </section>
+
+      <section className="landings-panel" aria-labelledby="config-heading">
+        <h2 className="landings-panel__title" id="config-heading">
+          Configuración
+        </h2>
+
+        <form className="landings-form" onSubmit={handleSaveConfig}>
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-slug">
+              Slug público
+            </label>
+            <input
+              id="landing-slug"
+              className="landings-field__input"
+              type="text"
+              value={config.slug}
+              aria-describedby={fieldErrors.slug ? "landing-slug-error" : undefined}
+              aria-invalid={fieldErrors.slug ? true : undefined}
+              onChange={(event) =>
+                setConfig((current) => (current ? { ...current, slug: event.target.value } : current))
+              }
+            />
+            {fieldErrors.slug && (
+              <p className="landings-field__error" id="landing-slug-error" role="alert">
+                {fieldErrors.slug}
+              </p>
+            )}
+          </div>
+
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-cta-mode">
+              Ubicación de los CTA
+            </label>
+            <select
+              id="landing-cta-mode"
+              className="landings-field__input"
+              value={config.ctaMode}
+              aria-describedby={fieldErrors.cta_mode ? "landing-cta-mode-error" : undefined}
+              onChange={(event) =>
+                setConfig((current) =>
+                  current ? { ...current, ctaMode: event.target.value as CtaMode } : current,
+                )
+              }
+            >
+              <option value="after_every">Después de cada banner</option>
+              <option value="every_n">Cada N banners</option>
+              <option value="fixed_positions">En posiciones fijas</option>
+            </select>
+            {fieldErrors.cta_mode && (
+              <p className="landings-field__error" id="landing-cta-mode-error" role="alert">
+                {fieldErrors.cta_mode}
+              </p>
+            )}
+          </div>
+
+          {config.ctaMode === "every_n" && (
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-cta-interval">
+                Intervalo (1-15)
+              </label>
+              <input
+                id="landing-cta-interval"
+                className="landings-field__input"
+                type="number"
+                min={1}
+                max={15}
+                value={config.ctaInterval}
+                aria-describedby={
+                  fieldErrors.cta_interval ? "landing-cta-interval-error" : undefined
+                }
+                aria-invalid={fieldErrors.cta_interval ? true : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, ctaInterval: event.target.value } : current,
+                  )
+                }
+              />
+              {fieldErrors.cta_interval && (
+                <p className="landings-field__error" id="landing-cta-interval-error" role="alert">
+                  {fieldErrors.cta_interval}
+                </p>
+              )}
+            </div>
+          )}
+
+          {config.ctaMode === "fixed_positions" && (
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-cta-positions">
+                Posiciones (separadas por comas, p. ej. 1, 3)
+              </label>
+              <input
+                id="landing-cta-positions"
+                className="landings-field__input"
+                type="text"
+                value={config.ctaPositions}
+                aria-describedby={
+                  fieldErrors.cta_positions ? "landing-cta-positions-error" : undefined
+                }
+                aria-invalid={fieldErrors.cta_positions ? true : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, ctaPositions: event.target.value } : current,
+                  )
+                }
+              />
+              {fieldErrors.cta_positions && (
+                <p className="landings-field__error" id="landing-cta-positions-error" role="alert">
+                  {fieldErrors.cta_positions}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-cta-band-style">
+              Fondo del botón CTA
+            </label>
+            <select
+              id="landing-cta-band-style"
+              className="landings-field__input"
+              value={config.ctaBandStyle}
+              aria-describedby={
+                fieldErrors.cta_band_style
+                  ? "landing-cta-band-style-error landing-cta-band-style-hint"
+                  : "landing-cta-band-style-hint"
+              }
+              onChange={(event) =>
+                setConfig((current) =>
+                  current
+                    ? { ...current, ctaBandStyle: event.target.value as CtaBandStyle }
+                    : current,
+                )
+              }
+            >
+              <option value="gradient">Degradado entre banners</option>
+              <option value="solid">Color plano</option>
+            </select>
+            <p className="landings-field__hint" id="landing-cta-band-style-hint">
+              El degradado va del borde inferior del banner de arriba al borde superior del
+              banner de abajo. El color plano usa el punto medio de esos dos bordes.
+            </p>
+            {fieldErrors.cta_band_style && (
+              <p className="landings-field__error" id="landing-cta-band-style-error" role="alert">
+                {fieldErrors.cta_band_style}
+              </p>
+            )}
+          </div>
+
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-form-presentation">
+              Formulario COD
+            </label>
+            <select
+              id="landing-form-presentation"
+              className="landings-field__input"
+              value={config.formPresentation}
+              aria-describedby={
+                fieldErrors.form_presentation ? "landing-form-presentation-error" : undefined
+              }
+              onChange={(event) =>
+                setConfig((current) =>
+                  current
+                    ? { ...current, formPresentation: event.target.value as FormPresentation }
+                    : current,
+                )
+              }
+            >
+              <option value="inline">En la página</option>
+              <option value="modal">En ventana modal</option>
+            </select>
+            {fieldErrors.form_presentation && (
+              <p
+                className="landings-field__error"
+                id="landing-form-presentation-error"
+                role="alert"
+              >
+                {fieldErrors.form_presentation}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="landings-table__action landings-table__action--primary"
+            disabled={busy}
+          >
+            Guardar configuración
+          </button>
+          {fieldErrors.banners && (
+            <p className="landings-field__error" role="alert">
+              {fieldErrors.banners}
+            </p>
+          )}
+        </form>
+
+        <p className="landings-page__muted">
+          CTA después de los banners: {landing.resolved_cta_positions.join(", ") || "ninguno"}
+        </p>
+      </section>
+    </div>
+  );
+}

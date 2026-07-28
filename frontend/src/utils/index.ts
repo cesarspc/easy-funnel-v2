@@ -1,0 +1,1 @@
+export { safeColor } from "./safeColor";

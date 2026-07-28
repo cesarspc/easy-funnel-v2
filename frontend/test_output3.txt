@@ -1,0 +1,39 @@
+﻿
+> frontend@0.0.0 test C:\Users\cesar\OneDrive\Documents\GitHub\easy-funnel\frontend
+> vitest "--run"
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/cesar/OneDrive/Documents/GitHub/easy-funnel/frontend[39m
+
+ [31mÔØ»[39m src/App.test.tsx [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 5[2mms[22m[39m
+[31m     [31m├ù[31m renders the home route[39m[32m 4[2mms[22m[39m
+node.exe : 
+En C:\nvm4w\nodejs\pnpm.ps1: 16 Carácter: 5
++     & "$basedir/node$exe"  "$basedir/node_modules/pnpm/bin/pnpm.cjs"  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[31mÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[39m[1m[41m Failed Tests 1 [49m[22m[31mÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[39m
+
+[41m[1m FAIL [22m[49m src/App.test.tsx[2m > [22mApp shell[2m > [22mrenders the home route
+[31m[1mReferenceError[22m: document is not defined[39m
+[90m [2mÔØ»[22m render node_modules/.pnpm/@testing-library+react@16.3.2_@testing-library+dom@10.4.1_@types+react-dom
+@19.1.2_@types+reac_wl2w33htoku6mjhwzyumqlspfq/node_modules/@testing-library/react/dist/pure.js:[2m256:5[22m[39m
+[36m [2mÔØ»[22m src/App.test.tsx:[2m8:5[22m[39m
+    [90m  6|[39m [34mdescribe[39m([32m"App shell"[39m[33m,[39m () [33m=>[39m {
+    [90m  7|[39m   [34mit[39m([32m"renders the home route"[39m[33m,[39m () [33m=>[39m {
+    [90m  8|[39m     [34mrender[39m(
+    [90m   |[39m     [31m^[39m
+    [90m  9|[39m       [33m<[39m[33mBrowserRouter[39m[33m>[39m
+    [90m 10|[39m         [33m<[39m[33mApp[39m [33m/[39m[33m>[39m
+
+[31m[2mÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1/1]ÔÄ»[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 02:32:44
+[2m   Duration [22m 1.52s[2m (transform 299ms, setup 0ms, import 1.19s, tests 5ms, environment 0ms)[22m
+
+[41m[30mÔÇëELIFECYCLEÔÇë[39m[49m [31mTest failed. See above for more details.[39m

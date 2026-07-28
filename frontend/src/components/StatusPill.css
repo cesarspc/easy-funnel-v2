@@ -1,0 +1,50 @@
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gf-space-xs);
+  padding: 3px 8px;
+  border-radius: var(--gf-radius-sm);
+  background: var(--gf-paper);
+  border: 1px solid var(--gf-hairline);
+  font-family: var(--gf-font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--gf-ink);
+  white-space: nowrap;
+}
+
+.status-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-pill--pending .status-pill__dot {
+  background: var(--gf-status-pending);
+}
+
+.status-pill--confirmed .status-pill__dot {
+  background: var(--gf-status-confirmed);
+}
+
+.status-pill--shipped .status-pill__dot {
+  background: var(--gf-status-shipped);
+}
+
+.status-pill--delivered .status-pill__dot {
+  background: var(--gf-status-delivered);
+}
+
+.status-pill--cancelled .status-pill__dot {
+  background: var(--gf-status-cancelled);
+}
+
+.status-pill--flagged .status-pill__dot {
+  background: var(--gf-status-flagged);
+}
+
+.status-pill--flagged {
+  border-color: color-mix(in srgb, var(--gf-status-flagged) 35%, var(--gf-hairline));
+}

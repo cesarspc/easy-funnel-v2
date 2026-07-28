@@ -1,0 +1,122 @@
+/* Accessible form field (Requirement 8.19). One field per row, large
+   inputs for one-thumb mobile entry, error state that reads clearly
+   without extra color noise. Inputs are 16px minimum: anything smaller makes
+   iOS Safari zoom the page on focus, which throws the buyer out of the sheet. */
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--lp-ink);
+}
+
+.form-field-description {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--lp-ink-quiet);
+}
+
+.form-field-input,
+.form-field-input--error {
+  width: 100%;
+  font-family: var(--lp-font);
+  font-size: 1rem;
+  padding: 13px 14px;
+  border-radius: var(--lp-radius-sm);
+  border: 1px solid var(--lp-hairline);
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  transition: border-color var(--lp-duration) var(--lp-ease);
+}
+
+.form-field-input::placeholder,
+.form-field-input--error::placeholder,
+.form-field-input--bare::placeholder {
+  /* 4.6:1 on white — placeholders are read, not decoration. */
+  color: #6b7480;
+}
+
+.form-field-input:focus,
+.form-field-input--error:focus,
+.form-field-input--error:focus-within {
+  outline: none;
+  border-color: var(--lp-action);
+  box-shadow: inset 0 0 0 1px var(--lp-action);
+}
+
+.form-field-input--error {
+  border-color: var(--lp-error);
+}
+
+/* Prefixed control (the `+57` phone field): the wrapper carries the border
+   and focus ring, the inner input carries the value. */
+.form-field-input[data-has-prefix="true"],
+.form-field-input--error[data-has-prefix="true"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+}
+
+.form-field-input[data-has-prefix="true"]:focus-within {
+  border-color: var(--lp-action);
+  box-shadow: inset 0 0 0 1px var(--lp-action);
+}
+
+.form-field-prefix {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--lp-ink-quiet);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.form-field-input--bare {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--lp-font);
+  font-size: 1rem;
+  color: var(--lp-ink);
+  padding: 13px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.form-field-input--bare:focus {
+  outline: none;
+}
+
+.form-field-icon {
+  margin-right: 6px;
+}
+
+.form-field-error {
+  display: flex;
+  gap: 5px;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--lp-error);
+}
+
+.form-field-error::before {
+  content: "!";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--lp-error);
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}

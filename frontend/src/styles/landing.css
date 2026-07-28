@@ -1,0 +1,243 @@
+/*
+ * Easy Funnel — public Landing chrome design tokens.
+ * Scope: CTA, COD form (pop-up), banners, and Landing states only.
+ * Deliberately namespaced (--lp-*) and separate from the Admin Dashboard's
+ * (--gf-*) tokens in global.css — the two surfaces are designed and
+ * documented independently (see PRODUCT.md Operating Context).
+ *
+ * Direction: cold-traffic trust, mobile-first, conversion-first. No
+ * decorative system beyond what the buyer needs to read the offer and
+ * act on it in seconds. Product imagery (the banners) carries all visual
+ * personality; this chrome stays quiet, legible, and fast.
+ */
+
+/* Archivo, self-hosted (SIL Open Font License 1.1), latin subset, variable
+ * weight 400-700 in one 35 KB file. Chosen for the job this surface does:
+ * a form filled once, fast, on a cheap Android screen in daylight — wide
+ * apertures and a tall x-height keep 16px labels and error copy readable at
+ * that size, and its real tabular figures keep prices and phone digits from
+ * jittering as they are typed. Self-hosted rather than loaded from a font
+ * CDN (PRODUCT.md: no external CDN/SaaS dependencies), so it costs one
+ * same-origin request with no third-party connection on the buyer's path.
+ */
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo-latin-var.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Ground + text */
+  --lp-bg: #ffffff;
+  --lp-ink: #14181c;
+  --lp-ink-quiet: #5b6472;
+  --lp-hairline: #e3e6ea;
+  --lp-surface: #f5f7f9;
+
+  /* Action accent — reserved for the CTA and primary submit only */
+  --lp-action: #1a7a4c;
+  --lp-action-deep: #145c3a;
+  --lp-action-ink: #ffffff;
+
+  /* CTA band fallback background */
+  --lp-cta-band-fallback: #f5f7f9;
+
+  /* Feedback */
+  --lp-error: #c23b2e;
+  --lp-error-bg: #fdecea;
+
+  /* Type */
+  --lp-font: "Archivo", -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Radius */
+  --lp-radius-sm: 6px;
+  --lp-radius-md: 10px;
+
+  /* Spacing */
+  --lp-space-xs: 4px;
+  --lp-space-sm: 8px;
+  --lp-space-md: 16px;
+  --lp-space-lg: 24px;
+
+  /* Motion */
+  --lp-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --lp-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --lp-duration: 160ms;
+
+  /* Overlay */
+  --lp-shadow-overlay: 0 -8px 32px rgba(20, 24, 28, 0.24);
+}
+
+.lp-page {
+  font-family: var(--lp-font);
+  color: var(--lp-ink);
+  background: var(--lp-bg);
+  max-width: 640px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding-bottom: var(--lp-space-lg);
+}
+
+.lp-page :focus-visible {
+  outline: 2px solid var(--lp-action);
+  outline-offset: 2px;
+}
+
+.lp-page__banners {
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-page__cta-slot {
+  padding: var(--lp-space-md);
+}
+
+.lp-page__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lp-space-md);
+  min-height: 60vh;
+  padding: var(--lp-space-lg);
+  text-align: center;
+}
+
+.lp-page__state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.lp-page__state-text {
+  color: var(--lp-ink-quiet);
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.lp-page__retry {
+  border: 1px solid var(--lp-hairline);
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  border-radius: var(--lp-radius-sm);
+  padding: 10px 18px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lp-page__retry:hover {
+  background: var(--lp-surface);
+}
+
+.lp-skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--lp-surface) 30%,
+    #ebeef1 50%,
+    var(--lp-surface) 70%
+  );
+  background-size: 200% 100%;
+  animation: lp-shimmer 1.4s ease-in-out infinite;
+}
+
+.lp-skeleton--banner {
+  width: 100%;
+  aspect-ratio: 5 / 3;
+}
+
+@keyframes lp-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-skeleton {
+    animation: none;
+  }
+}
+
+
+/* ==========================================================================
+   CTA Band — the colored strip carrying the CTA between two banners.
+
+   The band paints a gradient from the bottom edge of the banner above to the
+   top edge of the banner below, so it reads as a continuation of the artwork.
+   `--cta-band-top` / `--cta-band-bottom` are set inline, together or not at
+   all, by LandingPage. When they are absent the gradient degenerates to
+   transparent and the neutral token below shows through — so an older or
+   cached payload with no `cta_backgrounds` lands on one stable color rather
+   than a half-painted band.
+   ========================================================================== */
+
+.lp-page__cta-band {
+  width: 100%;
+  background-color: var(--lp-cta-band-fallback);
+  background-image: linear-gradient(
+    to bottom,
+    var(--cta-band-top, transparent),
+    var(--cta-band-bottom, transparent)
+  );
+}
+
+/* `source: above` / `below` arrive with both endpoints already equal, so the
+   gradient above is a solid fill and needs no separate rule. A landing set to
+   `cta_band_style: solid` reaches the same place deliberately: LandingPage
+   sets both endpoints to `blend_color`, so one rule covers both styles and
+   `data-cta-band-style` stays purely descriptive. */
+
+/* --------------------------------------------------------------------------
+   Foreground modes. The band can be any color the artwork happens to be, so
+   the CTA cannot inherit the page's single action fill and stay legible:
+   each mode pairs the button against the band's own luminance (WCAG 1.4.3)
+   rather than leaning on a text shadow.
+   -------------------------------------------------------------------------- */
+
+/* Dark band: a near-white button reads against it. */
+.lp-page__cta-band[data-cta-foreground="light"] .cta-button {
+  background: #ffffff;
+  color: #14181c;
+}
+
+.lp-page__cta-band[data-cta-foreground="light"] .cta-button:hover:not(:disabled) {
+  background: #eef1f4;
+}
+
+/* Light band: the ink-dark button reads against it. */
+.lp-page__cta-band[data-cta-foreground="dark"] .cta-button {
+  background: #14181c;
+  color: #ffffff;
+}
+
+.lp-page__cta-band[data-cta-foreground="dark"] .cta-button:hover:not(:disabled) {
+  background: #2a3038;
+}
+
+/* No usable edge color: the neutral band keeps the page's action green. */
+.lp-page__cta-band[data-cta-foreground="fallback"] .cta-button {
+  background: var(--lp-action);
+  color: var(--lp-action-ink);
+}
+
+.lp-page__cta-band[data-cta-foreground="fallback"] .cta-button:hover:not(:disabled) {
+  background: var(--lp-action-deep);
+}
+
+/* Focus must stay visible on a band of unknown color: the page-level green
+   outline can vanish against green-ish artwork, so each mode pins its own
+   and doubles it with a contrasting inner ring. */
+.lp-page__cta-band[data-cta-foreground="light"] .cta-button:focus-visible {
+  outline-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(20, 24, 28, 0.55);
+}
+
+.lp-page__cta-band[data-cta-foreground="dark"] .cta-button:focus-visible {
+  outline-color: #14181c;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.75);
+}

@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA fallback: serve index.html for browser-routed paths.
+# /api/* is routed to the Koyeb backend at the Cloudflare DNS layer, not here.
+/*    /index.html   200

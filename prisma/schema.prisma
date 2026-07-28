@@ -1,0 +1,261 @@
+// COD Commerce Platform — Prisma schema for Neon PostgreSQL.
+//
+// Source of truth for detailed business rules: requirements.md. This file
+// implements the Data Model section of design.md. Money is numeric/Decimal
+// (never float); timestamps are timestamptz stored in UTC. Soft-deletion
+// uses nullable retired_at columns; historical-evidence tables (orders,
+// fraud_flags, audit_log) use restrict FKs so retirement never cascades.
+//
+// Prisma's schema DSL has no native CHECK-constraint attribute, so the
+// enum/range/format CHECK constraints described in design.md (status
+// allowlists, string-length bounds, the fraud_config singleton guard, etc.)
+// are appended as raw SQL at the end of the generated migration file — see
+// prisma/migrations/<timestamp>_init/migration.sql. Application-level domain
+// validation (task 6+) is the primary enforcement; these constraints are the
+// defense-in-depth database backstop.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider                    = "prisma-client-py"
+  interface                   = "asyncio"
+  recursive_type_depth        = 5
+  enable_experimental_decimal = true
+}
+
+// ---------------------------------------------------------------------------
+// Catalog: products, landings, banners, images
+// ---------------------------------------------------------------------------
+
+model Product {
+  id          BigInt    @id @default(autoincrement())
+  name        String
+  sku         String
+  price       Decimal   @db.Decimal(12, 2)
+  description String    @default("")
+  status      String    @default("paused")
+  retiredAt   DateTime? @map("retired_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  landing Landing?
+  orders  Order[]
+
+  @@unique([sku], map: "idx_products_sku")
+  @@map("products")
+}
+
+model Landing {
+  id               BigInt    @id @default(autoincrement())
+  productId        BigInt    @unique @map("product_id")
+  slug             String    @unique
+  status           String    @default("draft")
+  ctaMode          String    @map("cta_mode")
+  ctaInterval      Int?      @map("cta_interval")
+  ctaPositions     Int[]     @map("cta_positions")
+  formPresentation String    @map("form_presentation")
+  ctaBandStyle     String    @default("gradient") @map("cta_band_style")
+  retiredAt        DateTime? @map("retired_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  product Product       @relation(fields: [productId], references: [id])
+  banners Banner[]
+  orders  Order[]
+  views   LandingView[]
+  clicks  CtaClick[]
+
+  @@index([slug], map: "idx_landings_slug")
+  @@map("landings")
+}
+
+model Banner {
+  id           BigInt   @id @default(autoincrement())
+  landingId    BigInt   @map("landing_id")
+  orderIndex   Int      @map("order_index")
+  altText      String   @map("alt_text")
+  imageAssetId BigInt   @map("image_asset_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  landing    Landing    @relation(fields: [landingId], references: [id])
+  imageAsset ImageAsset @relation(fields: [imageAssetId], references: [id])
+
+  @@unique([landingId, orderIndex], map: "idx_banners_landing_order")
+  @@map("banners")
+}
+
+model ImageAsset {
+  id              BigInt   @id @default(autoincrement())
+  opaqueKey       String   @unique @map("opaque_key")
+  sourceObjectKey String   @map("source_object_key")
+  sourceWidth     Int      @map("source_width")
+  sourceHeight    Int      @map("source_height")
+  sourceFormat    String   @map("source_format")
+  status          String   @default("in_progress")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Precomputed edge colors, extracted once at upload from the decoded
+  // source (see app/domains/images/edge_color.py). Nullable so assets
+  // created before this column existed keep working; the CTA band falls
+  // back to a neutral when either edge is missing or not flat enough.
+  topEdgeColor    String? @map("top_edge_color") @db.VarChar(7)
+  bottomEdgeColor String? @map("bottom_edge_color") @db.VarChar(7)
+  topEdgeFlat     Boolean @default(false) @map("top_edge_flat")
+  bottomEdgeFlat  Boolean @default(false) @map("bottom_edge_flat")
+
+  variants ImageVariant[]
+  banners  Banner[]
+
+  @@index([opaqueKey], map: "idx_image_assets_opaque")
+  @@map("image_assets")
+}
+
+model ImageVariant {
+  id           BigInt   @id @default(autoincrement())
+  imageAssetId BigInt   @map("image_asset_id")
+  width        Int
+  format       String
+  height       Int
+  objectKey    String   @map("object_key")
+  version      String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  imageAsset ImageAsset @relation(fields: [imageAssetId], references: [id])
+
+  @@unique([imageAssetId, width, format], map: "idx_variants_asset")
+  @@map("image_variants")
+}
+
+// ---------------------------------------------------------------------------
+// Orders and fraud
+// ---------------------------------------------------------------------------
+
+model Order {
+  id                 BigInt   @id @default(autoincrement())
+  productId          BigInt   @map("product_id")
+  landingId          BigInt   @map("landing_id")
+  landingSlug        String   @map("landing_slug")
+  customerName       String   @map("customer_name")
+  phoneE164          String   @map("phone_e164")
+  phoneNormalizedKey String   @map("phone_normalized_key")
+  department         String
+  city               String
+  address            String
+  quantity           Int
+  status             String   @default("pending")
+  ipAddress          String   @map("ip_address")
+  userAgent          String   @map("user_agent")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  landing    Landing     @relation(fields: [landingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fraudFlags FraudFlag[]
+
+  @@index([status, createdAt], map: "idx_orders_status_created")
+  @@index([productId, landingId, createdAt], map: "idx_orders_product_landing_created")
+  @@index([createdAt], map: "idx_orders_created")
+  @@index([phoneNormalizedKey, ipAddress, createdAt], map: "idx_orders_dupe")
+  @@map("orders")
+}
+
+model FraudFlag {
+  id        BigInt   @id @default(autoincrement())
+  orderId   BigInt   @map("order_id")
+  flagType  String   @map("flag_type")
+  detail    Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([orderId], map: "idx_fraud_flags_order")
+  @@map("fraud_flags")
+}
+
+model FraudConfig {
+  id                     Int      @id @default(1)
+  duplicateWindowHours   Int      @default(24) @map("duplicate_window_hours")
+  duplicateMatchFields   String[] @default(["phone", "ip"]) @map("duplicate_match_fields")
+  rateLimitMax           Int      @default(5) @map("rate_limit_max")
+  rateLimitWindowMinutes Int      @default(10) @map("rate_limit_window_minutes")
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("fraud_config")
+}
+
+model BlacklistEntry {
+  id              BigInt   @id @default(autoincrement())
+  entryType       String   @map("entry_type")
+  valueNormalized String   @map("value_normalized")
+  reason          String
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([entryType, valueNormalized], map: "idx_blacklist_lookup")
+  @@map("blacklist_entries")
+}
+
+model GeoIpRule {
+  id           BigInt   @id @default(autoincrement())
+  locationCode String   @unique @map("location_code")
+  action       String
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([enabled, locationCode], map: "idx_geoip_rules_enabled")
+  @@map("geoip_rules")
+}
+
+// ---------------------------------------------------------------------------
+// Analytics, admin users, audit
+// ---------------------------------------------------------------------------
+
+model LandingView {
+  id        BigInt   @id @default(autoincrement())
+  landingId BigInt   @map("landing_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  landing Landing @relation(fields: [landingId], references: [id])
+
+  @@index([landingId, createdAt], map: "idx_landing_views_landing_created")
+  @@map("landing_views")
+}
+
+model CtaClick {
+  id        BigInt   @id @default(autoincrement())
+  landingId BigInt   @map("landing_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  landing Landing @relation(fields: [landingId], references: [id])
+
+  @@index([landingId, createdAt], map: "idx_cta_clicks_landing_created")
+  @@map("cta_clicks")
+}
+
+model AdminUser {
+  id           BigInt   @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   @default("admin")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("admin_users")
+}
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  actor      String
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  result     String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([createdAt], map: "idx_audit_created")
+  @@map("audit_log")
+}
