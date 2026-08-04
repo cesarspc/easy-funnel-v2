@@ -3,7 +3,7 @@
 import { apiClient } from "./client";
 // Declared once with the public payload it describes: admin and public must
 // agree on the vocabulary or the editor could save a value the page ignores.
-import type { CtaBandStyle } from "./public";
+import type { ConversionBlockType, CtaBandStyle } from "./public";
 
 // Product schemas
 export interface Product {
@@ -300,6 +300,22 @@ export interface LandingBanner {
   variants: LandingImageVariant[];
 }
 
+/**
+ * One configured quantity offer, as the dashboard reads and writes it.
+ *
+ * `sublabel` blank means the public tile renders no second line — that is the
+ * documented way to turn the sub-text off, not an incomplete field.
+ * `discount_percent` applies to multi-unit offers only; `compare_at_price` is an
+ * informational reference price for the single-unit offer only.
+ */
+export interface LandingOffer {
+  quantity: number;
+  label: string;
+  sublabel: string | null;
+  discount_percent: number;
+  compare_at_price: number | null;
+}
+
 export interface LandingSummary {
   id: number;
   product_id: number;
@@ -313,6 +329,11 @@ export interface LandingSummary {
   cta_positions: number[];
   form_presentation: FormPresentation;
   cta_band_style: CtaBandStyle;
+  /** The one color the merchant controls on the public page, as `#rrggbb`. */
+  accent_color: string;
+  /** How many quantity offers the COD form presents (1-3). */
+  offer_count: number;
+  offers: LandingOffer[];
   banner_count: number;
 }
 
@@ -329,6 +350,19 @@ export interface BannerListResponse {
   banners: LandingBanner[];
 }
 
+/**
+ * One offer as submitted by the dashboard. `sublabel` is sent as an empty string
+ * to mean "no sub-text", and `discount_percent`/`compare_at_price` are sent as
+ * `null` when the merchant cleared them.
+ */
+export interface LandingOfferUpdate {
+  quantity: number;
+  label: string;
+  sublabel: string | null;
+  discount_percent: number | null;
+  compare_at_price: number | null;
+}
+
 export interface LandingConfigUpdate {
   slug?: string;
   cta_mode?: CtaMode;
@@ -336,6 +370,32 @@ export interface LandingConfigUpdate {
   cta_positions?: number[];
   form_presentation?: FormPresentation;
   cta_band_style?: CtaBandStyle;
+  accent_color?: string;
+  offer_count?: number;
+  offers?: LandingOfferUpdate[];
+}
+
+/**
+ * Pre-defined conversion components. The vocabulary is closed and their
+ * presentation is fixed in the landing chrome, so the dashboard edits content
+ * and position only. The type union is declared once, in `./public`, since the
+ * public payload and the dashboard describe the same components.
+ */
+export interface LandingBlock {
+  id: number;
+  block_type: ConversionBlockType;
+  /** How many rendered elements the component follows (0 = above everything). */
+  slot_index: number;
+  order_index: number;
+  enabled: boolean;
+  config: Record<string, unknown>;
+}
+
+export interface LandingBlockListResponse {
+  blocks: LandingBlock[];
+  /** One label per placement slot, index 0 first (e.g. "1-2 · entre banner 1 y CTA 1"). */
+  slots: string[];
+  allowed_block_types: ConversionBlockType[];
 }
 
 export const landingsApi = {
@@ -388,5 +448,40 @@ export const landingsApi = {
 
   unpublish: async (id: number): Promise<LandingDetail> => {
     return apiClient.post<LandingDetail>(`/admin/landings/${id}/unpublish`);
+  },
+
+  listBlocks: async (id: number): Promise<LandingBlockListResponse> => {
+    return apiClient.get<LandingBlockListResponse>(`/admin/landings/${id}/blocks`);
+  },
+
+  createBlock: async (
+    id: number,
+    request: {
+      block_type: ConversionBlockType;
+      slot_index: number;
+      config: Record<string, unknown>;
+      enabled?: boolean;
+    },
+  ): Promise<LandingBlockListResponse> => {
+    return apiClient.post<LandingBlockListResponse>(`/admin/landings/${id}/blocks`, request);
+  },
+
+  updateBlock: async (
+    id: number,
+    blockId: number,
+    request: {
+      slot_index?: number;
+      config?: Record<string, unknown>;
+      enabled?: boolean;
+    },
+  ): Promise<LandingBlockListResponse> => {
+    return apiClient.patch<LandingBlockListResponse>(
+      `/admin/landings/${id}/blocks/${blockId}`,
+      request,
+    );
+  },
+
+  deleteBlock: async (id: number, blockId: number): Promise<LandingBlockListResponse> => {
+    return apiClient.delete<LandingBlockListResponse>(`/admin/landings/${id}/blocks/${blockId}`);
   },
 };

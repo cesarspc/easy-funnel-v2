@@ -44,6 +44,11 @@ from app.domains.fraud.models import (
     FraudConfig,
     GeoIpResult,
 )
+from app.domains.landings.offers import (
+    find_offer,
+    parse_stored_offers,
+    resolve_offer_pricing,
+)
 from app.domains.orders import (
     DEFAULT_ORDER_STATUS,
     FLAGGED_FRAUD_STATUS,
@@ -166,14 +171,42 @@ class OrderSubmissionService:
             if landing is None:
                 raise OrderValidationError("landing_slug", "Landing not found")
 
+            # The product relation is included by the query above. Binding it
+            # once keeps the checks below reading from a single non-optional
+            # value instead of re-deriving it through the relation each time.
+            product = landing.product
+            if product is None:
+                raise OrderValidationError("landing_slug", "Landing not found")
+
             # Check product is active and landing is published
-            if landing.product.status != "active":
+            if product.status != "active":
                 raise OrderValidationError("landing_slug", "Product is not active")
             if landing.status != "published":
                 raise OrderValidationError("landing_slug", "Landing is not published")
 
-            product_id = landing.product.id
+            product_id = product.id
             landing_id = landing.id
+
+            # 2b. Resolve the offer tier the buyer actually selected and price it.
+            #
+            # The quantity has to match a tier this landing offers, not merely be
+            # a plausible number: `validate_quantity` accepts 1-99, but a landing
+            # showing two offers has no price for 7 units. Rejecting here keeps a
+            # crafted request from ordering a quantity at a price the merchant
+            # never configured.
+            offers = parse_stored_offers(landing.offers, offer_count=landing.offerCount)
+            selected_offer = find_offer(offers, validated_quantity)
+            if selected_offer is None:
+                available = ", ".join(str(offer.quantity) for offer in offers)
+                raise OrderValidationError(
+                    "quantity",
+                    f"This landing only offers the following quantities: {available}.",
+                )
+
+            # The amount owed is fixed here and stored on the order. Re-deriving
+            # it later from the landing would let a discount edit rewrite what a
+            # courier is supposed to collect for an order already placed.
+            pricing = resolve_offer_pricing(product.price, selected_offer)
 
             # 3. Atomically increment Redis rate-limit counters
             config = _to_domain_fraud_config(await FraudConfigRepository(self._db).get())
@@ -263,6 +296,9 @@ class OrderSubmissionService:
                             "city": validated_city,
                             "address": validated_address,
                             "quantity": validated_quantity,
+                            "unitPrice": pricing.unit_price,
+                            "discountPercent": pricing.discount_percent,
+                            "totalPrice": pricing.total,
                             "status": status,
                             "ipAddress": ip_address,
                             "userAgent": validated_user_agent,

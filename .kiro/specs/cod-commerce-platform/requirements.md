@@ -164,7 +164,7 @@ Version 1 explicitly excludes online payment gateways and native payment checkou
 14. WHERE the CTA_Placement_Mode uses fixed Banner positions, THE Landing_Service SHALL render CTAs only after the configured positions.
 15. IF a CTA interval or fixed position falls outside the valid configuration range, THEN THE Landing_Service SHALL reject the configuration without replacing the active CTA configuration.
 16. WHEN an Administrator selects Inline_Mode or Modal_Mode, THE Landing_Service SHALL persist the selected COD_Form presentation for the Landing.
-17. WHEN a visitor activates a CTA, THE Landing_Service SHALL open the COD_Form using the Landing’s configured presentation.
+17. WHEN a visitor activates a CTA, THE Landing_Service SHALL open the COD_Form as an overlaid dialog (Modal_Mode) over the visitor's current scroll position, and SHALL NOT render the COD_Form in the page body. (Modal_Mode is the only public presentation; the stored Inline_Mode/Modal_Mode setting in requirement 16 is retained but does not change public rendering.)
 18. WHERE a Landing uses Modal_Mode, THE Landing_Service SHALL move keyboard focus into the opened COD_Form and return keyboard focus to the activating CTA when the visitor closes the COD_Form.
 19. WHEN an Administrator requests publication of a Landing containing from 1 through 15 valid Banners and a valid CTA configuration, THE Landing_Service SHALL change the Landing to published status.
 20. IF an Administrator requests publication of a Landing containing zero Banners or an invalid CTA configuration, THEN THE Landing_Service SHALL reject publication with a field-specific validation error.
@@ -174,6 +174,11 @@ Version 1 explicitly excludes online payment gateways and native payment checkou
 24. IF an unauthenticated visitor requests an unknown, draft, paused, or retired Landing Slug, THEN THE Landing_Service SHALL return the same not-found response without disclosing private Landing data.
 25. WHEN a public Landing containing from 1 through 15 Banners is tested at supported mobile viewport widths, THE Landing_Service SHALL render every Banner and configured CTA without horizontal overflow or overlapping controls.
 26. WHEN a public Landing is measured using the 4G_Profile with production image settings, THE Landing_Service SHALL produce an LCP below 2.5 seconds.
+27. WHEN an Administrator places a Conversion_Component, THE Landing_Service SHALL accept only a type from the Conversion_Component vocabulary (COD assurance, benefits, price/saving, how-it-works, reviews, FAQ, guarantee) and a Slot_Index from 0 through the maximum rendered sequence length.
+28. WHEN a Conversion_Component is placed at Slot_Index N, THE Landing_Service SHALL render it after the Nth element of the rendered sequence of Banners and CTAs, and render Slot_Index 0 before the first element.
+29. THE Landing_Service SHALL accept content values only for a Conversion_Component and SHALL reject or discard any presentation value (spacing, color, typography, width), so a Conversion_Component's conversion-tuned presentation cannot be altered per Landing.
+30. IF a Conversion_Component's content is missing or outside its documented bounds, THEN THE Landing_Service SHALL reject the placement with a field-specific validation error without storing the component.
+31. WHILE a Conversion_Component is disabled, THE Landing_Service SHALL omit it from the public Landing response while keeping it visible to the Administrator.
 
 ### Requirement 4: Self-Hosted Image Processing
 

@@ -1,0 +1,100 @@
+/* Conversion components panel. Operate-mode: hairlines and density, no shadows,
+   no second accent — it borrows the landing screens' field and action classes
+   and only adds the layout this list needs. */
+
+.lblocks__list {
+  display: grid;
+  gap: var(--gf-space-md, 16px);
+  margin: var(--gf-space-md, 16px) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lblocks__item {
+  display: grid;
+  gap: var(--gf-space-sm, 8px);
+  padding: var(--gf-space-md, 16px);
+  border: 1px solid var(--gf-hairline, #e4e2dd);
+  border-radius: var(--gf-radius-md, 6px);
+}
+
+.lblocks__item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gf-space-md, 16px);
+  flex-wrap: wrap;
+}
+
+.lblocks__item-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.lblocks__item-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--gf-space-sm, 8px);
+  flex-wrap: wrap;
+}
+
+.lblocks__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gf-ink-quiet, #5b6169);
+}
+
+.lblocks__edit,
+.lblocks__editor {
+  display: grid;
+  gap: var(--gf-space-md, 16px);
+}
+
+.lblocks__fieldset {
+  display: grid;
+  gap: var(--gf-space-sm, 8px);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.lblocks__row {
+  display: flex;
+  gap: var(--gf-space-sm, 8px);
+  align-items: center;
+}
+
+.lblocks__row .landings-field__input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lblocks__group {
+  display: grid;
+  gap: 6px;
+  padding: var(--gf-space-sm, 8px);
+  border-left: 1px solid var(--gf-hairline, #e4e2dd);
+}
+
+.lblocks__add {
+  display: grid;
+  gap: var(--gf-space-md, 16px);
+  margin-top: var(--gf-space-lg, 24px);
+  padding-top: var(--gf-space-md, 16px);
+  border-top: 1px solid var(--gf-hairline, #e4e2dd);
+}
+
+.lblocks__add-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gf-ink-quiet, #5b6169);
+}

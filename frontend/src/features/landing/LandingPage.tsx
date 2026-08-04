@@ -19,7 +19,7 @@
  * information about *why* a slug is unavailable ever reaches the visitor.
  */
 
-import { useEffect, useMemo, useState, type JSX } from "react";
+import { Fragment, useEffect, useMemo, useState, type JSX } from "react";
 import { useParams } from "react-router-dom";
 import { Banner } from "../../components/Banner";
 import { Cta } from "../../components/Cta";
@@ -27,6 +27,7 @@ import { Modal } from "../../components/Modal";
 import { NotFoundPage } from "../../routes/NotFoundPage";
 import { ApiError, publicApi } from "../../api";
 import type {
+  ConversionBlock,
   CtaBackground,
   CtaBandStyle,
   OrderCreateResponse,
@@ -34,6 +35,7 @@ import type {
 } from "../../api";
 import { safeColor } from "../../utils";
 import { CodForm } from "./CodForm";
+import { ConversionBlockView } from "./ConversionBlocks";
 import "./LandingPage.css";
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("es-CO", {
@@ -162,6 +164,12 @@ export function LandingPage(): JSX.Element {
   }
 
   const sortedBanners = [...landing.banners].sort((a, b) => a.order_index - b.order_index);
+  // Conversion components in render order. Absent on payloads cached before the
+  // feature existed, and re-sorted defensively so a client never depends on the
+  // server's ordering to place them correctly.
+  const placedBlocks: ConversionBlock[] = [...(landing.blocks ?? [])].sort(
+    (a, b) => a.slot_index - b.slot_index || a.order_index - b.order_index,
+  );
   // `cta_positions` is 1-based (see backend cta_placement.compute_cta_positions),
   // so a trailing CTA is needed only when the last banner's position is absent.
   const showTrailingCta = !ctaPositionSet.has(sortedBanners.length);
@@ -228,72 +236,131 @@ export function LandingPage(): JSX.Element {
     };
   }
 
-  return (
-    <div className="lp-page">
-      <div className="lp-page__banners">
-        {sortedBanners.map((banner, index) => {
-          const position = index + 1;
-          const band = ctaPositionSet.has(position) ? getCtaBandProps(position) : null;
-          return (
-            <div key={banner.id}>
-              <Banner
-                id={banner.id}
-                alt_text={banner.alt_text}
-                order_index={banner.order_index}
-                variants={banner.variants}
-                lazy={index > 0}
-              />
-              {band && (
-                <div
-                  className="lp-page__cta-band"
-                  style={band.style}
-                  data-cta-foreground={band.foreground}
-                  data-cta-source={band.source}
-                  data-cta-band-style={band.bandStyle}
-                >
-                  <div className="lp-page__cta-slot">
-                    <Cta
-                      label={`Pedir ahora — ${CURRENCY_FORMATTER.format(landing.product_price)}`}
-                      onClick={handleActivateCta}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+  // Captured after the null guards above: the render helpers below are nested
+  // functions, where TypeScript cannot keep the narrowing of `landing`.
+  const productPrice = landing.product_price;
+  const ctaLabel = `Pedir ahora — ${CURRENCY_FORMATTER.format(productPrice)}`;
 
-      {showTrailingCta && (() => {
-        const band = getCtaBandProps(sortedBanners.length);
-        return (
-          <div
-            className="lp-page__cta-band"
-            style={band.style}
-            data-cta-foreground={band.foreground}
-            data-cta-source={band.source}
-            data-cta-band-style={band.bandStyle}
-          >
-            <div className="lp-page__cta-slot">
-              <Cta
-                label={`Pedir ahora — ${CURRENCY_FORMATTER.format(landing.product_price)}`}
-                onClick={handleActivateCta}
-              />
-            </div>
-          </div>
-        );
-      })()}
+  /** One CTA band, painted for `position` (1-based). */
+  function renderCtaBand(position: number) {
+    const band = getCtaBandProps(position);
+    return (
+      <div
+        className="lp-page__cta-band"
+        style={band.style}
+        data-cta-foreground={band.foreground}
+        data-cta-source={band.source}
+        data-cta-band-style={band.bandStyle}
+      >
+        <div className="lp-page__cta-slot">
+          <Cta label={ctaLabel} onClick={handleActivateCta} />
+        </div>
+      </div>
+    );
+  }
+
+  /**
+   * The flat sequence the page renders: banner, then a CTA band where the
+   * configuration puts one, and so on. Conversion components are placed
+   * *between* these elements, so this list is also what their `slot_index`
+   * counts (see backend app/domains/landings/blocks.py).
+   */
+  const elements: { key: string; node: JSX.Element }[] = [];
+  sortedBanners.forEach((banner, index) => {
+    const position = index + 1;
+    elements.push({
+      key: `banner-${banner.id}`,
+      node: (
+        <Banner
+          id={banner.id}
+          alt_text={banner.alt_text}
+          order_index={banner.order_index}
+          variants={banner.variants}
+          lazy={index > 0}
+        />
+      ),
+    });
+    if (ctaPositionSet.has(position)) {
+      elements.push({ key: `cta-${position}`, node: renderCtaBand(position) });
+    }
+  });
+  if (showTrailingCta) {
+    elements.push({
+      key: "cta-trailing",
+      node: renderCtaBand(sortedBanners.length),
+    });
+  }
+
+  /** Placed components grouped by the slot they follow, in stored order. */
+  const blocksBySlot = new Map<number, typeof placedBlocks>();
+  for (const block of placedBlocks) {
+    const slot = Math.max(0, block.slot_index);
+    const group = blocksBySlot.get(slot);
+    if (group) group.push(block);
+    else blocksBySlot.set(slot, [block]);
+  }
+
+  function renderBlocks(slot: number) {
+    const group = blocksBySlot.get(slot);
+    if (!group) return null;
+    return group.map((block) => (
+      <ConversionBlockView key={block.id} block={block} productPrice={productPrice} />
+    ));
+  }
+
+  // A component placed beyond the current sequence (the merchant shortened the
+  // banner list after placing it) renders at the end rather than disappearing.
+  const trailingBlocks = placedBlocks.filter((block) => block.slot_index > elements.length);
+
+  /**
+   * The merchant's accent, applied as CSS custom properties on the page root so
+   * one stored color themes the CTA, the offer tiles, focus rings, and accent
+   * text together (every rule already reads `--lp-action*`).
+   *
+   * Each value goes through `safeColor` even though the backend validated and
+   * derived them: these are API-boundary strings landing directly in a `style`
+   * attribute, and an unset property harmlessly falls back to the stylesheet's
+   * default rather than injecting anything.
+   */
+  const palette = landing.accent_palette;
+  const accentStyle: React.CSSProperties = {};
+  const accentProperties = accentStyle as Record<string, string>;
+  const accent = safeColor(palette?.accent ?? landing.accent_color);
+  const accentDeep = safeColor(palette?.deep);
+  const accentTint = safeColor(palette?.tint);
+  const accentInk = safeColor(palette?.ink);
+  if (accent) accentProperties["--lp-action"] = accent;
+  if (accentDeep) accentProperties["--lp-action-deep"] = accentDeep;
+  if (accentTint) accentProperties["--lp-action-tint"] = accentTint;
+  if (accentInk) accentProperties["--lp-action-ink"] = accentInk;
+
+  return (
+    <div className="lp-page" style={accentStyle}>
+      <div className="lp-page__banners">
+        {renderBlocks(0)}
+        {elements.map((element, index) => (
+          <Fragment key={element.key}>
+            {element.node}
+            {renderBlocks(index + 1)}
+          </Fragment>
+        ))}
+        {trailingBlocks.map((block) => (
+          <ConversionBlockView key={block.id} block={block} productPrice={productPrice} />
+        ))}
+      </div>
 
       <Modal
         isOpen={formState === "open"}
         onClose={() => setFormState("closed")}
         title="Completa tu pedido"
-        subtitle="Pago contraentrega: pagas al recibir."
+        subtitle="Paga cuando recibas."
+        style={accentStyle}
       >
         <CodForm
           landingSlug={slug}
           productName={landing.product_name}
           unitPrice={landing.product_price}
+          offers={landing.offers}
           onSuccess={handleOrderSuccess}
         />
       </Modal>

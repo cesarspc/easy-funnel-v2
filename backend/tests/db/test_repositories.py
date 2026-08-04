@@ -218,6 +218,10 @@ class TestOrderRepository:
                 "city": "Medellin",
                 "address": "Calle 1 # 2-3",
                 "quantity": 1,
+                # Money is snapshotted on the order (see the Order model): a
+                # stored order carries the price it was actually agreed at.
+                "unitPrice": Decimal("30.00"),
+                "totalPrice": Decimal("30.00"),
                 "status": "flagged_fraud",
                 "ipAddress": "203.0.113.9",
                 "userAgent": "pytest",

@@ -5,6 +5,12 @@ Pure functions only — no I/O. `LandingPublicationService` (app/services)
 composes these with repositories inside Prisma transactions.
 """
 
+from app.domains.landings.accent_color import (
+    DEFAULT_ACCENT_COLOR,
+    AccentPalette,
+    derive_accent_palette,
+    normalize_accent_color,
+)
 from app.domains.landings.alt_text import (
     ALT_TEXT_MAX_LENGTH,
     ALT_TEXT_MIN_LENGTH,
@@ -16,6 +22,25 @@ from app.domains.landings.banner_ordering import (
     next_append_index,
     reorder,
     validate_can_add_banner,
+)
+from app.domains.landings.blocks import (
+    ALLOWED_BLOCK_TYPES,
+    BLOCK_BENEFITS,
+    BLOCK_COD_ASSURANCE,
+    BLOCK_FAQ,
+    BLOCK_GUARANTEE,
+    BLOCK_HOW_IT_WORKS,
+    BLOCK_OFFER_PRICE,
+    BLOCK_REVIEWS,
+    MAX_BLOCKS_PER_LANDING,
+    MAX_ORDER_INDEX,
+    MAX_SLOT_INDEX,
+    slot_labels,
+    validate_block_config,
+    validate_block_type,
+    validate_can_add_block,
+    validate_order_index,
+    validate_slot_index,
 )
 from app.domains.landings.cta_background import (
     SOURCE_ABOVE,
@@ -54,6 +79,23 @@ from app.domains.landings.form_presentation import (
     FORM_PRESENTATION_INLINE,
     FORM_PRESENTATION_MODAL,
     validate_form_presentation,
+)
+from app.domains.landings.offers import (
+    DISCOUNTABLE_MIN_QUANTITY,
+    LABEL_MAX,
+    MAX_DISCOUNT_PERCENT,
+    MAX_OFFER_COUNT,
+    MIN_DISCOUNT_PERCENT,
+    MIN_OFFER_COUNT,
+    SUBLABEL_MAX,
+    LandingOffer,
+    OfferPricing,
+    default_offers,
+    find_offer,
+    parse_stored_offers,
+    resolve_offer_pricing,
+    validate_offer_count,
+    validate_offers,
 )
 from app.domains.landings.slug import validate_slug_format
 
@@ -95,4 +137,40 @@ __all__ = [
     "CTA_BAND_STYLE_SOLID",
     "ALLOWED_CTA_BAND_STYLES",
     "validate_cta_band_style",
+    "BLOCK_COD_ASSURANCE",
+    "BLOCK_BENEFITS",
+    "BLOCK_OFFER_PRICE",
+    "BLOCK_HOW_IT_WORKS",
+    "BLOCK_REVIEWS",
+    "BLOCK_FAQ",
+    "BLOCK_GUARANTEE",
+    "ALLOWED_BLOCK_TYPES",
+    "MAX_BLOCKS_PER_LANDING",
+    "MAX_SLOT_INDEX",
+    "MAX_ORDER_INDEX",
+    "validate_block_type",
+    "validate_block_config",
+    "validate_slot_index",
+    "validate_order_index",
+    "validate_can_add_block",
+    "slot_labels",
+    "DEFAULT_ACCENT_COLOR",
+    "AccentPalette",
+    "normalize_accent_color",
+    "derive_accent_palette",
+    "MIN_OFFER_COUNT",
+    "MAX_OFFER_COUNT",
+    "LABEL_MAX",
+    "SUBLABEL_MAX",
+    "MIN_DISCOUNT_PERCENT",
+    "MAX_DISCOUNT_PERCENT",
+    "DISCOUNTABLE_MIN_QUANTITY",
+    "LandingOffer",
+    "OfferPricing",
+    "validate_offer_count",
+    "validate_offers",
+    "parse_stored_offers",
+    "default_offers",
+    "resolve_offer_pricing",
+    "find_offer",
 ]

@@ -29,6 +29,7 @@ from prisma.models import (
     ImageAsset,
     ImageVariant,
     Landing,
+    LandingBlock,
     LandingView,
     Order,
     Product,
@@ -44,6 +45,8 @@ from prisma.types import (
     GeoIpRuleUpdateInput,
     ImageAssetCreateInput,
     ImageVariantCreateInput,
+    LandingBlockCreateInput,
+    LandingBlockUpdateInput,
     LandingCreateInput,
     LandingUpdateInput,
     OrderCreateInput,
@@ -120,6 +123,41 @@ class BannerRepository:
 
     async def delete(self, banner_id: int) -> Banner | None:
         return await self._db.banner.delete(where={"id": banner_id})
+
+
+class LandingBlockRepository:
+    """Conversion components of a Landing, in render order.
+
+    Ordering is `(slot_index, order_index)` — the same order the public page
+    renders them in — so callers never re-sort.
+    """
+
+    def __init__(self, db: Prisma) -> None:
+        self._db = db
+
+    async def list_for_landing(self, landing_id: int) -> list[LandingBlock]:
+        return await self._db.landingblock.find_many(
+            where={"landingId": landing_id},
+            order=[{"slotIndex": "asc"}, {"orderIndex": "asc"}],
+        )
+
+    async def list_enabled_for_landing(self, landing_id: int) -> list[LandingBlock]:
+        return await self._db.landingblock.find_many(
+            where={"landingId": landing_id, "enabled": True},
+            order=[{"slotIndex": "asc"}, {"orderIndex": "asc"}],
+        )
+
+    async def get_by_id(self, block_id: int) -> LandingBlock | None:
+        return await self._db.landingblock.find_unique(where={"id": block_id})
+
+    async def create(self, data: LandingBlockCreateInput) -> LandingBlock:
+        return await self._db.landingblock.create(data=data)
+
+    async def update(self, block_id: int, data: LandingBlockUpdateInput) -> LandingBlock | None:
+        return await self._db.landingblock.update(where={"id": block_id}, data=data)
+
+    async def delete(self, block_id: int) -> LandingBlock | None:
+        return await self._db.landingblock.delete(where={"id": block_id})
 
 
 class ImageAssetRepository:

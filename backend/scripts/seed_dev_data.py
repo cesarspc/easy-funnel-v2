@@ -99,6 +99,10 @@ class CatalogSpec:
     form_presentation: str
     cta_band_style: str
     banners: tuple[BannerSpec, ...]
+    # Conversion components: (block_type, slot_index, config). Slot indexes
+    # count rendered elements (banners + CTA bands), so slot 1 sits between the
+    # first banner and whatever follows it.
+    blocks: tuple[tuple[str, int, dict[str, Any]], ...] = ()
 
 
 CATALOG: tuple[CatalogSpec, ...] = (
@@ -121,6 +125,38 @@ CATALOG: tuple[CatalogSpec, ...] = (
             BannerSpec((238, 226, 214), (214, 198, 184), "2", "Detalle del recubrimiento"),
             BannerSpec((214, 198, 184), (196, 176, 160), "3", "Sarten en uso en la estufa"),
         ),
+        blocks=(
+            ("cod_assurance", 1, {"note": "Cobertura en las principales ciudades del pais."}),
+            (
+                "benefits",
+                2,
+                {
+                    "title": "Por que este juego",
+                    "items": [
+                        "Recubrimiento antiadherente en las tres piezas",
+                        "Sirve en estufa de gas y electrica",
+                        "Se lava facil, sin esponja de metal",
+                    ],
+                },
+            ),
+            ("offer_price", 4, {"compare_at_price": 129900, "note": "Precio de lanzamiento."}),
+            (
+                "faq",
+                6,
+                {
+                    "items": [
+                        {
+                            "question": "Cuanto tarda la entrega?",
+                            "answer": "Entre 1 y 3 dias habiles segun la ciudad.",
+                        },
+                        {
+                            "question": "Como pago?",
+                            "answer": "En efectivo al mensajero, cuando recibes el pedido.",
+                        },
+                    ]
+                },
+            ),
+        ),
     ),
     CatalogSpec(
         name="Reloj Deportivo Resistente al Agua",
@@ -141,6 +177,28 @@ CATALOG: tuple[CatalogSpec, ...] = (
             BannerSpec((28, 38, 58), (44, 58, 82), "2", "Correa de silicona en detalle"),
             BannerSpec((44, 58, 82), (66, 84, 112), "3", "Reloj bajo gotas de agua"),
             BannerSpec((66, 84, 112), (96, 116, 148), "4", "Reloj en la muneca"),
+        ),
+        blocks=(
+            (
+                "how_it_works",
+                1,
+                {
+                    "steps": [
+                        "Elige la cantidad y toca Pedir ahora.",
+                        "Escribes tus datos de entrega en el formulario.",
+                        "Recibes el pedido y pagas en efectivo al mensajero.",
+                    ]
+                },
+            ),
+            (
+                "guarantee",
+                3,
+                {
+                    "title": "Garantia de la correa",
+                    "text": "Si la correa se rompe en el primer mes, la reponemos.",
+                    "days": 30,
+                },
+            ),
         ),
     ),
     CatalogSpec(
@@ -313,6 +371,14 @@ async def _reset_seeded_rows() -> None:
          WHERE landing_id IN (SELECT id FROM landings WHERE slug LIKE '%-dev')
         """
     )
+    # Conversion components hold a restrict FK to the landing, so they go before
+    # the landings they were placed on.
+    await db.execute_raw(
+        """
+        DELETE FROM landing_blocks
+         WHERE landing_id IN (SELECT id FROM landings WHERE slug LIKE '%-dev')
+        """
+    )
     await db.execute_raw(
         """
         DELETE FROM landings
@@ -424,6 +490,18 @@ async def seed(*, username: str, password: str) -> dict[str, int]:
                 if published.status_code != 200:
                     _fail(published, f"Publish landing {spec.slug}")
 
+                for block_type, slot_index, block_config in spec.blocks:
+                    placed = await client.post(
+                        f"/api/admin/landings/{landing_id}/blocks",
+                        json={
+                            "block_type": block_type,
+                            "slot_index": slot_index,
+                            "config": block_config,
+                        },
+                    )
+                    if placed.status_code != 201:
+                        _fail(placed, f"Conversion component {block_type} on {spec.slug}")
+
                 # Analytics need traffic to be worth looking at: views always
                 # outnumber clicks, clicks outnumber orders.
                 for index in range(12):
@@ -463,6 +541,7 @@ async def seed(*, username: str, password: str) -> dict[str, int]:
             "landings_published": await db.landing.count(where={"status": "published"}),
             "banners": await db.banner.count(),
             "image_variants": await db.imagevariant.count(),
+            "conversion_blocks": await db.landingblock.count(),
             "orders_pending": await db.order.count(where={"status": "pending"}),
             "orders_flagged": await db.order.count(where={"status": "flagged_fraud"}),
             "fraud_flags": await db.fraudflag.count(),

@@ -35,6 +35,73 @@ export interface CtaBackground {
   source: CtaBackgroundSource;
 }
 
+/**
+ * Pre-defined conversion components a landing can place between its rendered
+ * elements. The type is a closed vocabulary; `config` carries content only,
+ * because every component's spacing, type, and color are fixed in the landing
+ * chrome and tuned for conversion.
+ */
+export type ConversionBlockType =
+  | "cod_assurance"
+  | "benefits"
+  | "offer_price"
+  | "how_it_works"
+  | "reviews"
+  | "faq"
+  | "guarantee";
+
+export interface ConversionBlockConfig {
+  title?: string | null;
+  note?: string | null;
+  items?: unknown[];
+  steps?: string[];
+  text?: string | null;
+  days?: number | null;
+  compare_at_price?: number | null;
+}
+
+export interface ConversionBlock {
+  id: number;
+  block_type: ConversionBlockType;
+  /** How many rendered elements this component follows (0 = above everything). */
+  slot_index: number;
+  order_index: number;
+  config: ConversionBlockConfig;
+}
+
+/**
+ * The landing's accent and every shade the chrome derives from it. Computed
+ * server-side so the page never does color math and the merchant can never pick
+ * a combination that fails contrast: `ink` is chosen against `accent`.
+ */
+export interface AccentPalette {
+  accent: string;
+  deep: string;
+  tint: string;
+  ink: string;
+}
+
+/**
+ * One quantity offer the COD form presents, already priced by the backend.
+ *
+ * `total` is what the buyer owes and what the order records. `gross`/`savings`
+ * let a discounted tier show its pre-discount price without recomputing money
+ * client-side. `sublabel` is `null` when the merchant left the sub-text blank,
+ * meaning the tile renders no second line. `compare_at_price` is informational
+ * only and exists on the single-unit offer alone.
+ */
+export interface PublicLandingOffer {
+  quantity: number;
+  label: string;
+  sublabel: string | null;
+  discount_percent: number;
+  unit_price: number;
+  gross: number;
+  total: number;
+  savings: number;
+  compare_at_price: number | null;
+}
+
 export interface PublicLanding {
   landing_id: number;
   product_id: number;
@@ -48,6 +115,13 @@ export interface PublicLanding {
   form_presentation: "inline" | "modal";
   /** Absent on payloads cached before the setting existed; treated as `gradient`. */
   cta_band_style?: CtaBandStyle;
+  /** Absent on payloads cached before conversion components existed. */
+  blocks?: ConversionBlock[];
+  /** Absent on payloads cached before per-landing accents existed. */
+  accent_color?: string;
+  accent_palette?: AccentPalette;
+  /** Absent on payloads cached before configurable offers existed. */
+  offers?: PublicLandingOffer[];
 }
 
 export interface OrderCreateRequest {

@@ -95,6 +95,28 @@ async with prisma.tx() as tx:
         await tx.fraud_flag.create_many(flags)
 ```
 
+## Landing Conversion Components
+
+Requirements 3.27-3.31. `landing_blocks` stores the pre-defined components a
+merchant places between a landing's rendered elements.
+
+- **Closed vocabulary.** Seven `block_type` values, allowlisted in
+  `app/domains/landings/blocks.py` and mirrored by the
+  `landing_blocks_type_allowed` database check. Adding a type means adding a
+  validator, a renderer, and both allowlists in the same change.
+- **`slot_index` counts rendered elements**, not banners: the public page renders
+  banner → CTA band (where configured) → banner …, so slot 1 is between element 1
+  and element 2. `slot_labels()` derives the dashboard's position list from that
+  same construction, which is why the two can't drift.
+- **`config` is content only.** `validate_block_config` returns exactly the keys
+  a type supports, so presentation keys sent by a client are discarded rather
+  than persisted. Presentation lives in the frontend chrome by design.
+- **Validate before writing.** `LandingBlockService` validates type, slot, and
+  content before any write, and a placement into an occupied slot takes the next
+  free `order_index` instead of failing the merchant.
+- **Restrict FK.** Blocks reference the landing with `ON DELETE RESTRICT`, so any
+  cleanup path (tests, seeds) deletes blocks before the landing.
+
 ## Order Submission Flow
 
 **Critical**: Order submission must be explicit and atomic.

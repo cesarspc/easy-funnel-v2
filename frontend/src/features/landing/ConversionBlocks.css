@@ -1,0 +1,303 @@
+/* Conversion components — the only place their presentation is decided.
+   Merchants place and write; spacing, scale, and color are fixed here so a
+   component that exists to convert cannot be de-tuned from a settings screen.
+
+   Shared rules across all seven:
+   - One rhythm: 24px block padding, 8/12/16px inside, more space above a
+     heading than below it.
+   - One type scale, reused: 1.125rem headings, 1rem body, 0.875rem support.
+   - Color is rationed to the action green (already the page's one accent) and
+     ink; components never introduce a second accent.
+   - Full-width on the 640px page column, no cards inside cards, no shadows. */
+
+.cblock {
+  padding: var(--lp-space-lg) var(--lp-space-md);
+  font-family: var(--lp-font);
+  color: var(--lp-ink);
+}
+
+.cblock__title {
+  margin: 0 0 var(--lp-space-md);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.cblock__note {
+  margin: var(--lp-space-md) 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--lp-ink-quiet);
+}
+
+/* --- COD assurances ------------------------------------------------------ */
+
+.cblock--assurance {
+  background: var(--lp-surface);
+}
+
+.cblock__assurances {
+  display: grid;
+  gap: var(--lp-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cblock__assurances li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 2px var(--lp-space-sm);
+  align-items: start;
+}
+
+/* The check mark is drawn from type, not an icon file or an icon service:
+   one glyph, no extra request, scales with the text. */
+.cblock__assurances li::before {
+  content: "✓";
+  grid-row: span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--lp-action);
+  color: var(--lp-action-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.cblock__assurances strong {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.cblock__assurances span {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--lp-ink-quiet);
+}
+
+/* --- Benefits ------------------------------------------------------------ */
+
+.cblock__benefits {
+  display: grid;
+  gap: var(--lp-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cblock__benefits li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--lp-space-sm);
+  align-items: start;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.cblock__benefits li::before {
+  content: "✓";
+  color: var(--lp-action);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* --- Price -------------------------------------------------------------- */
+
+.cblock--price {
+  text-align: center;
+}
+
+.cblock__price-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--lp-space-sm);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cblock__price-was {
+  font-size: 1rem;
+  color: var(--lp-ink-quiet);
+  text-decoration: line-through;
+}
+
+.cblock__price-now {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.cblock__price-save {
+  margin: 6px 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--lp-action-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- How it works ------------------------------------------------------- */
+
+.cblock__steps {
+  display: grid;
+  gap: var(--lp-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.cblock__steps li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--lp-space-sm);
+  align-items: start;
+}
+
+.cblock__step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--lp-action);
+  color: var(--lp-action-deep);
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cblock__step-text {
+  font-size: 1rem;
+  line-height: 1.45;
+  padding-top: 4px;
+}
+
+/* --- Reviews ------------------------------------------------------------ */
+
+.cblock--reviews {
+  background: var(--lp-surface);
+}
+
+.cblock__reviews {
+  display: grid;
+  gap: var(--lp-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cblock__review {
+  background: var(--lp-bg);
+  border-radius: var(--lp-radius-md);
+  padding: var(--lp-space-md);
+}
+
+.cblock__rating {
+  margin: 0 0 6px;
+  font-size: 0.9375rem;
+  letter-spacing: 0.08em;
+  color: #b8860b;
+}
+
+.cblock__rating-empty {
+  color: var(--lp-hairline);
+}
+
+.cblock__review-text {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.cblock__review-author {
+  margin: var(--lp-space-sm) 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--lp-ink-quiet);
+}
+
+/* --- FAQ ---------------------------------------------------------------- */
+
+.cblock__faq {
+  display: grid;
+  border-top: 1px solid var(--lp-hairline);
+}
+
+.cblock__faq-item {
+  border-bottom: 1px solid var(--lp-hairline);
+}
+
+.cblock__faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lp-space-sm);
+  /* 48px minimum row: this is a touch target, not a text run. */
+  min-height: 48px;
+  padding: 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  list-style: none;
+}
+
+.cblock__faq-question::-webkit-details-marker {
+  display: none;
+}
+
+.cblock__faq-question::after {
+  content: "+";
+  flex: none;
+  width: 24px;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--lp-ink-quiet);
+}
+
+.cblock__faq-item[open] .cblock__faq-question::after {
+  content: "−";
+}
+
+.cblock__faq-answer {
+  margin: 0;
+  padding: 0 0 var(--lp-space-md);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--lp-ink-quiet);
+}
+
+/* --- Guarantee ---------------------------------------------------------- */
+
+.cblock--guarantee {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--lp-hairline);
+  border-bottom: 1px solid var(--lp-hairline);
+  text-align: center;
+}
+
+.cblock__guarantee-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--lp-action-deep);
+}
+
+.cblock__guarantee-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--lp-ink-quiet);
+}

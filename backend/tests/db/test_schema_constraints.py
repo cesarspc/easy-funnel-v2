@@ -158,6 +158,8 @@ class TestOrderAndFraudConstraints:
                 "city": "Medellin",
                 "address": "Calle 1 # 2-3",
                 "quantity": 1,
+                "unitPrice": Decimal("19999.99"),
+                "totalPrice": Decimal("19999.99"),
                 "ipAddress": "203.0.113.5",
                 "userAgent": "pytest",
             }
@@ -183,6 +185,8 @@ class TestOrderAndFraudConstraints:
                     "city": "Medellin",
                     "address": "Calle 1 # 2-3",
                     "quantity": 1,
+                    "unitPrice": Decimal("19999.99"),
+                    "totalPrice": Decimal("19999.99"),
                     "status": "not_a_real_status",
                     "ipAddress": "203.0.113.5",
                     "userAgent": "pytest",

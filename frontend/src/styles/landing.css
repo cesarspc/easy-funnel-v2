@@ -36,10 +36,17 @@
   --lp-hairline: #e3e6ea;
   --lp-surface: #f5f7f9;
 
-  /* Action accent — reserved for the CTA and primary submit only */
+  /* Action accent — reserved for the CTA and primary submit only.
+     These four are overridden per landing at runtime from the merchant's one
+     stored accent (see LandingPage's accentStyle): the values here are the
+     defaults a landing renders with before it sets an accent. `deep`, `tint`,
+     and `ink` are always derived server-side from `action` so the trio can
+     never be combined into something that fails contrast. */
   --lp-action: #1a7a4c;
   --lp-action-deep: #145c3a;
   --lp-action-ink: #ffffff;
+  /* Light wash of the accent, for the background of a highlighted offer. */
+  --lp-action-tint: #f2f7f4;
 
   /* CTA band fallback background */
   --lp-cta-band-fallback: #f5f7f9;

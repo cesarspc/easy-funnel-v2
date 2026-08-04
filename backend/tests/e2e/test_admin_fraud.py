@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
+from decimal import Decimal
 
 import pytest_asyncio
 from app.domains.orders.normalization import normalize_colombian_phone_key
@@ -372,6 +373,8 @@ async def test_remove_blacklist_entry_preserves_historical_fraud_flags(
             "city": "Bogota",
             "address": "Calle 1 #2-3",
             "quantity": 1,
+            "unitPrice": Decimal("59900.00"),
+            "totalPrice": Decimal("59900.00"),
             "status": "flagged_fraud",
             "ipAddress": blocked_ip,
             "userAgent": "e2e",

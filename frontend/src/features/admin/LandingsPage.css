@@ -277,6 +277,74 @@
   color: var(--gf-ink-quiet);
 }
 
+/* Accent picker: the native swatch sits beside a hex field, because a brand
+   color is usually pasted as a hex and only occasionally eyedropped. Both
+   controls write the same value. */
+.landings-field__color {
+  display: flex;
+  align-items: center;
+  gap: var(--gf-space-sm);
+  width: 100%;
+}
+
+.landings-field__swatch {
+  flex: none;
+  width: 44px;
+  height: 34px;
+  padding: 2px;
+  background: var(--gf-paper);
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  cursor: pointer;
+}
+
+.landings-field__input--hex {
+  font-family: var(--gf-font-data);
+  text-transform: lowercase;
+}
+
+/* Quantity offers. Each offer is a bordered group rather than a card: this is
+   the Operate surface, so the border states "these fields belong together"
+   without the shadow the Flat Instrument Rule forbids at rest. */
+.landings-offers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gf-space-md);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.landings-offers__legend {
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gf-ink-quiet);
+}
+
+.landings-offer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gf-space-sm);
+  padding: var(--gf-space-md);
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  background: var(--gf-paper-raised);
+}
+
+/* Which tier this group configures. Monospace because it is a quantity, and
+   the reason a merchant can tell the groups apart at a glance. */
+.landings-offer__quantity {
+  margin: 0;
+  font-family: var(--gf-font-data);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gf-ink);
+}
+
 @media (max-width: 639px) {
   .landings-page__header {
     flex-direction: column;

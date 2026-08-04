@@ -58,18 +58,72 @@ model Landing {
   ctaPositions     Int[]     @map("cta_positions")
   formPresentation String    @map("form_presentation")
   ctaBandStyle     String    @default("gradient") @map("cta_band_style")
-  retiredAt        DateTime? @map("retired_at") @db.Timestamptz
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  /// Per-landing accent, the one color the merchant controls on the public
+  /// page (Landing chrome: CTA button, focus/selected borders, accent text,
+  /// and a light tint behind the offer tiers). Stored as the single `#rrggbb`
+  /// the merchant picks; every derived shade (hover, tint, readable
+  /// foreground) is computed from it in app/domains/landings/accent_color.py
+  /// so the palette can never drift out of contrast.
+  accentColor String @default("#1a7a4c") @map("accent_color") @db.VarChar(7)
+
+  /// How many quantity offers the COD form presents (1, 2, or 3).
+  offerCount Int @default(3) @map("offer_count")
+
+  /// Per-offer copy and pricing, one entry per quantity from 1 to
+  /// `offer_count`: `{quantity, label, sublabel, discount_percent,
+  /// compare_at_price}`. Content and *offer-level* pricing only — validated in
+  /// app/domains/landings/offers.py. An empty array means "use the generated
+  /// defaults", so a landing created before this column keeps its old form.
+  ///
+  /// `discount_percent` (quantity >= 2 only) is the one merchant-controlled
+  /// input that changes what a buyer owes, which is why every order snapshots
+  /// the resolved unit price, discount, and total at submission instead of
+  /// re-deriving money from this mutable column later.
+  offers Json @default("[]")
+
+  retiredAt DateTime? @map("retired_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   product Product       @relation(fields: [productId], references: [id])
   banners Banner[]
+  blocks  LandingBlock[]
   orders  Order[]
   views   LandingView[]
   clicks  CtaClick[]
 
   @@index([slug], map: "idx_landings_slug")
   @@map("landings")
+}
+
+/// A pre-defined conversion component placed between two rendered elements of
+/// a Landing (Requirement 3.27-3.31). `slot_index` counts the rendered
+/// elements the block follows: the public page renders banners with CTA bands
+/// interleaved at `cta_positions`, so slot 0 is above the first element, slot
+/// 1 sits between element 1 and element 2 (the "1-2" slot in the dashboard),
+/// and so on. `order_index` orders several blocks sharing one slot.
+///
+/// `config` holds only content (headline text, list items, prices the merchant
+/// declares) — never presentation. Spacing, type, and color for each
+/// `block_type` are fixed in the Landing chrome, so a merchant cannot
+/// de-optimize a component that exists to convert.
+model LandingBlock {
+  id         BigInt   @id @default(autoincrement())
+  landingId  BigInt   @map("landing_id")
+  blockType  String   @map("block_type")
+  slotIndex  Int      @map("slot_index")
+  orderIndex Int      @map("order_index")
+  config     Json
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  landing Landing @relation(fields: [landingId], references: [id])
+
+  @@unique([landingId, slotIndex, orderIndex], map: "idx_landing_blocks_slot")
+  @@index([landingId, slotIndex, orderIndex], map: "idx_landing_blocks_render")
+  @@map("landing_blocks")
 }
 
 model Banner {
@@ -146,6 +200,17 @@ model Order {
   city               String
   address            String
   quantity           Int
+
+  /// Money as charged, snapshotted at submission. The Landing's offer
+  /// discounts are merchant-editable at any time, so re-deriving an order's
+  /// amount from the current configuration would silently rewrite what a
+  /// courier was supposed to collect for orders already placed. These three
+  /// columns are the record of record for the COD handoff:
+  /// `total_price = round(unit_price * quantity * (1 - discount_percent/100))`.
+  unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
+  discountPercent Int     @default(0) @map("discount_percent")
+  totalPrice      Decimal @map("total_price") @db.Decimal(12, 2)
+
   status             String   @default("pending")
   ipAddress          String   @map("ip_address")
   userAgent          String   @map("user_agent")

@@ -1,7 +1,9 @@
 /**
  * Landing editor (Requirement 8.3, 8.19, 8.20): banner upload/removal/order
- * and alternative text, plus slug, CTA placement mode, COD form presentation,
- * and publish/unpublish controls for one landing.
+ * and alternative text, slug, CTA placement mode, COD form presentation, the
+ * conversion components placed between rendered elements (Requirements
+ * 3.27-3.31, in `LandingBlocksPanel`), and publish/unpublish controls for one
+ * landing.
  *
  * Every field-specific backend error (`{field, message}`) is bound to the
  * control that produced it through `aria-describedby` and announced with
@@ -18,11 +20,28 @@ import type {
   FormPresentation,
   LandingBanner,
   LandingDetail,
+  LandingOffer,
 } from "../../api";
 import { ApiError, landingsApi } from "../../api";
+import { LandingBlocksPanel } from "./LandingBlocksPanel";
 import "./LandingsPage.css";
 
 const MAX_BANNERS = 15;
+
+/** The form presents at most three quantity offers (see the Landing model). */
+const OFFER_COUNT_CHOICES = [1, 2, 3] as const;
+
+/**
+ * One offer row as the editor holds it. Numbers stay strings while the merchant
+ * types so a half-typed value never becomes `NaN`; they are parsed on submit.
+ */
+interface OfferForm {
+  quantity: number;
+  label: string;
+  sublabel: string;
+  discountPercent: string;
+  compareAtPrice: string;
+}
 
 interface ConfigForm {
   slug: string;
@@ -31,6 +50,43 @@ interface ConfigForm {
   ctaPositions: string;
   formPresentation: FormPresentation;
   ctaBandStyle: CtaBandStyle;
+  accentColor: string;
+  offerCount: number;
+  offers: OfferForm[];
+}
+
+function toOfferForm(offer: LandingOffer): OfferForm {
+  return {
+    quantity: offer.quantity,
+    label: offer.label,
+    sublabel: offer.sublabel ?? "",
+    discountPercent: offer.discount_percent ? String(offer.discount_percent) : "",
+    compareAtPrice: offer.compare_at_price === null ? "" : String(offer.compare_at_price),
+  };
+}
+
+/** Default copy for a quantity the merchant just exposed by raising the count. */
+function blankOfferForm(quantity: number): OfferForm {
+  return {
+    quantity,
+    label: quantity === 1 ? "1 unidad" : `${quantity} unidades`,
+    sublabel: "",
+    discountPercent: "",
+    compareAtPrice: "",
+  };
+}
+
+/**
+ * Resize the offer rows to `count`, keeping whatever the merchant already wrote
+ * for the quantities that survive. Lowering the count hides the trailing rows
+ * rather than clearing them on the way down, which is why the previous rows are
+ * consulted before falling back to defaults.
+ */
+function fitOffers(existing: OfferForm[], count: number): OfferForm[] {
+  return Array.from({ length: count }, (_, index) => {
+    const quantity = index + 1;
+    return existing.find((offer) => offer.quantity === quantity) ?? blankOfferForm(quantity);
+  });
 }
 
 function toConfigForm(landing: LandingDetail): ConfigForm {
@@ -41,6 +97,9 @@ function toConfigForm(landing: LandingDetail): ConfigForm {
     ctaPositions: landing.cta_positions.join(", "),
     formPresentation: landing.form_presentation,
     ctaBandStyle: landing.cta_band_style ?? "gradient",
+    accentColor: landing.accent_color ?? "#1a7a4c",
+    offerCount: landing.offer_count,
+    offers: fitOffers((landing.offers ?? []).map(toOfferForm), landing.offer_count),
   };
 }
 
@@ -214,6 +273,21 @@ export function LandingEditorPage() {
           config.ctaMode === "fixed_positions" ? parsePositions(config.ctaPositions) : [],
         form_presentation: config.formPresentation,
         cta_band_style: config.ctaBandStyle,
+        accent_color: config.accentColor,
+        offer_count: config.offerCount,
+        // Only the rows the merchant can actually see are sent, so lowering the
+        // count drops the trailing offers instead of submitting copy for tiers
+        // the form no longer shows.
+        offers: config.offers.slice(0, config.offerCount).map((offer) => ({
+          quantity: offer.quantity,
+          label: offer.label,
+          // Empty string is meaningful: it turns the sub-text off.
+          sublabel: offer.sublabel.trim() === "" ? "" : offer.sublabel,
+          discount_percent:
+            offer.discountPercent.trim() === "" ? null : Number(offer.discountPercent),
+          compare_at_price:
+            offer.compareAtPrice.trim() === "" ? null : Number(offer.compareAtPrice),
+        })),
       });
       applyDetail(detail);
       setNotice("Configuración guardada.");
@@ -621,6 +695,272 @@ export function LandingEditorPage() {
             )}
           </div>
 
+          {/* Accent color. One picker, not four: every other shade the public
+              page needs (hover, tile tint, readable foreground) is derived from
+              this server-side, so a merchant cannot land on white text over a
+              pale button. The text input beside the swatch exists because a
+              brand hex is usually pasted, not hunted for in a color wheel. */}
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-accent-color">
+              Color de la landing
+            </label>
+            <div className="landings-field__color">
+              <input
+                id="landing-accent-color"
+                className="landings-field__swatch"
+                type="color"
+                value={config.accentColor}
+                aria-describedby={
+                  fieldErrors.accent_color
+                    ? "landing-accent-color-error landing-accent-color-hint"
+                    : "landing-accent-color-hint"
+                }
+                aria-invalid={fieldErrors.accent_color ? true : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, accentColor: event.target.value } : current,
+                  )
+                }
+              />
+              <input
+                className="landings-field__input landings-field__input--hex"
+                type="text"
+                value={config.accentColor}
+                aria-label="Color de la landing en hexadecimal"
+                spellCheck={false}
+                maxLength={7}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, accentColor: event.target.value } : current,
+                  )
+                }
+              />
+            </div>
+            <p className="landings-field__hint" id="landing-accent-color-hint">
+              Se aplica al botón de CTA, los bordes y textos destacados, la oferta seleccionada y
+              un tono claro de fondo en las ofertas. Los tonos de hover y el color de texto se
+              calculan solos para que siempre haya contraste.
+            </p>
+            {fieldErrors.accent_color && (
+              <p className="landings-field__error" id="landing-accent-color-error" role="alert">
+                {fieldErrors.accent_color}
+              </p>
+            )}
+          </div>
+
+          {/* Quantity offers. The count drives how many rows render, so the
+              merchant never edits copy for a tier the buyer will not see. */}
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-offer-count">
+              Número de ofertas
+            </label>
+            <select
+              id="landing-offer-count"
+              className="landings-field__input"
+              value={config.offerCount}
+              aria-describedby={
+                fieldErrors.offer_count
+                  ? "landing-offer-count-error landing-offer-count-hint"
+                  : "landing-offer-count-hint"
+              }
+              aria-invalid={fieldErrors.offer_count ? true : undefined}
+              onChange={(event) => {
+                const count = Number(event.target.value);
+                setConfig((current) =>
+                  current
+                    ? { ...current, offerCount: count, offers: fitOffers(current.offers, count) }
+                    : current,
+                );
+              }}
+            >
+              {OFFER_COUNT_CHOICES.map((count) => (
+                <option key={count} value={count}>
+                  {count === 1 ? "1 oferta" : `${count} ofertas`}
+                </option>
+              ))}
+            </select>
+            <p className="landings-field__hint" id="landing-offer-count-hint">
+              Cuántas opciones de cantidad ve el comprador en el formulario.
+            </p>
+            {fieldErrors.offer_count && (
+              <p className="landings-field__error" id="landing-offer-count-error" role="alert">
+                {fieldErrors.offer_count}
+              </p>
+            )}
+          </div>
+
+          <fieldset className="landings-offers">
+            <legend className="landings-offers__legend">Ofertas</legend>
+            {fieldErrors.offers && (
+              <p className="landings-field__error" id="landing-offers-error" role="alert">
+                {fieldErrors.offers}
+              </p>
+            )}
+
+            {config.offers.slice(0, config.offerCount).map((offer, index) => (
+              <div className="landings-offer" key={offer.quantity}>
+                <p className="landings-offer__quantity">
+                  {offer.quantity === 1 ? "1 unidad" : `${offer.quantity} unidades`}
+                </p>
+
+                <div className="landings-field">
+                  <label
+                    className="landings-field__label"
+                    htmlFor={`landing-offer-label-${offer.quantity}`}
+                  >
+                    Texto
+                  </label>
+                  <input
+                    id={`landing-offer-label-${offer.quantity}`}
+                    className="landings-field__input"
+                    type="text"
+                    value={offer.label}
+                    maxLength={60}
+                    aria-describedby={fieldErrors.offers ? "landing-offers-error" : undefined}
+                    onChange={(event) =>
+                      setConfig((current) =>
+                        current
+                          ? {
+                              ...current,
+                              offers: current.offers.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, label: event.target.value }
+                                  : item,
+                              ),
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="landings-field">
+                  <label
+                    className="landings-field__label"
+                    htmlFor={`landing-offer-sublabel-${offer.quantity}`}
+                  >
+                    Sub-texto (opcional)
+                  </label>
+                  <input
+                    id={`landing-offer-sublabel-${offer.quantity}`}
+                    className="landings-field__input"
+                    type="text"
+                    value={offer.sublabel}
+                    maxLength={80}
+                    aria-describedby={`landing-offer-sublabel-hint-${offer.quantity}`}
+                    onChange={(event) =>
+                      setConfig((current) =>
+                        current
+                          ? {
+                              ...current,
+                              offers: current.offers.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, sublabel: event.target.value }
+                                  : item,
+                              ),
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                  <p
+                    className="landings-field__hint"
+                    id={`landing-offer-sublabel-hint-${offer.quantity}`}
+                  >
+                    Déjalo vacío para que la oferta no muestre segunda línea.
+                  </p>
+                </div>
+
+                {/* A single unit has no volume saving to show, so it gets an
+                    informational reference price; two or three units get a real
+                    percentage off. Offering both on one tier would let the page
+                    advertise a discount off an invented "was" price. */}
+                {offer.quantity === 1 ? (
+                  <div className="landings-field">
+                    <label
+                      className="landings-field__label"
+                      htmlFor={`landing-offer-compare-${offer.quantity}`}
+                    >
+                      Precio de comparación (opcional)
+                    </label>
+                    <input
+                      id={`landing-offer-compare-${offer.quantity}`}
+                      className="landings-field__input"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      value={offer.compareAtPrice}
+                      aria-describedby={`landing-offer-compare-hint-${offer.quantity}`}
+                      onChange={(event) =>
+                        setConfig((current) =>
+                          current
+                            ? {
+                                ...current,
+                                offers: current.offers.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, compareAtPrice: event.target.value }
+                                    : item,
+                                ),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                    <p
+                      className="landings-field__hint"
+                      id={`landing-offer-compare-hint-${offer.quantity}`}
+                    >
+                      Solo informativo en la landing: se muestra tachado junto al precio. No
+                      cambia lo que paga el comprador.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="landings-field">
+                    <label
+                      className="landings-field__label"
+                      htmlFor={`landing-offer-discount-${offer.quantity}`}
+                    >
+                      Descuento (%)
+                    </label>
+                    <input
+                      id={`landing-offer-discount-${offer.quantity}`}
+                      className="landings-field__input"
+                      type="number"
+                      min={0}
+                      max={90}
+                      step={1}
+                      inputMode="numeric"
+                      value={offer.discountPercent}
+                      aria-describedby={`landing-offer-discount-hint-${offer.quantity}`}
+                      onChange={(event) =>
+                        setConfig((current) =>
+                          current
+                            ? {
+                                ...current,
+                                offers: current.offers.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, discountPercent: event.target.value }
+                                    : item,
+                                ),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                    <p
+                      className="landings-field__hint"
+                      id={`landing-offer-discount-hint-${offer.quantity}`}
+                    >
+                      Reduce de verdad el total de esta oferta y queda registrado en el pedido.
+                      Máximo 90%.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </fieldset>
+
           <div className="landings-field">
             <label className="landings-field__label" htmlFor="landing-form-presentation">
               Formulario COD
@@ -672,6 +1012,11 @@ export function LandingEditorPage() {
           CTA después de los banners: {landing.resolved_cta_positions.join(", ") || "ninguno"}
         </p>
       </section>
+
+      <LandingBlocksPanel
+        landingId={landing.id}
+        sequenceSignature={`${banners.length}:${landing.resolved_cta_positions.join(",")}`}
+      />
     </div>
   );
 }

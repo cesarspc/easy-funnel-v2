@@ -173,6 +173,34 @@ Conversion rules for the form body:
   onto the same controls
 - No countdowns, invented scarcity, or unverifiable claims
 
+### Conversion components
+
+A landing can place pre-defined conversion components between its rendered
+elements (Requirements 3.27-3.31). The rendered page is a flat sequence of
+banners and CTA bands; a component's `slot_index` is how many elements it
+follows, so `1` is the "1-2" slot between the first and second element and `0`
+is above everything. A slot past the current sequence renders at the end rather
+than disappearing.
+
+Seven types exist and the vocabulary is closed: `cod_assurance`, `benefits`,
+`offer_price`, `how_it_works`, `reviews`, `faq`, `guarantee`.
+
+Rules:
+- **Content is configurable; presentation is not.** All spacing, type, and color
+  live in `features/landing/ConversionBlocks.css`. The admin panel exposes no
+  presentation control, and the backend discards presentation keys instead of
+  storing them — a component whose job is to convert must not be de-tunable per
+  landing.
+- Prices always come from the product. `offer_price` renders the product price
+  and only accepts a merchant-declared reference price, so it cannot disagree
+  with what the order charges.
+- A component with unusable content renders nothing rather than throwing.
+- No countdown timers or stock counters: unverifiable claims cost more trust
+  than they buy with cold COD traffic.
+- Placement slots come from the API (`GET /admin/landings/{id}/blocks` →
+  `slots`), derived from the same sequence the public page renders, so the
+  dashboard's position list cannot disagree with the result.
+
 ### Client Validation
 
 Client validation improves UX but **never substitutes for backend validation**.

@@ -38,6 +38,13 @@ const LANDING_SUMMARY: LandingSummary = {
   cta_positions: [],
   form_presentation: "inline",
   cta_band_style: "gradient",
+  accent_color: "#1a7a4c",
+  offer_count: 3,
+  offers: [
+    { quantity: 1, label: "1 unidad", sublabel: null, discount_percent: 0, compare_at_price: null },
+    { quantity: 2, label: "2 unidades", sublabel: null, discount_percent: 0, compare_at_price: null },
+    { quantity: 3, label: "3 unidades", sublabel: null, discount_percent: 0, compare_at_price: null },
+  ],
   banner_count: 2,
 };
 

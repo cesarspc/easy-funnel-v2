@@ -28,7 +28,7 @@ that owns image deletion (Requirements 4.16-4.18).
 
 from __future__ import annotations
 
-from prisma import Prisma
+from prisma import Json, Prisma
 from prisma.models import Banner, Landing
 from prisma.types import LandingUpdateInput
 
@@ -37,6 +37,7 @@ from app.db.repositories import (
     BannerRepository,
     LandingRepository,
 )
+from app.domains.landings.accent_color import normalize_accent_color
 from app.domains.landings.alt_text import validate_alt_text
 from app.domains.landings.banner_ordering import contiguous_indices, reorder
 from app.domains.landings.cta_band_style import validate_cta_band_style
@@ -48,6 +49,11 @@ from app.domains.landings.errors import (
     LandingValidationError,
 )
 from app.domains.landings.form_presentation import validate_form_presentation
+from app.domains.landings.offers import (
+    parse_stored_offers,
+    validate_offer_count,
+    validate_offers,
+)
 from app.domains.landings.slug import validate_slug_format
 
 
@@ -65,6 +71,9 @@ class LandingManagementService:
         cta_positions: list[int] | None = None,
         form_presentation: str | None = None,
         cta_band_style: str | None = None,
+        accent_color: str | None = None,
+        offer_count: int | None = None,
+        offers: list[dict[str, object]] | None = None,
         actor: str,
     ) -> Landing:
         """Update the landing's slug, CTA configuration, and form presentation.
@@ -72,6 +81,12 @@ class LandingManagementService:
         Every supplied value is validated before a single write happens, so an
         invalid slug or CTA configuration leaves the stored configuration
         untouched (Requirements 3.2, 3.15). Omitted values are left as stored.
+
+        `offer_count` and `offers` are validated together even when only one of
+        them is supplied: the tier list has to describe exactly the number of
+        tiers the form is going to render, so lowering the count with stale
+        copy still in the column has to fail loudly rather than leave the public
+        form asking for a quantity it has no price for.
         """
         async with self._db.tx() as tx:
             landings = LandingRepository(tx)
@@ -120,6 +135,25 @@ class LandingManagementService:
 
             if cta_band_style is not None:
                 data["ctaBandStyle"] = validate_cta_band_style(cta_band_style)
+
+            if accent_color is not None:
+                data["accentColor"] = normalize_accent_color(accent_color)
+
+            if offer_count is not None or offers is not None:
+                count = validate_offer_count(
+                    offer_count if offer_count is not None else landing.offerCount
+                )
+                if offers is not None:
+                    resolved_offers = validate_offers(offers, offer_count=count)
+                else:
+                    # Only the count moved. Re-validating the stored list against
+                    # the new count would reject a legitimate count change, so the
+                    # tiers are refitted instead: existing copy is kept for every
+                    # quantity that survives, and a newly exposed quantity gets
+                    # its default copy.
+                    resolved_offers = parse_stored_offers(landing.offers, offer_count=count)
+                data["offerCount"] = count
+                data["offers"] = Json([offer.to_json() for offer in resolved_offers])
 
             if not data:
                 return landing

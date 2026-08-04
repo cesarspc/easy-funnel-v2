@@ -30,6 +30,8 @@ from app.domains.images.errors import (
     OpaqueKeyGenerationError,
 )
 from app.domains.images.validation import SOURCE_MAX_BYTES
+from app.domains.landings.accent_color import DEFAULT_ACCENT_COLOR
+from app.domains.landings.blocks import ALLOWED_BLOCK_TYPES
 from app.domains.landings.cta_placement import compute_cta_positions, validate_cta_config
 from app.domains.landings.errors import (
     BannerLimitExceededError,
@@ -39,7 +41,9 @@ from app.domains.landings.errors import (
     LandingValidationError,
     PublicationValidationError,
 )
+from app.domains.landings.offers import parse_stored_offers
 from app.services.banner_upload_service import BannerUploadService
+from app.services.landing_block_service import BlockNotFoundError, LandingBlockService
 from app.services.landing_management_service import LandingManagementService
 from app.services.landing_publication_service import LandingPublicationService
 from app.storage.dependencies import get_r2_client
@@ -70,6 +74,22 @@ class BannerResponse(BaseModel):
     bottom_edge_color: str | None = None
 
 
+class LandingOfferResponse(BaseModel):
+    """One configured quantity offer.
+
+    `sublabel` is `None` when the merchant left the sub-text blank, which is how
+    a tile renders without a second line. `discount_percent` is only ever
+    non-zero for multi-unit offers and `compare_at_price` only ever set on the
+    single-unit offer (see app/domains/landings/offers.py).
+    """
+
+    quantity: int
+    label: str
+    sublabel: str | None = None
+    discount_percent: int = 0
+    compare_at_price: float | None = None
+
+
 class LandingSummaryResponse(BaseModel):
     id: int
     product_id: int
@@ -83,6 +103,9 @@ class LandingSummaryResponse(BaseModel):
     cta_positions: list[int]
     form_presentation: str
     cta_band_style: str
+    accent_color: str
+    offer_count: int
+    offers: list[LandingOfferResponse]
     banner_count: int
 
 
@@ -99,6 +122,20 @@ class BannerListResponse(BaseModel):
     banners: list[BannerResponse]
 
 
+class LandingOfferUpdate(BaseModel):
+    """One offer as submitted by the dashboard.
+
+    Blank `sublabel` is meaningful (no sub-text), so it is accepted as an empty
+    string rather than requiring the client to omit the key.
+    """
+
+    quantity: int
+    label: str
+    sublabel: str | None = None
+    discount_percent: int | None = None
+    compare_at_price: float | None = None
+
+
 class LandingConfigUpdateRequest(BaseModel):
     slug: str | None = None
     cta_mode: str | None = None
@@ -106,6 +143,9 @@ class LandingConfigUpdateRequest(BaseModel):
     cta_positions: list[int] | None = None
     form_presentation: str | None = None
     cta_band_style: str | None = None
+    accent_color: str | None = None
+    offer_count: int | None = None
+    offers: list[LandingOfferUpdate] | None = None
 
 
 class BannerUpdateRequest(BaseModel):
@@ -115,6 +155,42 @@ class BannerUpdateRequest(BaseModel):
 
 class BannerOrderRequest(BaseModel):
     banner_ids: list[int]
+
+
+class LandingBlockResponse(BaseModel):
+    """One placed conversion component.
+
+    `slot_index` counts the rendered elements the component follows (0 = above
+    everything), and `config` carries content only — presentation for each type
+    is fixed in the Landing chrome.
+    """
+
+    id: int
+    block_type: str
+    slot_index: int
+    order_index: int
+    enabled: bool
+    config: dict
+
+
+class LandingBlockListResponse(BaseModel):
+    blocks: list[LandingBlockResponse]
+    """Labels for every placement slot, index 0 first."""
+    slots: list[str]
+    allowed_block_types: list[str]
+
+
+class LandingBlockCreateRequest(BaseModel):
+    block_type: str
+    slot_index: int
+    config: dict = {}
+    enabled: bool = True
+
+
+class LandingBlockUpdateRequest(BaseModel):
+    slot_index: int | None = None
+    config: dict | None = None
+    enabled: bool | None = None
 
 
 def _field_error(field: str, message: str) -> HTTPException:
@@ -170,6 +246,9 @@ def _to_banner_response(banner, public_host: str) -> BannerResponse:  # type: ig
 def _to_summary_response(landing) -> LandingSummaryResponse:  # type: ignore[no-untyped-def]
     product = landing.product
     banners = landing.banners or []
+    # Read leniently: a stored tier list that drifted from `offer_count` still
+    # has to open in the dashboard so the merchant can repair it.
+    offers = parse_stored_offers(landing.offers, offer_count=landing.offerCount)
     return LandingSummaryResponse(
         id=landing.id,
         product_id=landing.productId,
@@ -183,6 +262,20 @@ def _to_summary_response(landing) -> LandingSummaryResponse:  # type: ignore[no-
         cta_positions=list(landing.ctaPositions or []),
         form_presentation=landing.formPresentation,
         cta_band_style=landing.ctaBandStyle,
+        accent_color=landing.accentColor or DEFAULT_ACCENT_COLOR,
+        offer_count=landing.offerCount,
+        offers=[
+            LandingOfferResponse(
+                quantity=offer.quantity,
+                label=offer.label,
+                sublabel=offer.sublabel,
+                discount_percent=offer.discount_percent,
+                compare_at_price=(
+                    None if offer.compare_at_price is None else float(offer.compare_at_price)
+                ),
+            )
+            for offer in offers
+        ],
         banner_count=len(banners),
     )
 
@@ -267,7 +360,8 @@ async def update_landing_config(
     settings: Settings = Depends(get_settings),  # noqa: B008 (FastAPI DI convention)
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
 ) -> LandingDetailResponse:
-    """Update slug, CTA configuration/band style, and COD form presentation."""
+    """Update slug, CTA configuration/band style, COD form presentation,
+    accent color, and the quantity offers the form presents."""
     db = get_prisma()
     service = LandingManagementService(db)
 
@@ -280,6 +374,11 @@ async def update_landing_config(
             cta_positions=request.cta_positions,
             form_presentation=request.form_presentation,
             cta_band_style=request.cta_band_style,
+            accent_color=request.accent_color,
+            offer_count=request.offer_count,
+            offers=(
+                None if request.offers is None else [offer.model_dump() for offer in request.offers]
+            ),
             actor=admin_user.subject,
         )
     except LandingNotFoundError as exc:
@@ -470,3 +569,116 @@ async def _banner_list(landing_id: int, public_host: str) -> BannerListResponse:
     return BannerListResponse(
         banners=[_to_banner_response(banner, public_host) for banner in stored]
     )
+
+
+# ---------------------------------------------------------------------------
+# Conversion components (Requirements 3.27-3.31)
+# ---------------------------------------------------------------------------
+
+
+def _to_block_response(block) -> LandingBlockResponse:  # type: ignore[no-untyped-def]
+    return LandingBlockResponse(
+        id=block.id,
+        block_type=block.blockType,
+        slot_index=block.slotIndex,
+        order_index=block.orderIndex,
+        enabled=block.enabled,
+        config=block.config if isinstance(block.config, dict) else {},
+    )
+
+
+async def _block_list(landing_id: int) -> LandingBlockListResponse:
+    service = LandingBlockService(get_prisma())
+    blocks = await service.list_blocks(landing_id)
+    return LandingBlockListResponse(
+        blocks=[_to_block_response(block) for block in blocks],
+        slots=await service.describe_slots(landing_id),
+        allowed_block_types=list(ALLOWED_BLOCK_TYPES),
+    )
+
+
+@router.get("/{landing_id}/blocks", response_model=LandingBlockListResponse)
+async def list_landing_blocks(
+    landing_id: int,
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
+) -> LandingBlockListResponse:
+    """List placed conversion components plus the landing's placement slots."""
+    try:
+        return await _block_list(landing_id)
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing not found") from exc
+
+
+@router.post(
+    "/{landing_id}/blocks",
+    response_model=LandingBlockListResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_landing_block(
+    landing_id: int,
+    request: LandingBlockCreateRequest,
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
+) -> LandingBlockListResponse:
+    """Place a conversion component in a slot of the rendered sequence."""
+    service = LandingBlockService(get_prisma())
+    try:
+        await service.create_block(
+            landing_id,
+            block_type=request.block_type,
+            slot_index=request.slot_index,
+            config=request.config,
+            enabled=request.enabled,
+            actor=admin_user.subject,
+        )
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing not found") from exc
+    except LandingValidationError as exc:
+        raise _field_error(exc.field, exc.message) from exc
+
+    return await _block_list(landing_id)
+
+
+@router.patch("/{landing_id}/blocks/{block_id}", response_model=LandingBlockListResponse)
+async def update_landing_block(
+    landing_id: int,
+    block_id: int,
+    request: LandingBlockUpdateRequest,
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
+) -> LandingBlockListResponse:
+    """Update a component's content, position, and/or enabled state."""
+    service = LandingBlockService(get_prisma())
+    try:
+        await service.update_block(
+            landing_id,
+            block_id,
+            slot_index=request.slot_index,
+            config=request.config,
+            enabled=request.enabled,
+            actor=admin_user.subject,
+        )
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing not found") from exc
+    except BlockNotFoundError as exc:
+        raise _not_found("Conversion component not found") from exc
+    except LandingValidationError as exc:
+        raise _field_error(exc.field, exc.message) from exc
+
+    return await _block_list(landing_id)
+
+
+@router.delete("/{landing_id}/blocks/{block_id}", response_model=LandingBlockListResponse)
+async def delete_landing_block(
+    landing_id: int,
+    block_id: int,
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
+) -> LandingBlockListResponse:
+    """Remove a placed conversion component."""
+    service = LandingBlockService(get_prisma())
+    try:
+        await service.delete_block(landing_id, block_id, actor=admin_user.subject)
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing not found") from exc
+    except BlockNotFoundError as exc:
+        raise _not_found("Conversion component not found") from exc
+
+    return await _block_list(landing_id)

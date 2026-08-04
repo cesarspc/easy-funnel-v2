@@ -128,11 +128,15 @@ describe("LandingPage", () => {
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
 
     const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("Audífonos Bluetooth");
-    expect(dialog).toHaveTextContent(/No pagas nada ahora/i);
+    // The offer is restated as the priced quantity tiers plus the total on the
+    // confirm button. The product name and the COD promise are not repeated
+    // here: the sheet's own title/subtitle and the note under the button
+    // already carry them.
+    expect(dialog).toHaveTextContent("1 unidad");
+    expect(dialog).toHaveTextContent(/Pago seguro contraentrega/i);
     expect(screen.getByRole("button", { name: /Confirmar pedido/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Agregar una unidad" }));
+    await user.click(screen.getByRole("radio", { name: /2 unidades/ }));
     expect(dialog).toHaveTextContent("2 unidades");
   });
 

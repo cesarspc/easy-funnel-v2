@@ -12,9 +12,19 @@ from upstash_redis import AsyncRedis
 from app.core.request_context import RequestContext, get_request_context
 from app.core.settings import Settings, get_settings
 from app.db.client import get_prisma
+from app.domains.landings.accent_color import (
+    DEFAULT_ACCENT_COLOR,
+    derive_accent_palette,
+)
 from app.domains.landings.cta_background import (
     BannerEdges,
     compute_cta_backgrounds,
+)
+from app.domains.landings.offers import (
+    LandingOffer,
+    OfferPricing,
+    parse_stored_offers,
+    resolve_offer_pricing,
 )
 from app.domains.orders.errors import OrderValidationError
 from app.redis.client import get_redis
@@ -54,6 +64,58 @@ class CtaBackgroundResponse(BaseModel):
     source: str
 
 
+class ConversionBlockResponse(BaseModel):
+    """One placed conversion component (Requirements 3.27-3.31).
+
+    `slot_index` counts the rendered elements the component follows, so the
+    client inserts it after that many banners/CTA bands. A slot beyond the
+    sequence renders at the end rather than disappearing. `config` is content
+    only; every component's presentation is fixed in the Landing chrome.
+    """
+
+    id: int
+    block_type: str
+    slot_index: int
+    order_index: int
+    config: dict
+
+
+class AccentPaletteResponse(BaseModel):
+    """The landing's accent and every shade the chrome derives from it.
+
+    Sent whole rather than letting the client do color math, so the first paint
+    is correct and the dashboard preview can never disagree with the live page
+    about a shade (see app/domains/landings/accent_color.py).
+    """
+
+    accent: str
+    deep: str
+    tint: str
+    ink: str
+
+
+class LandingOfferResponse(BaseModel):
+    """One quantity offer, priced.
+
+    `total` is what the buyer owes and what the order will record. `gross` and
+    `savings` are present so a discounted tier can show its original price
+    struck through without the client recomputing money. `sublabel` is `None`
+    when the merchant left it blank, meaning the tile renders no second line.
+    `compare_at_price` is informational only and exists on the single-unit
+    offer alone.
+    """
+
+    quantity: int
+    label: str
+    sublabel: str | None = None
+    discount_percent: int = 0
+    unit_price: float
+    gross: float
+    total: float
+    savings: float
+    compare_at_price: float | None = None
+
+
 class LandingResponse(BaseModel):
     landing_id: int
     product_id: int
@@ -69,6 +131,31 @@ class LandingResponse(BaseModel):
     # neighbouring edges) or `solid` (one flat color, the midpoint of them).
     # The colors themselves are identical either way.
     cta_band_style: str
+    # The merchant's accent plus its derived shades. The page applies these as
+    # CSS custom properties, so one stored color themes the CTA, the offer
+    # tiles, focus rings, and accent text together.
+    accent_color: str
+    accent_palette: AccentPaletteResponse
+    # The quantity offers the COD form presents, already priced.
+    offers: list[LandingOfferResponse]
+    blocks: list[ConversionBlockResponse]
+
+
+def _to_offer_response(offer: LandingOffer, pricing: OfferPricing) -> LandingOfferResponse:
+    """Flatten an offer and its resolved pricing into the public payload."""
+    return LandingOfferResponse(
+        quantity=offer.quantity,
+        label=offer.label,
+        sublabel=offer.sublabel,
+        discount_percent=offer.discount_percent,
+        unit_price=float(pricing.unit_price),
+        gross=float(pricing.gross),
+        total=float(pricing.total),
+        savings=float(pricing.savings),
+        compare_at_price=(
+            None if pricing.compare_at_price is None else float(pricing.compare_at_price)
+        ),
+    )
 
 
 @router.get("/landings/{slug}", response_model=LandingResponse)
@@ -87,6 +174,12 @@ async def get_public_landing(
         where={"slug": slug},
         include={
             "product": True,
+            # Enabled components only: a disabled component is a merchant draft,
+            # never something a visitor should see.
+            "blocks": {
+                "where": {"enabled": True},
+                "order_by": [{"slotIndex": "asc"}, {"orderIndex": "asc"}],
+            },
             "banners": {
                 "include": {
                     "imageAsset": {
@@ -199,6 +292,29 @@ async def get_public_landing(
         for band in compute_cta_backgrounds(cta_positions, banner_edges)
     ]
 
+    blocks = [
+        ConversionBlockResponse(
+            id=block.id,
+            block_type=block.blockType,
+            slot_index=block.slotIndex,
+            order_index=block.orderIndex,
+            config=block.config if isinstance(block.config, dict) else {},
+        )
+        # Prisma relations are opt-in; `or []` keeps a payload without the
+        # relation from becoming a 500.
+        for block in (landing.blocks or [])
+    ]
+
+    palette = derive_accent_palette(landing.accentColor or DEFAULT_ACCENT_COLOR)
+
+    # Priced here, once, from the product's current price. The COD form shows
+    # these totals and the order records the one the buyer picks, so the number
+    # on the button and the number the courier collects come from the same call.
+    offers = [
+        _to_offer_response(offer, resolve_offer_pricing(product.price, offer))
+        for offer in parse_stored_offers(landing.offers, offer_count=landing.offerCount)
+    ]
+
     return LandingResponse(
         landing_id=landing.id,
         product_id=product.id,
@@ -211,6 +327,15 @@ async def get_public_landing(
         cta_backgrounds=cta_backgrounds,
         form_presentation=landing.formPresentation,
         cta_band_style=landing.ctaBandStyle,
+        accent_color=palette.accent,
+        accent_palette=AccentPaletteResponse(
+            accent=palette.accent,
+            deep=palette.deep,
+            tint=palette.tint,
+            ink=palette.ink,
+        ),
+        offers=offers,
+        blocks=blocks,
     )
 
 

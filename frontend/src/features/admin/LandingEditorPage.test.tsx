@@ -19,6 +19,14 @@ vi.mock("../../api", async () => {
       deleteBanner: vi.fn(),
       publish: vi.fn(),
       unpublish: vi.fn(),
+      // The editor mounts the conversion components panel, which reads its own
+      // list on mount; an empty list keeps these tests about the editor.
+      listBlocks: vi
+        .fn()
+        .mockResolvedValue({ blocks: [], slots: ["0-1 · antes de banner 1"], allowed_block_types: [] }),
+      createBlock: vi.fn(),
+      updateBlock: vi.fn(),
+      deleteBlock: vi.fn(),
     },
   };
 });
@@ -54,6 +62,13 @@ const DETAIL: LandingDetail = {
   cta_positions: [],
   form_presentation: "inline",
   cta_band_style: "gradient",
+  accent_color: "#1a7a4c",
+  offer_count: 3,
+  offers: [
+    { quantity: 1, label: "1 unidad", sublabel: null, discount_percent: 0, compare_at_price: null },
+    { quantity: 2, label: "2 unidades", sublabel: null, discount_percent: 0, compare_at_price: null },
+    { quantity: 3, label: "3 unidades", sublabel: null, discount_percent: 0, compare_at_price: null },
+  ],
   banner_count: 2,
   banners: [banner(1, 0, "Primero"), banner(2, 1, "Segundo")],
   resolved_cta_positions: [1, 2],
@@ -194,6 +209,31 @@ describe("LandingEditorPage", () => {
         cta_positions: [],
         form_presentation: "modal",
         cta_band_style: "solid",
+        accent_color: "#1a7a4c",
+        offer_count: 3,
+        offers: [
+          {
+            quantity: 1,
+            label: "1 unidad",
+            sublabel: "",
+            discount_percent: null,
+            compare_at_price: null,
+          },
+          {
+            quantity: 2,
+            label: "2 unidades",
+            sublabel: "",
+            discount_percent: null,
+            compare_at_price: null,
+          },
+          {
+            quantity: 3,
+            label: "3 unidades",
+            sublabel: "",
+            discount_percent: null,
+            compare_at_price: null,
+          },
+        ],
       }),
     );
   });
@@ -282,5 +322,163 @@ describe("LandingEditorPage", () => {
     );
     expect(screen.getByRole("button", { name: "Publicar" })).toBeInTheDocument();
     expect(screen.queryByText("Publicado")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The offer and accent controls. What matters here is that the merchant can only
+ * express configurations the public form can actually render: the number of
+ * offer rows follows the count, a single unit is offered a reference price
+ * instead of a discount, and a blank sub-text is submitted as the "no second
+ * line" value rather than being dropped.
+ */
+describe("LandingEditorPage offers and accent", () => {
+  beforeEach(() => {
+    vi.mocked(landingsApi.get).mockResolvedValue(DETAIL);
+    vi.mocked(landingsApi.updateConfig).mockResolvedValue(DETAIL);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders one editable offer per configured offer", async () => {
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    expect(screen.getByLabelText("Número de ofertas")).toHaveValue("3");
+    // Three offers configured -> three sets of copy fields.
+    expect(screen.getByLabelText("Texto", { selector: "#landing-offer-label-1" })).toHaveValue(
+      "1 unidad",
+    );
+    expect(screen.getByLabelText("Texto", { selector: "#landing-offer-label-3" })).toHaveValue(
+      "3 unidades",
+    );
+  });
+
+  it("shows fewer offer rows when the count is lowered", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.selectOptions(screen.getByLabelText("Número de ofertas"), "1");
+
+    expect(
+      screen.getByLabelText("Texto", { selector: "#landing-offer-label-1" }),
+    ).toBeInTheDocument();
+    // The merchant never edits copy for an offer the buyer will not see.
+    expect(document.querySelector("#landing-offer-label-2")).toBeNull();
+    expect(document.querySelector("#landing-offer-label-3")).toBeNull();
+  });
+
+  it("offers a reference price on one unit and a discount on the rest", async () => {
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    // One unit has no volume saving to express, so it gets the anchor price.
+    expect(document.querySelector("#landing-offer-compare-1")).not.toBeNull();
+    expect(document.querySelector("#landing-offer-discount-1")).toBeNull();
+    // Multi-unit offers get a real percentage off instead.
+    expect(document.querySelector("#landing-offer-discount-2")).not.toBeNull();
+    expect(document.querySelector("#landing-offer-compare-2")).toBeNull();
+  });
+
+  it("caps the discount input at the maximum the backend accepts", async () => {
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    const discount = document.querySelector("#landing-offer-discount-2");
+    expect(discount).toHaveAttribute("max", "90");
+  });
+
+  it("submits the edited copy, discount, and accent color", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.clear(screen.getByLabelText("Texto", { selector: "#landing-offer-label-2" }));
+    await user.type(
+      screen.getByLabelText("Texto", { selector: "#landing-offer-label-2" }),
+      "Llévate dos",
+    );
+    await user.type(
+      screen.getByLabelText("Sub-texto (opcional)", { selector: "#landing-offer-sublabel-2" }),
+      "Ahorra 10%",
+    );
+    await user.type(document.querySelector("#landing-offer-discount-2")!, "10");
+    await user.clear(screen.getByLabelText("Color de la landing en hexadecimal"));
+    await user.type(screen.getByLabelText("Color de la landing en hexadecimal"), "#2563eb");
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.accent_color).toBe("#2563eb");
+    expect(payload.offer_count).toBe(3);
+    expect(payload.offers?.[1]).toEqual({
+      quantity: 2,
+      label: "Llévate dos",
+      sublabel: "Ahorra 10%",
+      discount_percent: 10,
+      compare_at_price: null,
+    });
+  });
+
+  it("submits a blank sub-text as the value that turns the second line off", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    // Empty string is meaningful — not omitted, not null.
+    expect(payload.offers?.[0].sublabel).toBe("");
+    // An untouched discount is cleared rather than sent as 0, so the backend
+    // applies its own default.
+    expect(payload.offers?.[0].discount_percent).toBeNull();
+  });
+
+  it("binds a backend offer error to the offers fieldset", async () => {
+    const user = userEvent.setup();
+    vi.mocked(landingsApi.updateConfig).mockRejectedValue(
+      new ApiError(422, "Offer 2: offer text is required.", {
+        offers: "Offer 2: offer text is required.",
+      }),
+    );
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    // Every offer's text input points at the message, so assistive tech reads
+    // the reason alongside the control that produced it (Requirement 8.19).
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Texto", { selector: "#landing-offer-label-2" }),
+      ).toHaveAccessibleDescription("Offer 2: offer text is required."),
+    );
+    const announced = document.querySelector("#landing-offers-error");
+    expect(announced).toHaveAttribute("role", "alert");
+    expect(announced).toHaveTextContent("Offer 2: offer text is required.");
+  });
+
+  it("binds a backend accent error to the accent control", async () => {
+    const user = userEvent.setup();
+    vi.mocked(landingsApi.updateConfig).mockRejectedValue(
+      new ApiError(422, "Accent color must be a hex color such as #1a7a4c.", {
+        accent_color: "Accent color must be a hex color such as #1a7a4c.",
+      }),
+    );
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    const swatch = await screen.findByLabelText("Color de la landing");
+    await waitFor(() => expect(swatch).toHaveAttribute("aria-invalid", "true"));
+    expect(swatch).toHaveAccessibleDescription(
+      /Accent color must be a hex color such as #1a7a4c\./,
+    );
   });
 });

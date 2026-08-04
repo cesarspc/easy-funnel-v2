@@ -17,9 +17,11 @@ export interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement | H
   /** Optional textarea instead of input */
   textarea?: boolean;
   /**
-   * Fixed text shown inside the control, before the input (e.g. the `+57`
-   * country code). Purely presentational: it is never part of the value, so
-   * the buyer cannot delete or retype it.
+   * Fixed value implied for the control (e.g. the `+57` country code) that
+   * is never part of the editable value and never shown to the buyer — the
+   * placeholder and numeric keyboard already communicate the expected
+   * format, so a visible prefix chip only added visual noise without
+   * changing how the phone number itself is captured or submitted.
    */
   prefixText?: ReactNode;
   /**
@@ -60,7 +62,7 @@ export function FormField({
     <InputElement
       id={name}
       name={name}
-      className={prefixText ? `${baseClass}-input--bare` : inputClass}
+      className={inputClass}
       aria-invalid={!!error}
       aria-describedby={describedBy}
       list={listId}
@@ -82,11 +84,16 @@ export function FormField({
       )}
 
       {prefixText ? (
-        <div className={inputClass} data-has-prefix="true">
-          <span className={`${baseClass}-prefix`} aria-hidden="true">
-            {prefixText}
-          </span>
-          {control}
+        <div className={`${inputClass} form-field-input--prefixed`} data-has-prefix="true">
+          <InputElement
+            id={name}
+            name={name}
+            className="form-field-input--prefixed-control"
+            aria-invalid={!!error}
+            aria-describedby={describedBy}
+            list={listId}
+            {...props}
+          />
         </div>
       ) : (
         control

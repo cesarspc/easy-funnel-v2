@@ -359,8 +359,12 @@ describe("CTA band: CTA placement modes", () => {
     renderAtSlug();
     await screen.findByAltText("Banner 1");
 
-    // The band for position 2 follows banner 2, never banner 1.
-    expect(document.querySelector('[data-banner-id="1"]')?.nextElementSibling).toBeNull();
+    // The band for position 2 follows banner 2, never banner 1. The sequence is
+    // one flat column (banners, CTA bands, and conversion components are
+    // siblings), so "no band here" is asserted on the element that follows.
+    expect(document.querySelector('[data-banner-id="1"]')?.nextElementSibling).not.toHaveClass(
+      "lp-page__cta-band",
+    );
     expect(document.querySelector('[data-banner-id="2"]')?.nextElementSibling).toHaveClass(
       "lp-page__cta-band",
     );

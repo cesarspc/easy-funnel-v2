@@ -26,17 +26,18 @@
   width: 100%;
   font-family: var(--lp-font);
   font-size: 1rem;
+  font-weight: 400;
   padding: 13px 14px;
   border-radius: var(--lp-radius-sm);
   border: 1px solid var(--lp-hairline);
   background: var(--lp-bg);
-  color: var(--lp-ink);
+  color: var(--lp-ink-quiet);
   transition: border-color var(--lp-duration) var(--lp-ease);
 }
 
 .form-field-input::placeholder,
 .form-field-input--error::placeholder,
-.form-field-input--bare::placeholder {
+.form-field-input--prefixed-control::placeholder {
   /* 4.6:1 on white — placeholders are read, not decoration. */
   color: #6b7480;
 }
@@ -53,42 +54,38 @@
   border-color: var(--lp-error);
 }
 
-/* Prefixed control (the `+57` phone field): the wrapper carries the border
-   and focus ring, the inner input carries the value. */
-.form-field-input[data-has-prefix="true"],
-.form-field-input--error[data-has-prefix="true"] {
+/* Prefixed control (the phone field): kept as its own wrapper class so a
+   future prefixed field can restyle without touching the plain input, but
+   the country code itself is no longer shown — the wrapper now just carries
+   the border/focus ring and the horizontal inset for a control whose value
+   implies a fixed format. Padding lives in exactly one place (split lateral
+   on the wrapper, vertical on the control) so this field's row height
+   matches every plain field's instead of stacking two paddings. */
+.form-field-input--prefixed {
   display: flex;
   align-items: center;
-  gap: 6px;
   padding: 0 14px;
 }
 
-.form-field-input[data-has-prefix="true"]:focus-within {
+.form-field-input--prefixed:focus-within {
   border-color: var(--lp-action);
   box-shadow: inset 0 0 0 1px var(--lp-action);
 }
 
-.form-field-prefix {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--lp-ink-quiet);
-  font-variant-numeric: tabular-nums;
-  flex: none;
-}
-
-.form-field-input--bare {
+.form-field-input--prefixed-control {
   flex: 1 1 auto;
   min-width: 0;
   border: none;
   background: transparent;
   font-family: var(--lp-font);
   font-size: 1rem;
-  color: var(--lp-ink);
+  font-weight: 400;
+  color: var(--lp-ink-quiet);
   padding: 13px 0;
   font-variant-numeric: tabular-nums;
 }
 
-.form-field-input--bare:focus {
+.form-field-input--prefixed-control:focus {
   outline: none;
 }
 

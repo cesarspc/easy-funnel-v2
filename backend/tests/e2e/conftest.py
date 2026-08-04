@@ -286,6 +286,16 @@ class CodFlowHarness:
             await self.db.auditlog.delete_many(
                 where={"targetType": "landing", "targetId": str(landing.landing_id)}
             )
+            # `landing_blocks` holds a restrict FK to the landing, so placed
+            # components (and their audit rows) go before the landing itself.
+            stored_blocks = await self.db.landingblock.find_many(
+                where={"landingId": landing.landing_id}
+            )
+            for block in stored_blocks:
+                await self.db.auditlog.delete_many(
+                    where={"targetType": "landing_block", "targetId": str(block.id)}
+                )
+            await self.db.landingblock.delete_many(where={"landingId": landing.landing_id})
             await self.db.banner.delete_many(where={"landingId": landing.landing_id})
             for image_asset_id in image_asset_ids:
                 await self.db.imagevariant.delete_many(where={"imageAssetId": image_asset_id})

@@ -25,7 +25,7 @@
 import { useMemo, useRef, useState, type FormEvent, type JSX } from "react";
 import { FormField } from "../../components/FormField";
 import { ApiError, publicApi } from "../../api";
-import type { OrderCreateResponse } from "../../api";
+import type { OrderCreateResponse, PublicLandingOffer } from "../../api";
 import "./CodForm.css";
 
 export interface CodFormValues {
@@ -47,6 +47,10 @@ const INITIAL_VALUES: CodFormValues = {
 };
 
 const MAX_QUANTITY = 99;
+
+/** Fixed multiplier choices exposed in the form; the backend/validation
+ *  contract still allows 1 through MAX_QUANTITY (Requirement 5.5). */
+const QUANTITY_OPTIONS = [1, 2, 3] as const;
 
 /** Colombia's 32 departments plus the capital district, for the datalist. */
 const DEPARTMENTS = [
@@ -107,6 +111,15 @@ export interface CodFormProps {
   productName?: string;
   /** Unit price in COP, used for the recap total and the confirm button. */
   unitPrice?: number;
+  /**
+   * The quantity offers this landing presents, already priced by the backend.
+   *
+   * Absent on payloads cached before offers were configurable, in which case
+   * the form falls back to the 1/2/3 tiers it always rendered. The totals here
+   * are authoritative: they already include any discount the merchant set, and
+   * the order records the total of the tier the buyer picks.
+   */
+  offers?: PublicLandingOffer[];
   onSuccess: (result: OrderCreateResponse) => void;
 }
 
@@ -163,6 +176,7 @@ export function CodForm({
   landingSlug,
   productName,
   unitPrice,
+  offers,
   onSuccess,
 }: CodFormProps): JSX.Element {
   const [values, setValues] = useState<CodFormValues>(INITIAL_VALUES);
@@ -171,12 +185,49 @@ export function CodForm({
   const [formError, setFormError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  /**
+   * The tiers to render. A landing configured by the merchant supplies them;
+   * a payload cached before offers existed falls back to the 1/2/3 list with
+   * plain totals, so an old cache never renders an empty quantity picker.
+   */
+  const tiers = useMemo<PublicLandingOffer[]>(() => {
+    if (offers && offers.length > 0) {
+      return [...offers].sort((a, b) => a.quantity - b.quantity);
+    }
+    if (unitPrice === undefined) return [];
+    return QUANTITY_OPTIONS.map((option) => ({
+      quantity: option,
+      label: option === 1 ? "1 unidad" : `${option} unidades`,
+      sublabel: null,
+      discount_percent: 0,
+      unit_price: unitPrice,
+      gross: unitPrice * option,
+      total: unitPrice * option,
+      savings: 0,
+      compare_at_price: null,
+    }));
+  }, [offers, unitPrice]);
+
   const quantity = Number.parseInt(values.quantity, 10);
-  const safeQuantity = Number.isInteger(quantity) && quantity > 0 ? quantity : 1;
-  const total = useMemo(
-    () => (unitPrice === undefined ? undefined : unitPrice * safeQuantity),
-    [unitPrice, safeQuantity],
+  const parsedQuantity = Number.isInteger(quantity) && quantity > 0 ? quantity : 1;
+  // Never leave the selection on a quantity this landing does not offer: a
+  // merchant can lower the offer count between the page loading and the sheet
+  // opening, and the submit button must always name a real tier's total.
+  const safeQuantity = tiers.some((tier) => tier.quantity === parsedQuantity)
+    ? parsedQuantity
+    : (tiers[0]?.quantity ?? parsedQuantity);
+
+  const selectedTier = useMemo(
+    () => tiers.find((tier) => tier.quantity === safeQuantity),
+    [tiers, safeQuantity],
   );
+
+  // The discounted total when the landing priced this tier, the plain product
+  // of price and quantity otherwise.
+  const total = useMemo(() => {
+    if (selectedTier) return selectedTier.total;
+    return unitPrice === undefined ? undefined : unitPrice * safeQuantity;
+  }, [selectedTier, unitPrice, safeQuantity]);
 
   function update(field: keyof CodFormValues, value: string) {
     setValues((v) => ({ ...v, [field]: value }));
@@ -248,27 +299,79 @@ export function CodForm({
 
   return (
     <form className="cod-form" onSubmit={handleSubmit} noValidate ref={formRef}>
-      {(productName || unitPrice !== undefined) && (
+      {(productName || tiers.length > 0) && (
         <div className="cod-form__recap">
-          <div className="cod-form__recap-line">
-            <span className="cod-form__recap-name">{productName ?? "Tu pedido"}</span>
-            {unitPrice !== undefined && (
-              <span className="cod-form__recap-unit">
-                {CURRENCY.format(unitPrice)} c/u
-              </span>
-            )}
-          </div>
-          <div className="cod-form__recap-line cod-form__recap-line--total">
-            <span>
-              {safeQuantity} {safeQuantity === 1 ? "unidad" : "unidades"}
-            </span>
-            {total !== undefined && (
-              <strong className="cod-form__recap-total">{CURRENCY.format(total)}</strong>
-            )}
-          </div>
-          <p className="cod-form__recap-note">
-            No pagas nada ahora. Pagas en efectivo cuando el mensajero te entregue.
-          </p>
+          {/* Quantity is chosen right here, as a price tier, instead of a
+              plain number field buried at the end of the form: the buyer
+              sees what each quantity costs in the same place they're
+              already reading the offer. Each tier is a real radio input
+              under the hood, reporting through the same `quantity` field.
+              Which tiers exist, what they are called, and whether they carry a
+              discount are the merchant's per-landing configuration; the
+              presentation below is fixed in the chrome. */}
+          <fieldset className="cod-form__tiers" role="radiogroup" aria-label="Cantidad">
+            <legend className="sr-only">Elige cuántas unidades quieres</legend>
+            {tiers.map((tier) => {
+              const discounted = tier.discount_percent > 0;
+              return (
+                <label
+                  key={tier.quantity}
+                  className={
+                    "cod-form__tier" +
+                    (discounted ? " cod-form__tier--best" : "") +
+                    (safeQuantity === tier.quantity ? " cod-form__tier--selected" : "")
+                  }
+                >
+                  {/* The badge marks a real, computable saving rather than a
+                      hardcoded "most ordered" claim this platform cannot
+                      verify. */}
+                  {discounted && (
+                    <span className="cod-form__tier-badge">
+                      -{tier.discount_percent}%
+                    </span>
+                  )}
+                  <input
+                    type="radio"
+                    name="quantity"
+                    value={tier.quantity}
+                    checked={safeQuantity === tier.quantity}
+                    onChange={() => setQuantity(tier.quantity)}
+                    onBlur={() => handleBlur("quantity")}
+                  />
+                  <span className="cod-form__tier-left">
+                    <span className="cod-form__tier-qty">{tier.label}</span>
+                    {/* Blank sub-text is how a merchant turns the second line
+                        off, so it is simply absent rather than empty. */}
+                    {tier.sublabel && (
+                      <span className="cod-form__tier-save">{tier.sublabel}</span>
+                    )}
+                  </span>
+                  <span className="cod-form__tier-prices">
+                    {/* The pre-discount price, and on the single-unit tier the
+                        merchant's own reference price. Both are struck through
+                        and informational; `total` is what is actually owed. */}
+                    {discounted ? (
+                      <s className="cod-form__tier-was">{CURRENCY.format(tier.gross)}</s>
+                    ) : (
+                      tier.compare_at_price !== null && (
+                        <s className="cod-form__tier-was">
+                          {CURRENCY.format(tier.compare_at_price)}
+                        </s>
+                      )
+                    )}
+                    <strong className="cod-form__tier-total">
+                      {CURRENCY.format(tier.total)}
+                    </strong>
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
+          {errors.quantity && (
+            <p className="cod-form__quantity-error" role="alert">
+              {errors.quantity}
+            </p>
+          )}
         </div>
       )}
 
@@ -355,45 +458,6 @@ export function CodForm({
         error={errors.address}
       />
 
-      {/* Quantity is a stepper, not a bare number input: on a phone, tapping
-          +/- is faster and cannot produce an empty or non-numeric value. The
-          input stays in the DOM (and labelled) so keyboard entry still works. */}
-      <div className="cod-form__quantity">
-        <FormField
-          name="quantity"
-          label="Cantidad"
-          type="number"
-          inputMode="numeric"
-          required
-          min={1}
-          max={MAX_QUANTITY}
-          value={values.quantity}
-          onChange={(e) => update("quantity", e.target.value)}
-          onBlur={() => handleBlur("quantity")}
-          error={errors.quantity}
-        />
-        <div className="cod-form__stepper">
-          <button
-            type="button"
-            className="cod-form__stepper-button"
-            onClick={() => setQuantity(safeQuantity - 1)}
-            disabled={safeQuantity <= 1}
-            aria-label="Quitar una unidad"
-          >
-            <span aria-hidden="true">−</span>
-          </button>
-          <button
-            type="button"
-            className="cod-form__stepper-button"
-            onClick={() => setQuantity(safeQuantity + 1)}
-            disabled={safeQuantity >= MAX_QUANTITY}
-            aria-label="Agregar una unidad"
-          >
-            <span aria-hidden="true">+</span>
-          </button>
-        </div>
-      </div>
-
       {formError && (
         <p className="cod-form__error" role="alert">
           {formError}
@@ -413,9 +477,7 @@ export function CodForm({
             "Confirmar pedido"
           )}
         </button>
-        <p className="cod-form__note">
-          Pago contraentrega · No pedimos datos de tarjeta
-        </p>
+        <p className="cod-form__note">Pago seguro contraentrega</p>
       </div>
     </form>
   );

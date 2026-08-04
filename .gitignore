@@ -19,10 +19,36 @@ backend/app/generated/
 # GeoIP licensed database files — never committed, provisioned at build/deploy time.
 infrastructure/geoip/*.mmdb
 
-# Local uploads / database volumes must never be committed.
 **/uploads/
 **/*.sqlite3
 
 # Editor / OS
 .DS_Store
 Thumbs.db
+
+*.md
+*.log
+*.bat
+*.ps1
+!README.md
+
+# Test output files
+frontend/test_output*.txt
+output_check.txt
+live_err.txt
+frontend/vite_out.log
+frontend/vite_start.log
+
+.kiro/
+.agents/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.impeccable/
+.hypothesis/
+docs/
+infrastructure/
+specs/
+
+# Python egg-info
+*.egg-info/

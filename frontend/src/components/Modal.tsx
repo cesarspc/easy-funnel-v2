@@ -30,6 +30,13 @@ export interface ModalProps {
   children: ReactNode;
   /** Optional ARIA description */
   ariaDescription?: string;
+  /**
+   * Optional inline style applied to the portal root (modal-backdrop).
+   * Use this to forward CSS custom properties that would otherwise not
+   * cascade into the portal, since `createPortal` renders outside the
+   * page's DOM tree.
+   */
+  style?: React.CSSProperties;
 }
 
 const FOCUSABLE_SELECTOR =
@@ -49,6 +56,7 @@ export function Modal({
   subtitle,
   children,
   ariaDescription,
+  style,
 }: ModalProps): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
@@ -108,6 +116,7 @@ export function Modal({
   return createPortal(
     <div
       className="modal-backdrop"
+      style={style}
       // A tap on the backdrop closes; a tap that started inside the sheet and
       // ended on the backdrop (drag-select) does not, because the handler only
       // fires when the target is the backdrop itself.
