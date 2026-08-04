@@ -4,7 +4,7 @@ A lightweight commerce platform for selling physical products through dedicated 
 
 ## What it does
 
-Each product gets its own banner-based landing page. A visitor arrives (usually from a paid ad), sees the product banners, clicks the call-to-action, fills out a short order form, and the order appears in the admin dashboard — ready for fulfillment. Server-side fraud checks run automatically before any order is accepted.
+Each product gets its own banner-based landing page. A visitor arrives (usually from a paid ad), sees the product banners, clicks the call-to-action, fills out a short order form, and the order appears in the admin dashboard — ready for fulfillment. Server-side fraud checks run automatically before any order is effectively accepted.
 
 ## Architecture
 
