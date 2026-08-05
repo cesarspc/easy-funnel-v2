@@ -136,10 +136,7 @@ export const ordersApi = {
     if (params?.landing_id) query.append("landing_id", params.landing_id.toString());
     if (params?.date_from) query.append("date_from", params.date_from);
     if (params?.date_to) query.append("date_to", params.date_to);
-    const response = await fetch(`/api/admin/orders/export.csv?${query}`, {
-      credentials: "include",
-    });
-    return response.blob();
+    return apiClient.getBlob(`/admin/orders/export.csv?${query}`);
   },
 };
 

@@ -1,7 +1,7 @@
 /**
  * Centralized API transport. All backend calls go through `apiClient` so
- * auth headers/cookies and error mapping stay in one place. Individual
- * feature modules add typed request/response helpers on top of this.
+ * URL construction, auth cookies, headers, and error mapping stay in one
+ * place. Individual feature modules add typed helpers on top of this.
  */
 
 export class ApiError extends Error {
@@ -16,14 +16,19 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_PATH = import.meta.env.VITE_API_BASE_URL ?? "/api";
-console.log(API_BASE_PATH)
+/** API root compiled by Vite from VITE_API_BASE_URL. */
+export const API_BASE_URL = __API_BASE_URL__;
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export function buildApiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${normalizedPath}`;
+}
+
+async function fetchApi(path: string, options: RequestInit = {}): Promise<Response> {
   // `FormData` bodies must keep the browser-generated multipart boundary, so
   // the JSON content type is only applied to non-multipart requests.
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
-  const response = await fetch(`${API_BASE_PATH}${path}`, {
+  const response = await fetch(buildApiUrl(path), {
     ...options,
     credentials: "include",
     headers: {
@@ -65,6 +70,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new ApiError(response.status, message, fieldErrors);
   }
 
+  return response;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetchApi(path, options);
+
   if (response.status === 204) {
     return undefined as T;
   }
@@ -74,6 +85,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const apiClient = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
+  getBlob: async (path: string): Promise<Blob> => {
+    const response = await fetchApi(path, { method: "GET" });
+    return response.blob();
+  },
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>

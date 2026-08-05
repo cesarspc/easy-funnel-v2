@@ -5,14 +5,9 @@ account_id = ""
 pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
 
-# SPA fallback for client-side routing
+# SPA fallback for client-side routing. API requests do not pass through Pages;
+# the production bundle calls VITE_API_BASE_URL directly.
 [[redirects]]
   from = "/*"
   to = "/index.html"
-  status = 200
-
-# API routing (handled by Cloudflare DNS, not Pages)
-[[redirects]]
-  from = "/api/*"
-  to = "https://backend.example.com/api/:splat"
   status = 200
