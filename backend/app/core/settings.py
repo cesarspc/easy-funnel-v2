@@ -47,6 +47,20 @@ class Settings(BaseSettings):
     geoip_database_path: str = Field(alias="GEOIP_DATABASE_PATH")
     geoip_update_url: str | None = Field(default=None, alias="GEOIP_UPDATE_URL")
 
+    # --- Admin bootstrap ---
+    # When both are set, startup provisions this Administrator if it is missing.
+    # An existing account is left untouched unless `admin_password_reset` is on,
+    # so a restart never silently reverts a rotated password.
+    admin_username: str | None = Field(default=None, alias="ADMIN_USERNAME")
+    admin_password: str | None = Field(default=None, alias="ADMIN_PASSWORD")
+    admin_password_reset: bool = Field(default=False, alias="ADMIN_PASSWORD_RESET")
+
+    # --- CORS ---
+    cors_allowed_origins: str = Field(
+        default="http://localhost:5173",
+        alias="CORS_ALLOWED_ORIGINS",
+    )
+
     # --- Deployment ---
     app_version: str = Field(default="0.1.0", alias="APP_VERSION")
     environment: str = Field(default="development", alias="ENVIRONMENT")

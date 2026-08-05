@@ -1,12 +1,13 @@
 """Create or refresh an Administrator account (Requirement 7.1, 7.2, 10.10).
 
-Local/bootstrap maintenance only: the platform has no self-service admin
-signup, so the first Administrator — and any password refresh for a
-development environment — is created through this script against the
-database in `DATABASE_URL`.
+Local/bootstrap maintenance entry point. The provisioning logic itself lives in
+`app.services.admin_bootstrap_service` so this script and the application
+startup hook (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) cannot drift apart; this
+module only owns argument parsing and the database connection lifecycle.
 
-The password is only ever stored as an Argon2id hash, and the mutation is
-recorded in `audit_log` like every other administrative change.
+Unlike startup — which leaves an existing account alone — this script rewrites
+the password of an existing account by default, because that is the explicit
+intent of running it by hand. Pass `--no-reset` to create-only.
 
 Usage (PowerShell):
 
@@ -24,10 +25,12 @@ import asyncio
 import os
 import sys
 
-from app.core.password_hashing import hash_password
 from app.db.client import connect_db, disconnect_db, get_db
-
-MIN_PASSWORD_LENGTH = 12
+from app.services.admin_bootstrap_service import (
+    MIN_PASSWORD_LENGTH,
+    AdminPasswordTooShortError,
+    ensure_admin_user,
+)
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -39,39 +42,31 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Administrator password. Defaults to the ADMIN_PASSWORD environment variable.",
     )
     parser.add_argument("--role", default="admin", help="Role stored on the account.")
+    parser.add_argument(
+        "--no-reset",
+        action="store_true",
+        help="Leave the password untouched if the account already exists.",
+    )
     return parser.parse_args(argv)
 
 
-async def seed_admin(*, username: str, password: str, role: str = "admin") -> str:
-    """Create or refresh `username`; returns "created" or "refreshed"."""
+async def seed_admin(
+    *,
+    username: str,
+    password: str,
+    role: str = "admin",
+    reset_existing: bool = True,
+) -> str:
+    """Connect, provision `username`, and disconnect; returns the outcome."""
     await connect_db()
-    db = get_db()
     try:
-        existing = await db.adminuser.find_unique(where={"username": username})
-        password_hash = hash_password(password)
-
-        if existing is None:
-            await db.adminuser.create(
-                {"username": username, "passwordHash": password_hash, "role": role}
-            )
-            outcome = "created"
-        else:
-            await db.adminuser.update(
-                where={"username": username},
-                data={"passwordHash": password_hash, "role": role},
-            )
-            outcome = "refreshed"
-
-        await db.auditlog.create(
-            data={
-                "actor": "seed_admin_script",
-                "action": f"admin_user.{outcome}",
-                "targetType": "admin_user",
-                "targetId": username,
-                "result": "success",
-            }
+        return await ensure_admin_user(
+            get_db(),
+            username=username,
+            password=password,
+            role=role,
+            reset_existing=reset_existing,
         )
-        return outcome
     finally:
         await disconnect_db()
 
@@ -90,8 +85,20 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    outcome = asyncio.run(seed_admin(username=args.username, password=password, role=args.role))
-    print(f"Administrator '{args.username}' {outcome}.")
+    try:
+        outcome = asyncio.run(
+            seed_admin(
+                username=args.username,
+                password=password,
+                role=args.role,
+                reset_existing=not args.no_reset,
+            )
+        )
+    except AdminPasswordTooShortError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    print(f"Administrator '{args.username}': {outcome}.")
     return 0
 
 

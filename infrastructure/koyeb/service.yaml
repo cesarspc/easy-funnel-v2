@@ -39,6 +39,18 @@ services:
         description: JWT audience (default: cod-commerce-admin)
       - key: GEOIP_DATABASE_PATH
         description: Path to GeoLite2 database (bundled in image)
+      - key: CORS_ALLOWED_ORIGINS
+        description: >-
+          Comma-separated exact frontend origins. Admin auth uses an httpOnly
+          cookie, so credentials are enabled and a wildcard is not usable.
+      - key: ADMIN_USERNAME
+        description: Administrator username provisioned on startup
+      - key: ADMIN_PASSWORD
+        description: Administrator password (min 12 chars); stored only as an Argon2id hash
+      - key: ADMIN_PASSWORD_RESET
+        description: >-
+          Set true for one deploy to rotate an existing Administrator password;
+          false (default) leaves an existing account untouched on restart.
       - key: APP_VERSION
         description: Application version
       - key: ENVIRONMENT
