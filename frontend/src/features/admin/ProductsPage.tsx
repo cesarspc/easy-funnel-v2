@@ -3,9 +3,18 @@
  * without deleting data; retire applies Soft_Deletion and is confirmed
  * explicitly, naming it as retirement with historical data preserved
  * (Requirement 2.13, 8.2).
+ *
+ * "Nuevo producto" opens a form that calls `productsApi.create`. The backend
+ * creates the Product and its single draft Landing atomically
+ * (`ProductLifecycleService.create_product`), so every new product already
+ * has an unpublished landing ready to manage from the Landings list — the
+ * dashboard never has to create the landing as a second step.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { Modal } from "../../components/Modal";
+import { FormField } from "../../components/FormField";
 import { StatusPill } from "../../components";
 import type { Product } from "../../api";
 import { ApiError, productsApi } from "../../api";
@@ -17,12 +26,33 @@ const CURRENCY_FORMATTER = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
+interface CreateFormValues {
+  name: string;
+  sku: string;
+  price: string;
+  description: string;
+}
+
+const EMPTY_CREATE_FORM: CreateFormValues = {
+  name: "",
+  sku: "",
+  price: "",
+  description: "",
+};
+
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [confirmRetireId, setConfirmRetireId] = useState<number | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateFormValues>(EMPTY_CREATE_FORM);
+  const [createFieldErrors, setCreateFieldErrors] = useState<Record<string, string>>({});
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createdLandingSlug, setCreatedLandingSlug] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -39,6 +69,55 @@ export function ProductsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  function openCreateModal() {
+    setCreateForm(EMPTY_CREATE_FORM);
+    setCreateFieldErrors({});
+    setCreateError(null);
+    setCreatedLandingSlug(null);
+    setCreateOpen(true);
+  }
+
+  function closeCreateModal() {
+    setCreateOpen(false);
+  }
+  const handleModalClose = useCallback(() => setCreateOpen(false), []);
+
+  async function handleCreateSubmit(event: FormEvent) {
+    event.preventDefault();
+    setCreateError(null);
+    setCreateFieldErrors({});
+
+    const price = Number(createForm.price);
+    if (!Number.isFinite(price)) {
+      setCreateFieldErrors({ price: "Ingresa un precio válido." });
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const created = await productsApi.create({
+        name: createForm.name,
+        sku: createForm.sku,
+        price,
+        description: createForm.description,
+      });
+      setProducts((list) => [...list, created]);
+      // The backend created a draft (unpublished) landing atomically; surface
+      // it so the merchant can jump straight to "Gestionar" from here too.
+      setCreatedLandingSlug(created.landing_slug ?? null);
+      setCreateForm(EMPTY_CREATE_FORM);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setCreateError(err.message);
+        if (err.fieldErrors) setCreateFieldErrors(err.fieldErrors);
+      } else {
+        setCreateError("No se pudo crear el producto.");
+      }
+    } finally {
+      setCreating(false);
+    }
+  }
 
   async function handleActivate(id: number) {
     setPendingId(id);
@@ -81,12 +160,116 @@ export function ProductsPage() {
     <div className="products-page">
       <div className="products-page__header">
         <h1 className="products-page__title">Productos</h1>
+        <button
+          type="button"
+          className="products-page__new-button"
+          onClick={openCreateModal}
+        >
+          Nuevo producto
+        </button>
       </div>
 
       {error && (
         <p className="products-page__error" role="alert">
           {error}
         </p>
+      )}
+
+      {createOpen && (
+        <Modal
+          isOpen={createOpen}
+          onClose={handleModalClose}
+          title="Nuevo producto"
+          subtitle="Se crea con una landing en blanco, sin publicar, lista para editar."
+        >
+          {createdLandingSlug !== null ? (
+            <div className="products-page__create-success">
+              <p role="status">
+                Producto creado. Su landing quedó en borrador (sin publicar).
+              </p>
+              <div className="products-page__create-success-actions">
+                <Link
+                  className="products-table__action products-table__action--primary"
+                  to="/admin/landings"
+                  onClick={closeCreateModal}
+                >
+                  Ir a Landings
+                </Link>
+                <button type="button" className="products-table__action" onClick={closeCreateModal}>
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form className="products-page__create-form" onSubmit={handleCreateSubmit} noValidate>
+              {createError && (
+                <p className="products-page__error" role="alert">
+                  {createError}
+                </p>
+              )}
+
+              <FormField
+                name="name"
+                label="Nombre"
+                value={createForm.name}
+                onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+                error={createFieldErrors.name}
+                required
+                autoComplete="off"
+              />
+
+              <FormField
+                name="sku"
+                label="SKU"
+                value={createForm.sku}
+                onChange={(e) => setCreateForm((f) => ({ ...f, sku: e.target.value }))}
+                error={createFieldErrors.sku}
+                required
+                autoComplete="off"
+              />
+
+              <FormField
+                name="price"
+                label="Precio (COP)"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={1}
+                value={createForm.price}
+                onChange={(e) => setCreateForm((f) => ({ ...f, price: e.target.value }))}
+                error={createFieldErrors.price}
+                required
+              />
+
+              <FormField
+                name="description"
+                label="Descripción"
+                textarea
+                value={createForm.description}
+                onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
+                error={createFieldErrors.description}
+              />
+
+              <div className="products-page__create-form-actions">
+                <button
+                  type="button"
+                  className="products-table__action"
+                  onClick={closeCreateModal}
+                  disabled={creating}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="products-table__action products-table__action--primary"
+                  disabled={creating}
+                >
+                  {creating ? "Creando…" : "Crear producto"}
+                </button>
+              </div>
+            </form>
+          )}
+        </Modal>
       )}
 
       <div className="products-page__table-wrap">

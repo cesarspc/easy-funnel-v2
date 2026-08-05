@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductsPage } from "./ProductsPage";
-import { productsApi } from "../../api";
+import { ApiError, productsApi } from "../../api";
 import type { Product } from "../../api";
 
 vi.mock("../../api", async () => {
@@ -14,6 +15,7 @@ vi.mock("../../api", async () => {
       activate: vi.fn(),
       pause: vi.fn(),
       delete: vi.fn(),
+      create: vi.fn(),
     },
   };
 });
@@ -58,8 +60,16 @@ describe("ProductsPage", () => {
     vi.clearAllMocks();
   });
 
+  function renderPage() {
+    return render(
+      <MemoryRouter>
+        <ProductsPage />
+      </MemoryRouter>,
+    );
+  }
+
   it("renders products with their status pill and formatted price", async () => {
-    render(<ProductsPage />);
+    renderPage();
 
     expect(await screen.findByText("Audífonos inalámbricos")).toBeInTheDocument();
     expect(screen.getByText("Pausado")).toBeInTheDocument();
@@ -70,7 +80,7 @@ describe("ProductsPage", () => {
     const user = userEvent.setup();
     vi.mocked(productsApi.activate).mockResolvedValue({ ...PAUSED_PRODUCT, status: "active" });
 
-    render(<ProductsPage />);
+    renderPage();
     await screen.findByText("Audífonos inalámbricos");
 
     await user.click(screen.getAllByRole("button", { name: "Activar" })[0]);
@@ -82,7 +92,7 @@ describe("ProductsPage", () => {
     const user = userEvent.setup();
     vi.mocked(productsApi.pause).mockResolvedValue({ ...ACTIVE_PRODUCT, status: "paused" });
 
-    render(<ProductsPage />);
+    renderPage();
     await screen.findByText("Reloj deportivo");
 
     await user.click(screen.getByRole("button", { name: "Pausar" }));
@@ -94,7 +104,7 @@ describe("ProductsPage", () => {
     const user = userEvent.setup();
     vi.mocked(productsApi.delete).mockResolvedValue(undefined);
 
-    render(<ProductsPage />);
+    renderPage();
     await screen.findByText("Audífonos inalámbricos");
 
     await user.click(screen.getAllByRole("button", { name: "Retirar" })[0]);
@@ -108,7 +118,7 @@ describe("ProductsPage", () => {
 
   it("cancels retirement without calling the API when Cancelar is clicked", async () => {
     const user = userEvent.setup();
-    render(<ProductsPage />);
+    renderPage();
     await screen.findByText("Audífonos inalámbricos");
 
     await user.click(screen.getAllByRole("button", { name: "Retirar" })[0]);
@@ -122,7 +132,7 @@ describe("ProductsPage", () => {
     vi.mocked(productsApi.list).mockResolvedValue({
       products: [ACTIVE_PUBLISHED_PRODUCT],
     });
-    render(<ProductsPage />);
+    renderPage();
 
     const link = await screen.findByRole("link", { name: "Ver landing" });
     expect(link).toHaveAttribute("href", "/p/cargador-solar");
@@ -130,10 +140,95 @@ describe("ProductsPage", () => {
   });
 
   it("disables the landing link when the product is paused, with an explanatory title", async () => {
-    render(<ProductsPage />);
+    renderPage();
     await screen.findByText("Audífonos inalámbricos");
 
     // PAUSED_PRODUCT has no landing_slug, so no link/button renders for it.
     expect(screen.queryByRole("link", { name: "Ver landing" })).not.toBeInTheDocument();
+  });
+
+  it("opens a create-product form from the Nuevo producto button", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Audífonos inalámbricos");
+
+    await user.click(screen.getByRole("button", { name: "Nuevo producto" }));
+
+    expect(screen.getByRole("dialog", { name: "Nuevo producto" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    expect(screen.getByLabelText("SKU")).toBeInTheDocument();
+    expect(screen.getByLabelText("Precio (COP)")).toBeInTheDocument();
+  });
+
+  it("creates a product with its auto-created draft landing and offers to manage it", async () => {
+    const user = userEvent.setup();
+    const created: Product = {
+      id: 4,
+      name: "Nuevo gadget",
+      sku: "GAD-004",
+      price: 45000,
+      description: "",
+      status: "paused",
+      landing_slug: "draft-4",
+      landing_status: "draft",
+    };
+    vi.mocked(productsApi.create).mockResolvedValue(created);
+
+    renderPage();
+    await screen.findByText("Audífonos inalámbricos");
+
+    await user.click(screen.getByRole("button", { name: "Nuevo producto" }));
+    await user.type(screen.getByLabelText("Nombre"), "Nuevo gadget");
+    await user.type(screen.getByLabelText("SKU"), "GAD-004");
+    await user.type(screen.getByLabelText("Precio (COP)"), "45000");
+    await user.click(screen.getByRole("button", { name: "Crear producto" }));
+
+    await waitFor(() =>
+      expect(productsApi.create).toHaveBeenCalledWith({
+        name: "Nuevo gadget",
+        sku: "GAD-004",
+        price: 45000,
+        description: "",
+      }),
+    );
+
+    expect(
+      await screen.findByText(/Su landing quedó en borrador \(sin publicar\)/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir a Landings" })).toHaveAttribute(
+      "href",
+      "/admin/landings",
+    );
+    expect(await screen.findByText("Nuevo gadget")).toBeInTheDocument();
+  });
+
+  it("maps backend field errors (e.g. duplicate SKU) onto the create form", async () => {
+    const user = userEvent.setup();
+    vi.mocked(productsApi.create).mockRejectedValue(
+      new ApiError(409, "SKU already in use", { sku: "SKU already in use" }),
+    );
+
+    renderPage();
+    await screen.findByText("Audífonos inalámbricos");
+
+    await user.click(screen.getByRole("button", { name: "Nuevo producto" }));
+    await user.type(screen.getByLabelText("Nombre"), "Duplicado");
+    await user.type(screen.getByLabelText("SKU"), "AUD-001");
+    await user.type(screen.getByLabelText("Precio (COP)"), "10000");
+    await user.click(screen.getByRole("button", { name: "Crear producto" }));
+
+    expect(await screen.findByText("SKU already in use", { selector: "p.form-field-error" })).toBeInTheDocument();
+  });
+
+  it("closes the create form without calling the API when Cancelar is clicked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Audífonos inalámbricos");
+
+    await user.click(screen.getByRole("button", { name: "Nuevo producto" }));
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(productsApi.create).not.toHaveBeenCalled();
   });
 });
