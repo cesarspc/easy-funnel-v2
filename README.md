@@ -11,7 +11,7 @@ Each product gets its own banner-based landing page. A visitor arrives (usually 
 | Layer | Tech | Deployed on |
 |-------|------|-------------|
 | Frontend | React + Vite (SPA) | Cloudflare Pages |
-| Backend | FastAPI (single container) | Koyeb |
+| Backend | FastAPI (single container) | Railway |
 | Database | PostgreSQL | Neon |
 | Cache & Counters | Redis | Upstash |
 | Image Storage | Object storage | Cloudflare R2 |
@@ -25,7 +25,7 @@ Monolithic backend by design — no microservices, no external SaaS dependencies
 ├── frontend/          React SPA (pnpm)
 ├── backend/           FastAPI application (pip)
 ├── prisma/            Database schema & migrations
-├── infrastructure/    Deployment configs (Koyeb, Cloudflare, R2, GeoIP)
+├── infrastructure/    Deployment configs (Railway, Cloudflare, R2, GeoIP)
 ├── docs/              Developer documentation
 └── docker-compose.yml Local test services (Postgres + Redis)
 ```
