@@ -17,6 +17,7 @@ export class ApiError extends Error {
 }
 
 const API_BASE_PATH = import.meta.env.VITE_API_BASE_URL ?? "/api";
+console.log(API_BASE_PATH)
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // `FormData` bodies must keep the browser-generated multipart boundary, so
