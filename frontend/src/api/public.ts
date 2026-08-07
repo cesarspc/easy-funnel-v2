@@ -122,6 +122,10 @@ export interface PublicLanding {
   accent_palette?: AccentPalette;
   /** Absent on payloads cached before configurable offers existed. */
   offers?: PublicLandingOffer[];
+  /** Custom CTA button text. Null means use default label. */
+  cta_text?: string | null;
+  /** CTA animation: "slide" (left-to-right) or "shake". Null means no animation. */
+  cta_animation?: "slide" | "shake" | null;
 }
 
 export interface OrderCreateRequest {

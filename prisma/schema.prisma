@@ -59,6 +59,13 @@ model Landing {
   formPresentation String    @map("form_presentation")
   ctaBandStyle     String    @default("gradient") @map("cta_band_style")
 
+  /// Custom CTA button text. When null the landing uses its default label
+  /// ("Pedir ahora — $price"). Max 60 characters.
+  ctaText      String? @map("cta_text") @db.VarChar(60)
+
+  /// CTA button animation: null (none), "slide" (left-to-right), or "shake".
+  ctaAnimation String? @map("cta_animation") @db.VarChar(10)
+
   /// Per-landing accent, the one color the merchant controls on the public
   /// page (Landing chrome: CTA button, focus/selected borders, accent text,
   /// and a light tint behind the offer tiers). Stored as the single `#rrggbb`

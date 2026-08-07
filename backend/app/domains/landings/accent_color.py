@@ -173,9 +173,9 @@ def normalize_accent_color(raw_color: str) -> str:
 def derive_accent_palette(accent_color: str) -> AccentPalette:
     """Build the full chrome palette from one accent.
 
-    The stored color is darkened first when it is too light to carry text (see
-    `_ensure_readable_with_white_text`), so `accent` here is the color the page
-    actually paints — the merchant's hue, at a lightness that stays legible.
+    The stored color is used exactly as the merchant picked it — no lightness
+    adjustment. The merchant sees the same color on the live page as in the
+    admin picker.
 
     A stored value that cannot be parsed falls back to the default accent
     instead of raising: a public page rendering in the wrong green is a much
@@ -187,14 +187,11 @@ def derive_accent_palette(accent_color: str) -> AccentPalette:
     except (AttributeError, ValueError):
         raw = DEFAULT_ACCENT_COLOR
 
-    accent = _ensure_readable_with_white_text(raw)
+    accent = raw
 
     return AccentPalette(
         accent=accent,
         deep=blend_hex(accent, _BLACK, _DEEP_BLEND_WEIGHT),
-        # Derived from the merchant's raw color, not the darkened one: this is a
-        # background with no text of its own color on it, so it can keep the
-        # hue exactly as picked.
         tint=blend_hex(raw, _WHITE, _TINT_BLEND_WEIGHT),
         ink=_INK_ON_ACCENT,
     )

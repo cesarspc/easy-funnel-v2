@@ -107,6 +107,8 @@ class LandingSummaryResponse(BaseModel):
     offer_count: int
     offers: list[LandingOfferResponse]
     banner_count: int
+    cta_text: str | None = None
+    cta_animation: str | None = None
 
 
 class LandingListResponse(BaseModel):
@@ -146,6 +148,8 @@ class LandingConfigUpdateRequest(BaseModel):
     accent_color: str | None = None
     offer_count: int | None = None
     offers: list[LandingOfferUpdate] | None = None
+    cta_text: str | None = None
+    cta_animation: str | None = None
 
 
 class BannerUpdateRequest(BaseModel):
@@ -277,6 +281,8 @@ def _to_summary_response(landing) -> LandingSummaryResponse:  # type: ignore[no-
             for offer in offers
         ],
         banner_count=len(banners),
+        cta_text=landing.ctaText,
+        cta_animation=landing.ctaAnimation,
     )
 
 
@@ -379,6 +385,8 @@ async def update_landing_config(
             offers=(
                 None if request.offers is None else [offer.model_dump() for offer in request.offers]
             ),
+            cta_text=request.cta_text,
+            cta_animation=request.cta_animation,
             actor=admin_user.subject,
         )
     except LandingNotFoundError as exc:

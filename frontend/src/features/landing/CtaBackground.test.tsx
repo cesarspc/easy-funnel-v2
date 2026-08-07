@@ -95,7 +95,6 @@ function bandColors(band: HTMLElement) {
     top: band.style.getPropertyValue("--cta-band-top"),
     bottom: band.style.getPropertyValue("--cta-band-bottom"),
     blend: band.style.getPropertyValue("--cta-band-blend"),
-    foreground: band.dataset.ctaForeground,
     source: band.dataset.ctaSource,
   };
 }
@@ -131,14 +130,6 @@ describe("CTA band: gradient between two banners", () => {
       bottom: "#778899",
       source: "blend",
     });
-  });
-
-  it("carries the backend's foreground mode onto each band", async () => {
-    renderAtSlug();
-    await screen.findByAltText("Banner 1");
-
-    expect(bands()[0].dataset.ctaForeground).toBe("light");
-    expect(bands()[1].dataset.ctaForeground).toBe("dark");
   });
 
   it("places each band immediately after its 1-based banner", async () => {
@@ -233,7 +224,6 @@ describe("CTA band: solid and fallback treatments", () => {
       top: "",
       bottom: "",
       blend: "",
-      foreground: "fallback",
       source: "fallback",
     });
   });
@@ -287,8 +277,8 @@ describe("CTA band: position alignment", () => {
     renderAtSlug();
     await screen.findByAltText("Banner 1");
 
-    expect(bandColors(bands()[0])).toMatchObject({ top: "#cccccc", foreground: "light" });
-    expect(bandColors(bands()[1])).toMatchObject({ top: "#aaaaaa", foreground: "dark" });
+    expect(bandColors(bands()[0])).toMatchObject({ top: "#cccccc" });
+    expect(bandColors(bands()[1])).toMatchObject({ top: "#aaaaaa" });
   });
 
   it("ignores a duplicate position, keeping the first descriptor", async () => {
@@ -305,7 +295,7 @@ describe("CTA band: position alignment", () => {
     renderAtSlug();
     await screen.findByAltText("Banner 1");
 
-    expect(bandColors(bands()[0])).toMatchObject({ top: "#111111", foreground: "light" });
+    expect(bandColors(bands()[0])).toMatchObject({ top: "#111111" });
   });
 
   it("ignores a background for a position that has no CTA", async () => {
@@ -469,7 +459,7 @@ describe("CTA band: degraded payloads", () => {
 
     expect(await screen.findByAltText("Banner 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pedir ahora/i })).toBeInTheDocument();
-    expect(bandColors(bands()[0])).toMatchObject({ foreground: "fallback", source: "fallback" });
+    expect(bandColors(bands()[0])).toMatchObject({ source: "fallback" });
   });
 
   it("drops invalid color strings instead of emitting them as CSS", async () => {
@@ -495,8 +485,6 @@ describe("CTA band: degraded payloads", () => {
 
     const band = bands()[0];
     expect(bandColors(band)).toMatchObject({ top: "", bottom: "", blend: "" });
-    // With nothing paintable, the neutral treatment wins over the claimed mode.
-    expect(band.dataset.ctaForeground).toBe("fallback");
     expect(band.getAttribute("style") ?? "").not.toContain("evil.example");
   });
 
@@ -551,7 +539,6 @@ describe("CTA band: degraded payloads", () => {
     expect(bandColors(bands()[0])).toMatchObject({
       top: "#2b2b2b",
       bottom: "#2b2b2b",
-      foreground: "light",
     });
   });
 });
@@ -657,7 +644,6 @@ describe("CTA band: landing-level paint style", () => {
       top: "",
       bottom: "",
       blend: "",
-      foreground: "fallback",
       source: "fallback",
     });
     // Reporting 'solid' here would claim a fill that is not on the element.
@@ -807,7 +793,7 @@ describe("CTA band: the live draft-74 payload (painted bands)", () => {
     form_presentation: "inline",
   };
 
-  it("paints both bands from the banner edges and keeps the dark foreground", async () => {
+  it("paints both bands from the banner edges", async () => {
     vi.mocked(publicApi.getLanding).mockResolvedValue(LIVE_PAINTED);
     renderAtSlug("draft-74");
     await screen.findByAltText("Banner 31");
@@ -817,12 +803,10 @@ describe("CTA band: the live draft-74 payload (painted bands)", () => {
       top: "#fe0002",
       bottom: "#fe0002",
       blend: "#fe0002",
-      foreground: "dark",
       source: "blend",
     });
     expect(bandColors(bands()[1])).toMatchObject({
       top: "#fe0002",
-      foreground: "dark",
       source: "above",
     });
   });

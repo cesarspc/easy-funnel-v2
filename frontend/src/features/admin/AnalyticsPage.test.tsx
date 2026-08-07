@@ -46,6 +46,8 @@ const LANDING_SUMMARY: LandingSummary = {
     { quantity: 3, label: "3 unidades", sublabel: null, discount_percent: 0, compare_at_price: null },
   ],
   banner_count: 2,
+  cta_text: null,
+  cta_animation: null,
 };
 
 const LANDING_ANALYTICS: LandingAnalytics[] = [

@@ -226,9 +226,6 @@ export function LandingPage(): JSX.Element {
 
     return {
       style,
-      // Without a painted band the neutral treatment is the only readable one,
-      // whatever `foreground` claims.
-      foreground: resolved ? (background?.foreground ?? "fallback") : "fallback",
       source: resolved ? background?.source ?? "fallback" : "fallback",
       // An unpainted band is neither style; reporting the landing's setting
       // there would claim a fill that is not on the element.
@@ -239,7 +236,9 @@ export function LandingPage(): JSX.Element {
   // Captured after the null guards above: the render helpers below are nested
   // functions, where TypeScript cannot keep the narrowing of `landing`.
   const productPrice = landing.product_price;
-  const ctaLabel = `Pedir ahora — ${CURRENCY_FORMATTER.format(productPrice)}`;
+  const defaultCtaLabel = `Pedir ahora — ${CURRENCY_FORMATTER.format(productPrice)}`;
+  const ctaLabel = landing.cta_text || defaultCtaLabel;
+  const ctaAnimation = landing.cta_animation ?? null;
 
   /** One CTA band, painted for `position` (1-based). */
   function renderCtaBand(position: number) {
@@ -248,12 +247,11 @@ export function LandingPage(): JSX.Element {
       <div
         className="lp-page__cta-band"
         style={band.style}
-        data-cta-foreground={band.foreground}
         data-cta-source={band.source}
         data-cta-band-style={band.bandStyle}
       >
         <div className="lp-page__cta-slot">
-          <Cta label={ctaLabel} onClick={handleActivateCta} />
+          <Cta label={ctaLabel} onClick={handleActivateCta} animation={ctaAnimation} />
         </div>
       </div>
     );

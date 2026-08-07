@@ -131,6 +131,10 @@ class LandingResponse(BaseModel):
     # neighbouring edges) or `solid` (one flat color, the midpoint of them).
     # The colors themselves are identical either way.
     cta_band_style: str
+    # Custom CTA button text. When null the landing uses its default label.
+    cta_text: str | None = None
+    # CTA button animation: null (none), "slide", or "shake".
+    cta_animation: str | None = None
     # The merchant's accent plus its derived shades. The page applies these as
     # CSS custom properties, so one stored color themes the CTA, the offer
     # tiles, focus rings, and accent text together.
@@ -327,6 +331,8 @@ async def get_public_landing(
         cta_backgrounds=cta_backgrounds,
         form_presentation=landing.formPresentation,
         cta_band_style=landing.ctaBandStyle,
+        cta_text=landing.ctaText,
+        cta_animation=landing.ctaAnimation,
         accent_color=palette.accent,
         accent_palette=AccentPaletteResponse(
             accent=palette.accent,

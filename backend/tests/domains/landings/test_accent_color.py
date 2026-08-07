@@ -107,26 +107,17 @@ class TestDeriveAccentPalette:
         # Tint is a near-white wash, so it can sit behind body text.
         assert relative_luminance(palette.tint) > relative_luminance(palette.accent)
 
-    def test_a_light_accent_is_darkened_rather_than_given_dark_text(self) -> None:
-        # The whole reason lightness is derived rather than trusted: a merchant
-        # picking a bright yellow cannot be allowed to ship a button whose label
-        # is unreadable. The hue survives, the lightness moves.
+    def test_a_light_accent_is_used_exactly_as_picked(self) -> None:
+        # The merchant's exact color is displayed, no darkening applied.
         palette = derive_accent_palette("#ffe000")
-        assert palette.ink == "#ffffff"
-        assert relative_luminance(palette.accent) < relative_luminance("#ffe000")
-        assert _contrast(palette.accent, palette.ink) >= _CONTRAST_FLOOR
+        assert palette.accent == "#ffe000"
 
     def test_an_already_dark_accent_is_left_alone(self) -> None:
-        # Nothing is "corrected" that already works, so a merchant who picked a
-        # deep brand color sees exactly that color on the page.
         assert derive_accent_palette("#10361f").accent == "#10361f"
 
-    def test_a_mid_tone_accent_is_darkened_until_its_label_is_readable(self) -> None:
-        # The case the property test originally caught: neither white nor
-        # near-black text clears 4.5:1 on a medium purple, so the background is
-        # what has to move.
+    def test_a_mid_tone_accent_is_used_exactly_as_picked(self) -> None:
         palette = derive_accent_palette("#a05e9d")
-        assert _contrast(palette.accent, palette.ink) >= _CONTRAST_FLOOR
+        assert palette.accent == "#a05e9d"
 
     @pytest.mark.parametrize("broken", ["", "not-a-color", "#xyzxyz"])
     def test_unparseable_stored_value_falls_back_instead_of_raising(self, broken: str) -> None:
@@ -135,28 +126,12 @@ class TestDeriveAccentPalette:
         assert derive_accent_palette(broken).accent == DEFAULT_ACCENT_COLOR
 
     @given(_HEX_BYTES, _HEX_BYTES, _HEX_BYTES)
-    def test_ink_always_clears_the_contrast_floor_on_the_accent(
+    def test_accent_is_always_the_exact_color_the_merchant_picked(
         self, red: int, green: int, blue: int
     ) -> None:
         accent = f"#{red:02x}{green:02x}{blue:02x}"
         palette = derive_accent_palette(accent)
-        assert _contrast(palette.accent, palette.ink) >= _CONTRAST_FLOOR
-
-    @given(_HEX_BYTES, _HEX_BYTES, _HEX_BYTES)
-    def test_accent_is_always_usable_as_text_on_the_pages_white_surface(
-        self, red: int, green: int, blue: int
-    ) -> None:
-        # The accent is used as a text color too (the saving line, accent copy),
-        # so it has to clear the floor against white as well as carry white text.
-        palette = derive_accent_palette(f"#{red:02x}{green:02x}{blue:02x}")
-        assert _contrast(palette.accent, "#ffffff") >= _CONTRAST_FLOOR
-
-    @given(_HEX_BYTES, _HEX_BYTES, _HEX_BYTES)
-    def test_hover_shade_stays_readable_too(self, red: int, green: int, blue: int) -> None:
-        # `deep` only ever darkens the (already passing) accent, so the button
-        # label cannot become unreadable on hover.
-        palette = derive_accent_palette(f"#{red:02x}{green:02x}{blue:02x}")
-        assert _contrast(palette.deep, palette.ink) >= _CONTRAST_FLOOR
+        assert palette.accent == accent
 
     @given(_HEX_BYTES, _HEX_BYTES, _HEX_BYTES)
     def test_every_derived_shade_is_a_usable_css_color(

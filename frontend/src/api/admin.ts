@@ -332,6 +332,8 @@ export interface LandingSummary {
   offer_count: number;
   offers: LandingOffer[];
   banner_count: number;
+  cta_text: string | null;
+  cta_animation: "slide" | "shake" | null;
 }
 
 export interface LandingDetail extends LandingSummary {
@@ -370,6 +372,8 @@ export interface LandingConfigUpdate {
   accent_color?: string;
   offer_count?: number;
   offers?: LandingOfferUpdate[];
+  cta_text?: string | null;
+  cta_animation?: "slide" | "shake" | null;
 }
 
 /**

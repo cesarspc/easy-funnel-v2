@@ -53,6 +53,8 @@ interface ConfigForm {
   accentColor: string;
   offerCount: number;
   offers: OfferForm[];
+  ctaText: string;
+  ctaAnimation: string;
 }
 
 function toOfferForm(offer: LandingOffer): OfferForm {
@@ -100,6 +102,8 @@ function toConfigForm(landing: LandingDetail): ConfigForm {
     accentColor: landing.accent_color ?? "#1a7a4c",
     offerCount: landing.offer_count,
     offers: fitOffers((landing.offers ?? []).map(toOfferForm), landing.offer_count),
+    ctaText: landing.cta_text ?? "",
+    ctaAnimation: landing.cta_animation ?? "",
   };
 }
 
@@ -275,6 +279,8 @@ export function LandingEditorPage() {
         cta_band_style: config.ctaBandStyle,
         accent_color: config.accentColor,
         offer_count: config.offerCount,
+        cta_text: config.ctaText.trim() || null,
+        cta_animation: (config.ctaAnimation as "slide" | "shake") || null,
         // Only the rows the merchant can actually see are sent, so lowering the
         // count drops the trailing offers instead of submitting copy for tiers
         // the form no longer shows.
@@ -744,6 +750,74 @@ export function LandingEditorPage() {
             {fieldErrors.accent_color && (
               <p className="landings-field__error" id="landing-accent-color-error" role="alert">
                 {fieldErrors.accent_color}
+              </p>
+            )}
+          </div>
+
+          {/* Quantity offers. The count drives how many rows render, so the
+              merchant never edits copy for a tier the buyer will not see. */}
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-cta-text">
+              Texto del botón CTA
+            </label>
+            <input
+              id="landing-cta-text"
+              className="landings-field__input"
+              type="text"
+              maxLength={60}
+              placeholder="Pedir ahora — $precio (por defecto)"
+              value={config.ctaText}
+              aria-describedby={
+                fieldErrors.cta_text
+                  ? "landing-cta-text-error landing-cta-text-hint"
+                  : "landing-cta-text-hint"
+              }
+              aria-invalid={fieldErrors.cta_text ? true : undefined}
+              onChange={(event) =>
+                setConfig((current) =>
+                  current ? { ...current, ctaText: event.target.value } : current,
+                )
+              }
+            />
+            <p className="landings-field__hint" id="landing-cta-text-hint">
+              Máximo 60 caracteres. Déjalo vacío para usar el texto por defecto con el precio.
+            </p>
+            {fieldErrors.cta_text && (
+              <p className="landings-field__error" id="landing-cta-text-error" role="alert">
+                {fieldErrors.cta_text}
+              </p>
+            )}
+          </div>
+
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-cta-animation">
+              Animación del botón CTA
+            </label>
+            <select
+              id="landing-cta-animation"
+              className="landings-field__input"
+              value={config.ctaAnimation}
+              aria-describedby={
+                fieldErrors.cta_animation
+                  ? "landing-cta-animation-error landing-cta-animation-hint"
+                  : "landing-cta-animation-hint"
+              }
+              onChange={(event) =>
+                setConfig((current) =>
+                  current ? { ...current, ctaAnimation: event.target.value } : current,
+                )
+              }
+            >
+              <option value="">Sin animación</option>
+              <option value="slide">Brillo (izquierda a derecha)</option>
+              <option value="shake">Sacudir</option>
+            </select>
+            <p className="landings-field__hint" id="landing-cta-animation-hint">
+              La animación se repite para llamar la atención. Se pausa al hacer hover.
+            </p>
+            {fieldErrors.cta_animation && (
+              <p className="landings-field__error" id="landing-cta-animation-error" role="alert">
+                {fieldErrors.cta_animation}
               </p>
             )}
           </div>

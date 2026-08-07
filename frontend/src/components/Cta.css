@@ -46,3 +46,86 @@
 .cta-label {
   white-space: nowrap;
 }
+
+
+/* Animations — looping attention-grabbers that stop on hover or focus to
+   avoid distracting the buyer during interaction. */
+
+/* Slide: a subtle left-to-right shimmer highlight */
+.cta-button--slide {
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-button--slide::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 60%
+  );
+  animation: cta-slide 2.4s ease-in-out infinite;
+}
+
+.cta-button--slide:hover::after,
+.cta-button--slide:focus-visible::after {
+  animation-play-state: paused;
+}
+
+@keyframes cta-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Shake: a quick horizontal shake every few seconds */
+.cta-button--shake {
+  animation: cta-shake 3.6s ease-in-out infinite;
+}
+
+.cta-button--shake:hover,
+.cta-button--shake:focus-visible {
+  animation-play-state: paused;
+}
+
+@keyframes cta-shake {
+  0%, 86% {
+    transform: translateX(0);
+  }
+  88% {
+    transform: translateX(-4px);
+  }
+  90% {
+    transform: translateX(4px);
+  }
+  92% {
+    transform: translateX(-3px);
+  }
+  94% {
+    transform: translateX(3px);
+  }
+  96% {
+    transform: translateX(-1px);
+  }
+  98% {
+    transform: translateX(1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-button--slide::after {
+    animation: none;
+  }
+  .cta-button--shake {
+    animation: none;
+  }
+}

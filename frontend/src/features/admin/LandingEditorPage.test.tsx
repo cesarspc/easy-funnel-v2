@@ -70,6 +70,8 @@ const DETAIL: LandingDetail = {
     { quantity: 3, label: "3 unidades", sublabel: null, discount_percent: 0, compare_at_price: null },
   ],
   banner_count: 2,
+  cta_text: null,
+  cta_animation: null,
   banners: [banner(1, 0, "Primero"), banner(2, 1, "Segundo")],
   resolved_cta_positions: [1, 2],
 };
@@ -211,6 +213,8 @@ describe("LandingEditorPage", () => {
         cta_band_style: "solid",
         accent_color: "#1a7a4c",
         offer_count: 3,
+        cta_text: null,
+        cta_animation: null,
         offers: [
           {
             quantity: 1,

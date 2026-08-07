@@ -74,6 +74,8 @@ class LandingManagementService:
         accent_color: str | None = None,
         offer_count: int | None = None,
         offers: list[dict[str, object]] | None = None,
+        cta_text: str | None = None,
+        cta_animation: str | None = None,
         actor: str,
     ) -> Landing:
         """Update the landing's slug, CTA configuration, and form presentation.
@@ -138,6 +140,29 @@ class LandingManagementService:
 
             if accent_color is not None:
                 data["accentColor"] = normalize_accent_color(accent_color)
+
+            if cta_text is not None:
+                if cta_text == "":
+                    # Empty string clears the custom text (reverts to default).
+                    data["ctaText"] = None
+                elif len(cta_text) > 60:
+                    raise LandingValidationError(
+                        "cta_text", "CTA text must be 60 characters or fewer."
+                    )
+                else:
+                    data["ctaText"] = cta_text
+
+            if cta_animation is not None:
+                if cta_animation == "":
+                    # Empty string clears the animation.
+                    data["ctaAnimation"] = None
+                elif cta_animation not in ("slide", "shake"):
+                    raise LandingValidationError(
+                        "cta_animation",
+                        "CTA animation must be 'slide', 'shake', or empty.",
+                    )
+                else:
+                    data["ctaAnimation"] = cta_animation
 
             if offer_count is not None or offers is not None:
                 count = validate_offer_count(
