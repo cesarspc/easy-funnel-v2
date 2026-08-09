@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { HomePage } from "./routes/HomePage";
 import { NotFoundPage } from "./routes/NotFoundPage";
 import { LandingPage } from "./features/landing/LandingPage";
+import { MerchantLanding } from "./routes/MerchantLanding";
 import { SessionProvider } from "./features/auth/SessionContext";
 import { RequireAdmin } from "./features/auth/RequireAdmin";
 import { LoginPage } from "./features/auth/LoginPage";
@@ -24,7 +24,7 @@ export function App() {
   return (
     <SessionProvider>
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<MerchantLanding />} />
         <Route path="/p/:slug" element={<LandingPage />} />
 
         <Route path="/admin/login" element={<LoginPage />} />

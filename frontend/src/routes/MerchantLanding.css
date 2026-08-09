@@ -1,0 +1,474 @@
+/**
+ * MerchantLanding.css
+ *
+ * La Tope aesthetic: minimal, dark, premium.
+ * Forest green brand color (#30503b) as the sole accent.
+ * Strong typography, ample whitespace, elegant restraint.
+ *
+ * Mobile-first responsive design.
+ */
+
+:root {
+  /* Brand color */
+  --bodega-primary: #30503b;
+  --bodega-primary-hover: #2a4535;
+  --bodega-primary-light: #e8ebe8;
+
+  /* Neutral palette */
+  --bodega-dark: #1a1c1e;
+  --bodega-dark-raised: #242830;
+  --bodega-paper: #f7f6f3;
+  --bodega-ink: #1a1c1e;
+  --bodega-ink-quiet: #5b6169;
+  --bodega-ink-faint: #8a9099;
+  --bodega-hairline: #e4e2dd;
+
+  /* Typography */
+  --bodega-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+  --bodega-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Spacing */
+  --bodega-spacing-xs: 0.25rem;
+  --bodega-spacing-sm: 0.5rem;
+  --bodega-spacing-md: 1rem;
+  --bodega-spacing-lg: 1.5rem;
+  --bodega-spacing-xl: 2rem;
+  --bodega-spacing-2xl: 3rem;
+  --bodega-spacing-3xl: 4rem;
+
+  /* Border radius */
+  --bodega-rounded-sm: 4px;
+  --bodega-rounded-md: 6px;
+  --bodega-rounded-lg: 10px;
+
+  /* Transitions */
+  --bodega-transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--bodega-font-family);
+  background-color: var(--bodega-paper);
+  color: var(--bodega-ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accessibility: focus visible */
+:focus-visible {
+  outline: 2px solid var(--bodega-primary);
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline-offset: 4px;
+}
+
+/* Root container */
+.bodega-premium-landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bodega-paper);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* HEADER / NAVIGATION */
+/* ─────────────────────────────────────────────────────────────── */
+
+.bodega-premium-header {
+  background-color: var(--bodega-dark);
+  padding: var(--bodega-spacing-md) var(--bodega-spacing-lg);
+  border-bottom: 1px solid var(--bodega-dark-raised);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.bodega-premium-header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bodega-premium-logo {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--bodega-paper);
+  text-transform: uppercase;
+}
+
+.bodega-premium-nav {
+  display: flex;
+  gap: var(--bodega-spacing-lg);
+  align-items: center;
+}
+
+.bodega-premium-nav-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--bodega-ink-quiet);
+  text-decoration: none;
+  transition: var(--bodega-transition);
+  padding: var(--bodega-spacing-xs) var(--bodega-spacing-sm);
+}
+
+.bodega-premium-nav-link:hover {
+  color: var(--bodega-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* HERO SECTION */
+/* ─────────────────────────────────────────────────────────────── */
+
+.bodega-premium-hero {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--bodega-spacing-3xl) var(--bodega-spacing-lg);
+  background-color: var(--bodega-paper);
+  position: relative;
+  overflow: hidden;
+  min-height: 600px;
+}
+
+.bodega-premium-hero-container {
+  max-width: 700px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.bodega-premium-hero-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    circle at 30% 50%,
+    rgba(48, 80, 59, 0.05) 0%,
+    transparent 50%
+  );
+  pointer-events: none;
+}
+
+.bodega-premium-hero-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bodega-spacing-lg);
+}
+
+.bodega-premium-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bodega-primary);
+  margin-bottom: var(--bodega-spacing-sm);
+}
+
+.bodega-premium-headline {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--bodega-ink);
+  margin: 0;
+}
+
+.bodega-premium-subheadline {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--bodega-ink-quiet);
+  margin: 0;
+  margin-top: var(--bodega-spacing-lg);
+}
+
+/* CTA Container */
+.bodega-premium-cta-container {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--bodega-spacing-2xl);
+}
+
+.bodega-premium-cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bodega-spacing-md);
+  background-color: var(--bodega-primary);
+  color: var(--bodega-paper);
+  border: none;
+  border-radius: var(--bodega-rounded-md);
+  padding: var(--bodega-spacing-md) var(--bodega-spacing-xl);
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--bodega-font-family);
+  cursor: pointer;
+  transition: var(--bodega-transition);
+  box-shadow: 0 4px 12px rgba(48, 80, 59, 0.15);
+}
+
+.bodega-premium-cta-button:hover {
+  background-color: var(--bodega-primary-hover);
+  box-shadow: 0 6px 16px rgba(48, 80, 59, 0.2);
+  transform: translateY(-2px);
+}
+
+.bodega-premium-cta-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(48, 80, 59, 0.1);
+}
+
+.bodega-premium-cta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.bodega-premium-cta-text {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Trust indicators */
+.bodega-premium-trust {
+  display: flex;
+  justify-content: center;
+  gap: var(--bodega-spacing-2xl);
+  margin-top: var(--bodega-spacing-3xl);
+  flex-wrap: wrap;
+}
+
+.bodega-premium-trust-item {
+  display: flex;
+  align-items: center;
+  gap: var(--bodega-spacing-md);
+  font-size: 0.875rem;
+  color: var(--bodega-ink-quiet);
+}
+
+.bodega-premium-trust-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--bodega-primary);
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* SECONDARY SECTION */
+/* ─────────────────────────────────────────────────────────────── */
+
+.bodega-premium-secondary {
+  background-color: var(--bodega-primary-light);
+  padding: var(--bodega-spacing-3xl) var(--bodega-spacing-lg);
+  text-align: center;
+}
+
+.bodega-premium-secondary-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.bodega-premium-secondary-headline {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--bodega-ink);
+  margin-bottom: var(--bodega-spacing-lg);
+}
+
+.bodega-premium-secondary-copy {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--bodega-ink-quiet);
+  margin-bottom: var(--bodega-spacing-2xl);
+}
+
+.bodega-premium-secondary-button {
+  background-color: var(--bodega-primary);
+  color: var(--bodega-paper);
+  border: none;
+  border-radius: var(--bodega-rounded-md);
+  padding: var(--bodega-spacing-md) var(--bodega-spacing-xl);
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--bodega-font-family);
+  cursor: pointer;
+  transition: var(--bodega-transition);
+  box-shadow: 0 4px 12px rgba(48, 80, 59, 0.15);
+}
+
+.bodega-premium-secondary-button:hover {
+  background-color: var(--bodega-primary-hover);
+  box-shadow: 0 6px 16px rgba(48, 80, 59, 0.2);
+  transform: translateY(-2px);
+}
+
+.bodega-premium-secondary-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(48, 80, 59, 0.1);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* FOOTER */
+/* ─────────────────────────────────────────────────────────────── */
+
+.bodega-premium-footer {
+  background-color: var(--bodega-dark);
+  color: var(--bodega-ink-quiet);
+  padding: var(--bodega-spacing-2xl) var(--bodega-spacing-lg);
+  border-top: 1px solid var(--bodega-dark-raised);
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.bodega-premium-footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.bodega-premium-footer-text {
+  margin-bottom: var(--bodega-spacing-sm);
+}
+
+.bodega-premium-footer-meta {
+  color: var(--bodega-ink-faint);
+  font-size: 0.75rem;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* MOBILE RESPONSIVE */
+/* ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .bodega-premium-header {
+    padding: var(--bodega-spacing-md) var(--bodega-spacing-md);
+  }
+
+  .bodega-premium-logo {
+    font-size: 1rem;
+  }
+
+  .bodega-premium-nav {
+    gap: var(--bodega-spacing-md);
+    font-size: 0.875rem;
+  }
+
+  .bodega-premium-hero {
+    padding: var(--bodega-spacing-2xl) var(--bodega-spacing-md);
+    min-height: 500px;
+  }
+
+  .bodega-premium-headline {
+    font-size: 1.5rem;
+    line-height: 1.3;
+  }
+
+  .bodega-premium-subheadline {
+    font-size: 0.95rem;
+  }
+
+  .bodega-premium-cta-container {
+    margin-top: var(--bodega-spacing-xl);
+  }
+
+  .bodega-premium-cta-button {
+    width: 100%;
+    justify-content: center;
+    padding: var(--bodega-spacing-md) var(--bodega-spacing-lg);
+  }
+
+  .bodega-premium-trust {
+    gap: var(--bodega-spacing-lg);
+    margin-top: var(--bodega-spacing-2xl);
+  }
+
+  .bodega-premium-secondary {
+    padding: var(--bodega-spacing-2xl) var(--bodega-spacing-md);
+  }
+
+  .bodega-premium-secondary-headline {
+    font-size: 1.25rem;
+  }
+
+  .bodega-premium-secondary-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .bodega-premium-nav {
+    display: none;
+  }
+
+  .bodega-premium-hero {
+    padding: var(--bodega-spacing-xl) var(--bodega-spacing-md);
+    min-height: 450px;
+  }
+
+  .bodega-premium-headline {
+    font-size: 1.25rem;
+  }
+
+  .bodega-premium-eyebrow {
+    font-size: 0.7rem;
+  }
+
+  .bodega-premium-trust {
+    flex-direction: column;
+    gap: var(--bodega-spacing-md);
+  }
+
+  .bodega-premium-cta-button {
+    padding: var(--bodega-spacing-md) var(--bodega-spacing-md);
+    font-size: 0.95rem;
+  }
+
+  .bodega-premium-footer {
+    padding: var(--bodega-spacing-lg) var(--bodega-spacing-md);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* PRINT STYLES */
+/* ─────────────────────────────────────────────────────────────── */
+
+@media print {
+  .bodega-premium-header {
+    background-color: var(--bodega-paper);
+    color: var(--bodega-ink);
+    border-color: var(--bodega-hairline);
+  }
+
+  .bodega-premium-nav {
+    display: none;
+  }
+
+  .bodega-premium-cta-button,
+  .bodega-premium-secondary-button {
+    border: 1px solid var(--bodega-ink);
+    background-color: var(--bodega-paper);
+    color: var(--bodega-ink);
+  }
+}
