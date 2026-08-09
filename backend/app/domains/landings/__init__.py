@@ -66,6 +66,11 @@ from app.domains.landings.cta_placement import (
     compute_cta_positions,
     validate_cta_config,
 )
+from app.domains.landings.cta_text_overrides import (
+    OVERRIDE_TEXT_MAX,
+    resolve_cta_text,
+    validate_cta_text_overrides,
+)
 from app.domains.landings.errors import (
     BannerLimitExceededError,
     BannerNotFoundError,
@@ -126,6 +131,9 @@ __all__ = [
     "CtaConfig",
     "validate_cta_config",
     "compute_cta_positions",
+    "OVERRIDE_TEXT_MAX",
+    "validate_cta_text_overrides",
+    "resolve_cta_text",
     "BannerEdges",
     "CtaBandBackground",
     "compute_cta_backgrounds",

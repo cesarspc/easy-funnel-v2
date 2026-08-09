@@ -46,8 +46,8 @@
 .form-field-input--error:focus,
 .form-field-input--error:focus-within {
   outline: none;
-  border-color: var(--lp-action);
-  box-shadow: inset 0 0 0 1px var(--lp-action);
+  border-color: var(--lp-form-action, var(--lp-action));
+  box-shadow: inset 0 0 0 1px var(--lp-form-action, var(--lp-action));
 }
 
 .form-field-input--error {
@@ -68,8 +68,8 @@
 }
 
 .form-field-input--prefixed:focus-within {
-  border-color: var(--lp-action);
-  box-shadow: inset 0 0 0 1px var(--lp-action);
+  border-color: var(--lp-form-action, var(--lp-action));
+  box-shadow: inset 0 0 0 1px var(--lp-form-action, var(--lp-action));
 }
 
 .form-field-input--prefixed-control {

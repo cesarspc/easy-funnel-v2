@@ -239,6 +239,17 @@ export function LandingPage(): JSX.Element {
   const defaultCtaLabel = `Pedir ahora — ${CURRENCY_FORMATTER.format(productPrice)}`;
   const ctaLabel = landing.cta_text || defaultCtaLabel;
   const ctaAnimation = landing.cta_animation ?? null;
+  const ctaTextOverrides = landing.cta_text_overrides;
+
+  /**
+   * The label for the CTA at `position` (1-based): that position's override
+   * when the merchant set one (e.g. only the second CTA saying "Lo quiero
+   * ahora"), else the landing's default label.
+   */
+  function ctaLabelForPosition(position: number): string {
+    const override = ctaTextOverrides?.[String(position)];
+    return override && override.trim() ? override : ctaLabel;
+  }
 
   /** One CTA band, painted for `position` (1-based). */
   function renderCtaBand(position: number) {
@@ -251,7 +262,11 @@ export function LandingPage(): JSX.Element {
         data-cta-band-style={band.bandStyle}
       >
         <div className="lp-page__cta-slot">
-          <Cta label={ctaLabel} onClick={handleActivateCta} animation={ctaAnimation} />
+          <Cta
+            label={ctaLabelForPosition(position)}
+            onClick={handleActivateCta}
+            animation={ctaAnimation}
+          />
         </div>
       </div>
     );
@@ -332,6 +347,26 @@ export function LandingPage(): JSX.Element {
   if (accentTint) accentProperties["--lp-action-tint"] = accentTint;
   if (accentInk) accentProperties["--lp-action-ink"] = accentInk;
 
+  /**
+   * The COD form's own accent (tier tiles, focus rings, submit button),
+   * independent of the CTA/page accent above. Falls back to the CTA's palette
+   * when the landing never set one, so payloads cached before this field
+   * existed keep rendering identically. Composed onto `accentStyle` (not a
+   * separate root) so the modal — which sits outside `.lp-page`'s DOM subtree
+   * — still receives both sets of variables via its own `style` prop.
+   */
+  const formPalette = landing.form_accent_palette ?? palette;
+  const formAccentStyle: React.CSSProperties = { ...accentStyle };
+  const formAccentProperties = formAccentStyle as Record<string, string>;
+  const formAccent = safeColor(formPalette?.accent ?? landing.form_accent_color ?? accent);
+  const formAccentDeep = safeColor(formPalette?.deep);
+  const formAccentTint = safeColor(formPalette?.tint);
+  const formAccentInk = safeColor(formPalette?.ink);
+  if (formAccent) formAccentProperties["--lp-form-action"] = formAccent;
+  if (formAccentDeep) formAccentProperties["--lp-form-action-deep"] = formAccentDeep;
+  if (formAccentTint) formAccentProperties["--lp-form-action-tint"] = formAccentTint;
+  if (formAccentInk) formAccentProperties["--lp-form-action-ink"] = formAccentInk;
+
   return (
     <div className="lp-page" style={accentStyle}>
       <div className="lp-page__banners">
@@ -352,7 +387,7 @@ export function LandingPage(): JSX.Element {
         onClose={() => setFormState("closed")}
         title="Completa tu pedido"
         subtitle="Paga cuando recibas."
-        style={accentStyle}
+        style={formAccentStyle}
       >
         <CodForm
           landingSlug={slug}

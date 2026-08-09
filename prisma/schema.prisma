@@ -74,6 +74,20 @@ model Landing {
   /// so the palette can never drift out of contrast.
   accentColor String @default("#1a7a4c") @map("accent_color") @db.VarChar(7)
 
+  /// Separate accent for the COD form (tier selection, focus rings, submit
+  /// button) so a merchant can theme the form differently from the CTA
+  /// button/bands above it. Null means "use accent_color", which is also
+  /// what every landing created before this column keeps rendering.
+  formAccentColor String? @map("form_accent_color") @db.VarChar(7)
+
+  /// Per-CTA-position text override, keyed by the 1-based CTA position (as a
+  /// JSON string key) to the custom label for that CTA alone, e.g.
+  /// `{"2": "Lo quiero ahora"}`. A position absent from this map falls back
+  /// to `cta_text`, then to the landing's default label. Validated in
+  /// app/domains/landings/cta_text_overrides.py. Empty object is the shipped
+  /// default (no positions overridden).
+  ctaTextOverrides Json @default("{}") @map("cta_text_overrides")
+
   /// How many quantity offers the COD form presents (1, 2, or 3).
   offerCount Int @default(3) @map("offer_count")
 

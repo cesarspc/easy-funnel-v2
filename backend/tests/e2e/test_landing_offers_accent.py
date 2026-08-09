@@ -256,6 +256,74 @@ class TestAccentColor:
 
         assert response.json()["accent_color"] == "#1a7a4c"
 
+    async def test_the_form_accent_follows_the_page_accent_when_unset(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _published_landing(cod_flow)
+        await _configure(cod_flow, landing, {"accent_color": "#2563eb"})
+
+        response = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["form_accent_color"] == "#2563eb"
+        assert body["form_accent_palette"]["accent"] == "#2563eb"
+
+    async def test_a_configured_form_accent_is_independent_of_the_page_accent(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _published_landing(cod_flow)
+        await _configure(
+            cod_flow,
+            landing,
+            {"accent_color": "#2563eb", "form_accent_color": "#e11d48"},
+        )
+
+        response = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["accent_color"] == "#2563eb"
+        assert body["form_accent_color"] == "#e11d48"
+        assert body["form_accent_palette"]["accent"] == "#e11d48"
+        # Every derived shade is a usable CSS color, same guarantee as accent_color.
+        for key in ("accent", "deep", "tint", "ink"):
+            assert body["form_accent_palette"][key].startswith("#")
+            assert len(body["form_accent_palette"][key]) == 7
+
+
+class TestCtaTextOverrides:
+    async def test_default_public_payload_has_no_overrides(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _published_landing(cod_flow)
+
+        response = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+
+        assert response.status_code == 200
+        assert response.json()["cta_text_overrides"] == {}
+
+    async def test_a_configured_override_is_served_publicly(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _published_landing(cod_flow)
+        await _configure(cod_flow, landing, {"cta_text_overrides": {"1": "Lo quiero ahora"}})
+
+        response = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+
+        assert response.status_code == 200
+        assert response.json()["cta_text_overrides"] == {"1": "Lo quiero ahora"}
+
+    async def test_a_blank_override_value_is_a_field_error(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _published_landing(cod_flow)
+
+        response = await _configure(cod_flow, landing, {"cta_text_overrides": {"1": ""}})
+
+        assert response.status_code == 422
+        assert response.json()["detail"]["field"] == "cta_text_overrides"
+
 
 class TestOfferPricing:
     async def test_a_discount_reduces_the_quoted_total_for_that_offer_only(

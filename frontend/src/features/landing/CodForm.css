@@ -69,7 +69,7 @@
 }
 
 .cod-form__tier:hover {
-  border-color: var(--lp-action);
+  border-color: var(--lp-form-action, var(--lp-action));
   transform: translateY(-1px);
 }
 
@@ -88,7 +88,7 @@
 .cod-form__tier-save {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--lp-action-deep);
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
 }
 
 /* Prices stack right-aligned so the amount owed always sits in the same place
@@ -119,19 +119,19 @@
 }
 
 .cod-form__tier--best {
-  border-color: var(--lp-action);
+  border-color: var(--lp-form-action, var(--lp-action));
   border-width: 2px;
   padding: 11px 13px;
   /* The merchant's accent, washed out server-side to stay behind body text. */
-  background: var(--lp-action-tint);
+  background: var(--lp-form-action-tint, var(--lp-action-tint));
 }
 
 .cod-form__tier-badge {
   position: absolute;
   top: -9px;
   left: 12px;
-  background: var(--lp-action);
-  color: var(--lp-action-ink);
+  background: var(--lp-form-action, var(--lp-action));
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -140,33 +140,33 @@
 }
 
 .cod-form__tier--selected {
-  border-color: var(--lp-action);
-  background: var(--lp-action);
+  border-color: var(--lp-form-action, var(--lp-action));
+  background: var(--lp-form-action, var(--lp-action));
 }
 
 .cod-form__tier--selected .cod-form__tier-qty,
 .cod-form__tier--selected .cod-form__tier-total,
 .cod-form__tier--selected .cod-form__tier-save {
-  color: var(--lp-action-ink);
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
 }
 
 /* On the filled selected tile the struck-through reference has to stay legible
    against the accent, so it takes the accent's own foreground at reduced
    emphasis rather than the neutral quiet ink it uses at rest. */
 .cod-form__tier--selected .cod-form__tier-was {
-  color: var(--lp-action-ink);
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
   opacity: 0.75;
 }
 
 /* The discount badge inverts on the selected tile: the accent fill is already
    the accent, so the badge switches to the readable foreground to stay visible. */
 .cod-form__tier--selected .cod-form__tier-badge {
-  background: var(--lp-action-ink);
-  color: var(--lp-action);
+  background: var(--lp-form-action-ink, var(--lp-action-ink));
+  color: var(--lp-form-action, var(--lp-action));
 }
 
 .cod-form__tier:has(input:focus-visible) {
-  outline: 2px solid var(--lp-action);
+  outline: 2px solid var(--lp-form-action, var(--lp-action));
   outline-offset: 2px;
 }
 
@@ -213,8 +213,8 @@
   appearance: none;
   border: none;
   border-radius: var(--lp-radius-md);
-  background: var(--lp-action);
-  color: var(--lp-action-ink);
+  background: var(--lp-form-action, var(--lp-action));
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
   font-family: var(--lp-font);
   font-size: 1.0625rem;
   font-weight: 700;
@@ -226,7 +226,7 @@
 }
 
 .cod-form__submit:hover:not(:disabled) {
-  background: var(--lp-action-deep);
+  background: var(--lp-form-action-deep, var(--lp-action-deep));
 }
 
 .cod-form__submit:active:not(:disabled) {
@@ -234,7 +234,7 @@
 }
 
 .cod-form__submit:disabled {
-  background: var(--lp-action-deep);
+  background: var(--lp-form-action-deep, var(--lp-action-deep));
   opacity: 0.8;
   cursor: progress;
 }

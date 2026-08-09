@@ -51,10 +51,12 @@ interface ConfigForm {
   formPresentation: FormPresentation;
   ctaBandStyle: CtaBandStyle;
   accentColor: string;
+  formAccentColor: string;
   offerCount: number;
   offers: OfferForm[];
   ctaText: string;
   ctaAnimation: string;
+  ctaTextOverrides: Record<string, string>;
 }
 
 function toOfferForm(offer: LandingOffer): OfferForm {
@@ -100,10 +102,12 @@ function toConfigForm(landing: LandingDetail): ConfigForm {
     formPresentation: landing.form_presentation,
     ctaBandStyle: landing.cta_band_style ?? "gradient",
     accentColor: landing.accent_color ?? "#1a7a4c",
+    formAccentColor: landing.form_accent_color ?? "",
     offerCount: landing.offer_count,
     offers: fitOffers((landing.offers ?? []).map(toOfferForm), landing.offer_count),
     ctaText: landing.cta_text ?? "",
     ctaAnimation: landing.cta_animation ?? "",
+    ctaTextOverrides: { ...(landing.cta_text_overrides ?? {}) },
   };
 }
 
@@ -278,9 +282,11 @@ export function LandingEditorPage() {
         form_presentation: config.formPresentation,
         cta_band_style: config.ctaBandStyle,
         accent_color: config.accentColor,
+        form_accent_color: config.formAccentColor.trim() || null,
         offer_count: config.offerCount,
         cta_text: config.ctaText.trim() || null,
         cta_animation: (config.ctaAnimation as "slide" | "shake") || null,
+        cta_text_overrides: config.ctaTextOverrides,
         // Only the rows the merchant can actually see are sent, so lowering the
         // count drops the trailing offers instead of submitting copy for tiers
         // the form no longer shows.
@@ -754,6 +760,77 @@ export function LandingEditorPage() {
             )}
           </div>
 
+          {/* Form accent color. Separate from the CTA/page accent above: this
+              themes the COD form alone (tier tiles, focus rings, submit
+              button), so a merchant can, for example, keep a bold CTA button
+              while the form itself stays neutral. Left blank, the form keeps
+              following the CTA's accent — the picker below shows that fallback
+              live rather than defaulting to a fixed color. */}
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-form-accent-color">
+              Color del formulario
+            </label>
+            <div className="landings-field__color">
+              <input
+                id="landing-form-accent-color"
+                className="landings-field__swatch"
+                type="color"
+                value={config.formAccentColor || config.accentColor}
+                aria-describedby={
+                  fieldErrors.form_accent_color
+                    ? "landing-form-accent-color-error landing-form-accent-color-hint"
+                    : "landing-form-accent-color-hint"
+                }
+                aria-invalid={fieldErrors.form_accent_color ? true : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, formAccentColor: event.target.value } : current,
+                  )
+                }
+              />
+              <input
+                className="landings-field__input landings-field__input--hex"
+                type="text"
+                placeholder="Igual al color de la landing"
+                value={config.formAccentColor}
+                aria-label="Color del formulario en hexadecimal"
+                spellCheck={false}
+                maxLength={7}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, formAccentColor: event.target.value } : current,
+                  )
+                }
+              />
+              {config.formAccentColor && (
+                <button
+                  type="button"
+                  className="landings-field__clear"
+                  onClick={() =>
+                    setConfig((current) =>
+                      current ? { ...current, formAccentColor: "" } : current,
+                    )
+                  }
+                >
+                  Usar el color de la landing
+                </button>
+              )}
+            </div>
+            <p className="landings-field__hint" id="landing-form-accent-color-hint">
+              Colorea solo el formulario de pedido (cantidades, bordes de foco, botón de
+              confirmar). Déjalo vacío para que siga el color de la landing.
+            </p>
+            {fieldErrors.form_accent_color && (
+              <p
+                className="landings-field__error"
+                id="landing-form-accent-color-error"
+                role="alert"
+              >
+                {fieldErrors.form_accent_color}
+              </p>
+            )}
+          </div>
+
           {/* Quantity offers. The count drives how many rows render, so the
               merchant never edits copy for a tier the buyer will not see. */}
           <div className="landings-field">
@@ -821,6 +898,70 @@ export function LandingEditorPage() {
               </p>
             )}
           </div>
+
+          {/* Per-CTA-position text override. Independent of `cta_text` above:
+              this lets one specific CTA (e.g. only the second one) say
+              something different — "Lo quiero ahora" — while every other CTA
+              on the landing keeps showing the default label. Rows are keyed
+              off `resolved_cta_positions`, the actual 1-based positions the
+              current banner sequence renders a CTA at, so the merchant is
+              never offered an override for a CTA that does not exist. */}
+          {landing && landing.resolved_cta_positions.length > 0 && (
+            <div className="landings-field">
+              <label className="landings-field__label">Texto por CTA (opcional)</label>
+              <p className="landings-field__hint" id="landing-cta-overrides-hint">
+                Reemplaza el texto del botón solo en la posición elegida. Vacío usa el texto por
+                defecto de arriba.
+              </p>
+              <div className="landings-field__overrides">
+                {landing.resolved_cta_positions.map((position) => {
+                  const key = String(position);
+                  const value = config.ctaTextOverrides[key] ?? "";
+                  return (
+                    <div key={position} className="landings-field__row">
+                      <label
+                        className="landings-field__label"
+                        htmlFor={`landing-cta-override-${position}`}
+                        style={{ minWidth: 90 }}
+                      >
+                        CTA #{position}
+                      </label>
+                      <input
+                        id={`landing-cta-override-${position}`}
+                        className="landings-field__input"
+                        type="text"
+                        maxLength={60}
+                        placeholder="Usar el texto por defecto"
+                        value={value}
+                        onChange={(event) => {
+                          const text = event.target.value;
+                          setConfig((current) => {
+                            if (!current) return current;
+                            const next = { ...current.ctaTextOverrides };
+                            if (text.trim() === "") {
+                              delete next[key];
+                            } else {
+                              next[key] = text;
+                            }
+                            return { ...current, ctaTextOverrides: next };
+                          });
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              {fieldErrors.cta_text_overrides && (
+                <p
+                  className="landings-field__error"
+                  id="landing-cta-overrides-error"
+                  role="alert"
+                >
+                  {fieldErrors.cta_text_overrides}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Quantity offers. The count drives how many rows render, so the
               merchant never edits copy for a tier the buyer will not see. */}

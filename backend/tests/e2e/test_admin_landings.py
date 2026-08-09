@@ -298,6 +298,94 @@ async def test_landing_defaults_to_a_gradient_cta_band_style(
     assert response.json()["cta_band_style"] == "gradient"
 
 
+async def test_landing_defaults_to_no_form_accent_color(cod_flow: CodFlowHarness) -> None:
+    """A landing created before the field existed follows accent_color."""
+    landing = await cod_flow.seed_landing(landing_status="draft")
+
+    response = await cod_flow.client.get(
+        f"/api/admin/landings/{landing.landing_id}",
+        headers=cod_flow.admin_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["form_accent_color"] is None
+
+
+async def test_landing_patch_sets_and_clears_the_form_accent_color(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing(landing_status="draft")
+
+    set_response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"form_accent_color": "#E11D48"},
+        headers=cod_flow.admin_headers(),
+    )
+    assert set_response.status_code == 200
+    assert set_response.json()["form_accent_color"] == "#e11d48"
+    # The CTA/page accent is untouched by setting the form's own accent.
+    assert set_response.json()["accent_color"] == "#1a7a4c"
+
+    clear_response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"form_accent_color": ""},
+        headers=cod_flow.admin_headers(),
+    )
+    assert clear_response.status_code == 200
+    assert clear_response.json()["form_accent_color"] is None
+
+
+async def test_landing_patch_rejects_a_malformed_form_accent_color_without_mutating(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing(landing_status="draft")
+
+    response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"form_accent_color": "red; background: url(evil)"},
+        headers=cod_flow.admin_headers(),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["field"] == "form_accent_color"
+    stored = await cod_flow.db.landing.find_unique(where={"id": landing.landing_id})
+    assert stored is not None
+    assert stored.formAccentColor is None
+
+
+async def test_landing_patch_stores_a_per_cta_position_text_override(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing(landing_status="draft")
+
+    response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"cta_text_overrides": {"2": "Lo quiero ahora"}},
+        headers=cod_flow.admin_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cta_text_overrides"] == {"2": "Lo quiero ahora"}
+
+
+async def test_landing_patch_rejects_a_blank_cta_text_override_without_mutating(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing(landing_status="draft")
+
+    response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"cta_text_overrides": {"2": "   "}},
+        headers=cod_flow.admin_headers(),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["field"] == "cta_text_overrides"
+    stored = await cod_flow.db.landing.find_unique(where={"id": landing.landing_id})
+    assert stored is not None
+    assert stored.ctaTextOverrides == {}
+
+
 async def test_landing_patch_rejects_an_unsupported_cta_band_style_without_mutating(
     cod_flow: CodFlowHarness,
 ) -> None:

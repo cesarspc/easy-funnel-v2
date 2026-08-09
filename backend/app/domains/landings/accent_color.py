@@ -139,19 +139,22 @@ def _ensure_readable_with_white_text(color: str) -> str:
     return _BLACK
 
 
-def normalize_accent_color(raw_color: str) -> str:
+def normalize_accent_color(raw_color: str, *, field: str = "accent_color") -> str:
     """Return the canonical lowercase `#rrggbb` form of a merchant's accent.
 
     Accepts `#rgb` shorthand and any casing; rejects everything else as a
     field error so a malformed value never reaches the database check or, worse,
     ships to a public page as a broken CSS color.
+
+    `field` names the offending field in the raised error — `form_accent_color`
+    shares this exact validation but must not be reported as `accent_color`.
     """
     if not isinstance(raw_color, str):
-        raise LandingValidationError("accent_color", "Accent color must be a hex color.")
+        raise LandingValidationError(field, "Accent color must be a hex color.")
 
     text = raw_color.strip().lower()
     if not text:
-        raise LandingValidationError("accent_color", "Accent color is required.")
+        raise LandingValidationError(field, "Accent color is required.")
     if not text.startswith("#"):
         text = f"#{text}"
 
@@ -164,7 +167,7 @@ def normalize_accent_color(raw_color: str) -> str:
 
     if not _ACCENT_PATTERN.match(text):
         raise LandingValidationError(
-            "accent_color",
+            field,
             "Accent color must be a hex color such as #1a7a4c.",
         )
     return text

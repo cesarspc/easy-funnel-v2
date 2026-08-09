@@ -274,3 +274,108 @@ describe("per-landing accent", () => {
     expect(page.style.getPropertyValue("--lp-action")).toBe("");
   });
 });
+
+describe("form accent color", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("themes the COD form with its own accent, independent of the CTA's", async () => {
+    await openForm(
+      makeLanding({
+        accent_color: "#2563eb",
+        accent_palette: { accent: "#2563eb", deep: "#2058d3", tint: "#f4f5fd", ink: "#ffffff" },
+        form_accent_color: "#e11d48",
+        form_accent_palette: { accent: "#e11d48", deep: "#b91c3f", tint: "#fdf2f4", ink: "#ffffff" },
+      }),
+    );
+
+    // The modal (COD form) renders through a portal on document.body, so its
+    // style attribute is read directly off the backdrop rather than `.lp-page`.
+    const backdrop = document.querySelector(".modal-backdrop") as HTMLElement;
+    expect(backdrop.style.getPropertyValue("--lp-form-action")).toBe("#e11d48");
+    expect(backdrop.style.getPropertyValue("--lp-form-action-deep")).toBe("#b91c3f");
+    // The page's own CTA accent still travels into the modal (it themes the
+    // recap/quantity chrome shared with the page) but is distinct from the
+    // form accent above.
+    expect(backdrop.style.getPropertyValue("--lp-action")).toBe("#2563eb");
+  });
+
+  it("falls back to the CTA accent when no form accent was ever set", async () => {
+    await openForm(
+      makeLanding({
+        accent_color: "#2563eb",
+        accent_palette: { accent: "#2563eb", deep: "#2058d3", tint: "#f4f5fd", ink: "#ffffff" },
+        // Absent form_accent_color/form_accent_palette: payload cached before
+        // the feature existed.
+      }),
+    );
+
+    const backdrop = document.querySelector(".modal-backdrop") as HTMLElement;
+    expect(backdrop.style.getPropertyValue("--lp-form-action")).toBe("#2563eb");
+  });
+});
+
+describe("per-CTA text override", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows the override only on the CTA position it targets", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding({
+        banners: [
+          {
+            id: 1,
+            alt_text: "Banner 1",
+            order_index: 0,
+            variants: [{ width: 480, format: "webp", url: "https://r2.example/1/480.webp" }],
+            top_edge_color: null,
+            bottom_edge_color: null,
+          },
+          {
+            id: 2,
+            alt_text: "Banner 2",
+            order_index: 1,
+            variants: [{ width: 480, format: "webp", url: "https://r2.example/2/480.webp" }],
+            top_edge_color: null,
+            bottom_edge_color: null,
+          },
+        ],
+        cta_positions: [1, 2],
+        cta_text_overrides: { "2": "Lo quiero ahora" },
+      }),
+    );
+    render(
+      <MemoryRouter initialEntries={["/p/set-sartenes"]}>
+        <Routes>
+          <Route path="/p/:slug" element={<LandingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const ctas = await screen.findAllByRole("button", { name: /Pedir ahora|Lo quiero ahora/i });
+    expect(ctas).toHaveLength(2);
+    expect(ctas[0]).toHaveTextContent(/Pedir ahora/);
+    expect(ctas[1]).toHaveTextContent("Lo quiero ahora");
+  });
+
+  it("falls back to cta_text, then the default label, when a position has no override", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding({
+        cta_positions: [1],
+        cta_text: "Comprar ya",
+        cta_text_overrides: { "2": "Lo quiero ahora" },
+      }),
+    );
+    render(
+      <MemoryRouter initialEntries={["/p/set-sartenes"]}>
+        <Routes>
+          <Route path="/p/:slug" element={<LandingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("button", { name: "Comprar ya" })).toBeInTheDocument();
+  });
+});

@@ -85,6 +85,20 @@ class TestNormalizeAccentColor:
             normalize_accent_color(None)  # type: ignore[arg-type]
         assert exc_info.value.field == "accent_color"
 
+    def test_custom_field_name_is_reported_on_every_error(self) -> None:
+        # form_accent_color shares this exact validation but must never be
+        # reported to the caller as accent_color.
+        with pytest.raises(LandingValidationError) as exc_info:
+            normalize_accent_color("nope", field="form_accent_color")
+        assert exc_info.value.field == "form_accent_color"
+
+        with pytest.raises(LandingValidationError) as exc_info:
+            normalize_accent_color("", field="form_accent_color")
+        assert exc_info.value.field == "form_accent_color"
+
+    def test_custom_field_name_still_canonicalizes_correctly(self) -> None:
+        assert normalize_accent_color("#ABC", field="form_accent_color") == "#aabbcc"
+
     @given(st.text())
     def test_never_returns_a_value_the_database_check_would_reject(self, raw: str) -> None:
         try:

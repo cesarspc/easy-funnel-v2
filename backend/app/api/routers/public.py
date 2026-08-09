@@ -135,11 +135,22 @@ class LandingResponse(BaseModel):
     cta_text: str | None = None
     # CTA button animation: null (none), "slide", or "shake".
     cta_animation: str | None = None
+    # Per-CTA-position text override, keyed by 1-based position as a string
+    # (e.g. `{"2": "Lo quiero ahora"}`). A position absent here renders
+    # `cta_text` (or the default label) instead. The client resolves this
+    # itself rather than the server pre-resolving each band, since the
+    # client already knows which position each band renders at.
+    cta_text_overrides: dict[str, str] = {}
     # The merchant's accent plus its derived shades. The page applies these as
     # CSS custom properties, so one stored color themes the CTA, the offer
     # tiles, focus rings, and accent text together.
     accent_color: str
     accent_palette: AccentPaletteResponse
+    # The COD form's own accent, independent of the CTA's. Falls back to
+    # accent_color/accent_palette when the merchant never set one, so a
+    # landing created before this field keeps rendering identically.
+    form_accent_color: str
+    form_accent_palette: AccentPaletteResponse
     # The quantity offers the COD form presents, already priced.
     offers: list[LandingOfferResponse]
     blocks: list[ConversionBlockResponse]
@@ -310,6 +321,8 @@ async def get_public_landing(
     ]
 
     palette = derive_accent_palette(landing.accentColor or DEFAULT_ACCENT_COLOR)
+    form_accent_color = landing.formAccentColor or landing.accentColor or DEFAULT_ACCENT_COLOR
+    form_palette = derive_accent_palette(form_accent_color)
 
     # Priced here, once, from the product's current price. The COD form shows
     # these totals and the order records the one the buyer picks, so the number
@@ -333,12 +346,22 @@ async def get_public_landing(
         cta_band_style=landing.ctaBandStyle,
         cta_text=landing.ctaText,
         cta_animation=landing.ctaAnimation,
+        cta_text_overrides=(
+            landing.ctaTextOverrides if isinstance(landing.ctaTextOverrides, dict) else {}
+        ),
         accent_color=palette.accent,
         accent_palette=AccentPaletteResponse(
             accent=palette.accent,
             deep=palette.deep,
             tint=palette.tint,
             ink=palette.ink,
+        ),
+        form_accent_color=form_palette.accent,
+        form_accent_palette=AccentPaletteResponse(
+            accent=form_palette.accent,
+            deep=form_palette.deep,
+            tint=form_palette.tint,
+            ink=form_palette.ink,
         ),
         offers=offers,
         blocks=blocks,

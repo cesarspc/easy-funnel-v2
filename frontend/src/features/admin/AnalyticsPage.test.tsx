@@ -39,6 +39,7 @@ const LANDING_SUMMARY: LandingSummary = {
   form_presentation: "inline",
   cta_band_style: "gradient",
   accent_color: "#1a7a4c",
+  form_accent_color: null,
   offer_count: 3,
   offers: [
     { quantity: 1, label: "1 unidad", sublabel: null, discount_percent: 0, compare_at_price: null },
@@ -48,6 +49,7 @@ const LANDING_SUMMARY: LandingSummary = {
   banner_count: 2,
   cta_text: null,
   cta_animation: null,
+  cta_text_overrides: {},
 };
 
 const LANDING_ANALYTICS: LandingAnalytics[] = [

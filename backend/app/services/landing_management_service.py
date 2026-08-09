@@ -42,6 +42,7 @@ from app.domains.landings.alt_text import validate_alt_text
 from app.domains.landings.banner_ordering import contiguous_indices, reorder
 from app.domains.landings.cta_band_style import validate_cta_band_style
 from app.domains.landings.cta_placement import validate_cta_config
+from app.domains.landings.cta_text_overrides import validate_cta_text_overrides
 from app.domains.landings.errors import (
     BannerNotFoundError,
     DuplicateSlugError,
@@ -72,10 +73,12 @@ class LandingManagementService:
         form_presentation: str | None = None,
         cta_band_style: str | None = None,
         accent_color: str | None = None,
+        form_accent_color: str | None = None,
         offer_count: int | None = None,
         offers: list[dict[str, object]] | None = None,
         cta_text: str | None = None,
         cta_animation: str | None = None,
+        cta_text_overrides: dict[object, object] | None = None,
         actor: str,
     ) -> Landing:
         """Update the landing's slug, CTA configuration, and form presentation.
@@ -89,6 +92,14 @@ class LandingManagementService:
         tiers the form is going to render, so lowering the count with stale
         copy still in the column has to fail loudly rather than leave the public
         form asking for a quantity it has no price for.
+
+        `form_accent_color` themes the COD form (tier tiles, focus rings,
+        submit button) independently of `accent_color`, which continues to
+        theme the CTA button/bands; empty string clears it back to following
+        `accent_color`. `cta_text_overrides` maps a 1-based CTA position to a
+        label that replaces `cta_text` for that position alone (e.g. only the
+        second CTA saying "Lo quiero ahora"), leaving every other position on
+        the landing's default label.
         """
         async with self._db.tx() as tx:
             landings = LandingRepository(tx)
@@ -141,6 +152,16 @@ class LandingManagementService:
             if accent_color is not None:
                 data["accentColor"] = normalize_accent_color(accent_color)
 
+            if form_accent_color is not None:
+                if form_accent_color == "":
+                    # Empty string clears the override (form reverts to
+                    # accent_color).
+                    data["formAccentColor"] = None
+                else:
+                    data["formAccentColor"] = normalize_accent_color(
+                        form_accent_color, field="form_accent_color"
+                    )
+
             if cta_text is not None:
                 if cta_text == "":
                     # Empty string clears the custom text (reverts to default).
@@ -163,6 +184,10 @@ class LandingManagementService:
                     )
                 else:
                     data["ctaAnimation"] = cta_animation
+
+            if cta_text_overrides is not None:
+                validated_overrides = validate_cta_text_overrides(cta_text_overrides)
+                data["ctaTextOverrides"] = Json(validated_overrides)
 
             if offer_count is not None or offers is not None:
                 count = validate_offer_count(

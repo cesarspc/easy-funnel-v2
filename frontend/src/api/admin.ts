@@ -328,12 +328,20 @@ export interface LandingSummary {
   cta_band_style: CtaBandStyle;
   /** The one color the merchant controls on the public page, as `#rrggbb`. */
   accent_color: string;
+  /** The COD form's own accent. Null means it follows `accent_color`. */
+  form_accent_color: string | null;
   /** How many quantity offers the COD form presents (1-3). */
   offer_count: number;
   offers: LandingOffer[];
   banner_count: number;
   cta_text: string | null;
   cta_animation: "slide" | "shake" | null;
+  /**
+   * Per-CTA-position text override, keyed by 1-based position as a string
+   * (e.g. `{"2": "Lo quiero ahora"}`). A position absent here uses `cta_text`
+   * (or the default label) instead.
+   */
+  cta_text_overrides: Record<string, string>;
 }
 
 export interface LandingDetail extends LandingSummary {
@@ -370,10 +378,12 @@ export interface LandingConfigUpdate {
   form_presentation?: FormPresentation;
   cta_band_style?: CtaBandStyle;
   accent_color?: string;
+  form_accent_color?: string | null;
   offer_count?: number;
   offers?: LandingOfferUpdate[];
   cta_text?: string | null;
   cta_animation?: "slide" | "shake" | null;
+  cta_text_overrides?: Record<string, string>;
 }
 
 /**

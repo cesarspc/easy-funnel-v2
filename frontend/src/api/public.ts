@@ -120,12 +120,25 @@ export interface PublicLanding {
   /** Absent on payloads cached before per-landing accents existed. */
   accent_color?: string;
   accent_palette?: AccentPalette;
+  /**
+   * The COD form's own accent, independent of the CTA's. Absent on payloads
+   * cached before this existed, in which case the form follows `accent_color`.
+   */
+  form_accent_color?: string;
+  form_accent_palette?: AccentPalette;
   /** Absent on payloads cached before configurable offers existed. */
   offers?: PublicLandingOffer[];
   /** Custom CTA button text. Null means use default label. */
   cta_text?: string | null;
   /** CTA animation: "slide" (left-to-right) or "shake". Null means no animation. */
   cta_animation?: "slide" | "shake" | null;
+  /**
+   * Per-CTA-position text override, keyed by 1-based position as a string
+   * (e.g. `{"2": "Lo quiero ahora"}`). A position absent here renders
+   * `cta_text` (or the default label) instead. Absent entirely on payloads
+   * cached before this existed.
+   */
+  cta_text_overrides?: Record<string, string>;
 }
 
 export interface OrderCreateRequest {

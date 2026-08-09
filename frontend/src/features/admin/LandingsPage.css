@@ -303,6 +303,49 @@
   text-transform: lowercase;
 }
 
+/* Clears an optional accent override back to "follow the other color",
+   placed inline with the swatch/hex pair rather than a separate row. */
+.landings-field__clear {
+  flex: none;
+  font-family: var(--gf-font-ui);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gf-ink-quiet);
+  background: none;
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  padding: 8px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.landings-field__clear:hover {
+  color: var(--gf-ink);
+  border-color: var(--gf-ink-quiet);
+}
+
+/* One row per CTA position in the text-override list: a short label naming
+   the position beside the input that overrides it, so the merchant reads the
+   list as "CTA #2 -> this text" rather than a stack of unlabeled fields. */
+.landings-field__row {
+  display: flex;
+  align-items: center;
+  gap: var(--gf-space-sm);
+  width: 100%;
+}
+
+.landings-field__row .landings-field__label {
+  flex: none;
+}
+
+/* Stacks the per-CTA-position override rows, one per resolved CTA. */
+.landings-field__overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
 /* Quantity offers. Each offer is a bordered group rather than a card: this is
    the Operate surface, so the border states "these fields belong together"
    without the shadow the Flat Instrument Rule forbids at rest. */

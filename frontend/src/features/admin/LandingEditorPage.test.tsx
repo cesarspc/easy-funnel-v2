@@ -63,6 +63,7 @@ const DETAIL: LandingDetail = {
   form_presentation: "inline",
   cta_band_style: "gradient",
   accent_color: "#1a7a4c",
+  form_accent_color: null,
   offer_count: 3,
   offers: [
     { quantity: 1, label: "1 unidad", sublabel: null, discount_percent: 0, compare_at_price: null },
@@ -72,6 +73,7 @@ const DETAIL: LandingDetail = {
   banner_count: 2,
   cta_text: null,
   cta_animation: null,
+  cta_text_overrides: {},
   banners: [banner(1, 0, "Primero"), banner(2, 1, "Segundo")],
   resolved_cta_positions: [1, 2],
 };
@@ -212,9 +214,11 @@ describe("LandingEditorPage", () => {
         form_presentation: "modal",
         cta_band_style: "solid",
         accent_color: "#1a7a4c",
+        form_accent_color: null,
         offer_count: 3,
         cta_text: null,
         cta_animation: null,
+        cta_text_overrides: {},
         offers: [
           {
             quantity: 1,
@@ -484,5 +488,130 @@ describe("LandingEditorPage offers and accent", () => {
     expect(swatch).toHaveAccessibleDescription(
       /Accent color must be a hex color such as #1a7a4c\./,
     );
+  });
+});
+
+/**
+ * The form accent color (separate from the CTA/page accent) and the
+ * per-CTA-position text override. What matters here is that the two remain
+ * independent controls that submit independently, and that the override list
+ * only ever offers the CTA positions the current banner sequence actually
+ * resolves to.
+ */
+describe("LandingEditorPage form accent and per-CTA text override", () => {
+  beforeEach(() => {
+    vi.mocked(landingsApi.get).mockResolvedValue(DETAIL);
+    vi.mocked(landingsApi.updateConfig).mockResolvedValue(DETAIL);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("submits a blank form accent color as null (follow the landing accent)", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.form_accent_color).toBeNull();
+  });
+
+  it("submits a custom form accent color independently of the CTA accent", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.type(
+      screen.getByLabelText("Color del formulario en hexadecimal"),
+      "#e11d48",
+    );
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.form_accent_color).toBe("#e11d48");
+    expect(payload.accent_color).toBe("#1a7a4c");
+  });
+
+  it("binds a backend form accent error to its own control", async () => {
+    const user = userEvent.setup();
+    vi.mocked(landingsApi.updateConfig).mockRejectedValue(
+      new ApiError(422, "Accent color must be a hex color such as #1a7a4c.", {
+        form_accent_color: "Accent color must be a hex color such as #1a7a4c.",
+      }),
+    );
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    const swatch = await screen.findByLabelText("Color del formulario");
+    await waitFor(() => expect(swatch).toHaveAttribute("aria-invalid", "true"));
+    expect(swatch).toHaveAccessibleDescription(
+      /Accent color must be a hex color such as #1a7a4c\./,
+    );
+  });
+
+  it("offers one override row per resolved CTA position", async () => {
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    expect(screen.getByLabelText("CTA #1")).toBeInTheDocument();
+    expect(screen.getByLabelText("CTA #2")).toBeInTheDocument();
+    expect(screen.queryByLabelText("CTA #3")).not.toBeInTheDocument();
+  });
+
+  it("does not render the override list when there are no resolved CTA positions", async () => {
+    vi.mocked(landingsApi.get).mockResolvedValue({ ...DETAIL, resolved_cta_positions: [] });
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    expect(screen.queryByText("Texto por CTA (opcional)")).not.toBeInTheDocument();
+  });
+
+  it("submits an override only for the position it was typed into", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.type(screen.getByLabelText("CTA #2"), "Lo quiero ahora");
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.cta_text_overrides).toEqual({ "2": "Lo quiero ahora" });
+  });
+
+  it("preloads existing overrides from the stored landing", async () => {
+    vi.mocked(landingsApi.get).mockResolvedValue({
+      ...DETAIL,
+      cta_text_overrides: { "2": "Lo quiero ahora" },
+    });
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    expect(screen.getByLabelText("CTA #2")).toHaveValue("Lo quiero ahora");
+    expect(screen.getByLabelText("CTA #1")).toHaveValue("");
+  });
+
+  it("clearing an override's text removes it from the submitted map", async () => {
+    const user = userEvent.setup();
+    vi.mocked(landingsApi.get).mockResolvedValue({
+      ...DETAIL,
+      cta_text_overrides: { "1": "Cómpralo ya", "2": "Lo quiero ahora" },
+    });
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.clear(screen.getByLabelText("CTA #1"));
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.cta_text_overrides).toEqual({ "2": "Lo quiero ahora" });
   });
 });

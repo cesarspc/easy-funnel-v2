@@ -34,6 +34,15 @@ export interface CodFormValues {
   department: string;
   city: string;
   address: string;
+  /**
+   * Optional reference/complement line ("apto 101", "torre B") shown as its
+   * own field right after the address, but frontend-only: it is never sent to
+   * the backend as its own field. On submit it is joined onto `address` with
+   * a single space, so the order's one `address` column still carries the
+   * complete delivery address (Requirement 5.4) without any API/schema
+   * change.
+   */
+  address2: string;
   quantity: string;
 }
 
@@ -43,6 +52,7 @@ const INITIAL_VALUES: CodFormValues = {
   department: "",
   city: "",
   address: "",
+  address2: "",
   quantity: "1",
 };
 
@@ -278,7 +288,13 @@ export function CodForm({
         phone: values.phone.trim(),
         department: values.department.trim(),
         city: values.city.trim(),
-        address: values.address.trim(),
+        // Direccion 2 is a frontend-only field (Requirement: no backend
+        // change): it never travels as its own key. Instead it is joined
+        // onto the address with a single space, so the backend still
+        // receives one complete `address` string and the order's `address`
+        // column carries the full delivery address including any apartment/
+        // reference detail.
+        address: [values.address.trim(), values.address2.trim()].filter(Boolean).join(" "),
         quantity: safeQuantity,
       });
       onSuccess(result);
@@ -445,10 +461,10 @@ export function CodForm({
       <FormField
         name="address"
         label="Dirección de entrega"
-        description="Incluye barrio y datos que ayuden al mensajero (torre, apto, referencia)."
-        autoComplete="street-address"
-        enterKeyHint="done"
-        placeholder="Calle 10 # 43-25, apto 302, barrio Poblado"
+        description="Calle, número y barrio."
+        autoComplete="address-line1"
+        enterKeyHint="next"
+        placeholder="Calle 10 # 43-25, barrio Poblado"
         required
         minLength={5}
         maxLength={250}
@@ -456,6 +472,18 @@ export function CodForm({
         onChange={(e) => update("address", e.target.value)}
         onBlur={() => handleBlur("address")}
         error={errors.address}
+      />
+
+      <FormField
+        name="address2"
+        label="Dirección 2 (opcional)"
+        description="Torre, apartamento, referencia u otro dato para el mensajero."
+        autoComplete="address-line2"
+        enterKeyHint="done"
+        placeholder="Torre 3, apto 302"
+        maxLength={250}
+        value={values.address2}
+        onChange={(e) => update("address2", e.target.value)}
       />
 
       {formError && (

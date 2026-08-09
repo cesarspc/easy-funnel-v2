@@ -104,11 +104,15 @@ class LandingSummaryResponse(BaseModel):
     form_presentation: str
     cta_band_style: str
     accent_color: str
+    form_accent_color: str | None = None
     offer_count: int
     offers: list[LandingOfferResponse]
     banner_count: int
     cta_text: str | None = None
     cta_animation: str | None = None
+    # Per-CTA-position text override: `{"2": "Lo quiero ahora"}` overrides
+    # only the second CTA's label, leaving the rest on `cta_text`/default.
+    cta_text_overrides: dict[str, str] = {}
 
 
 class LandingListResponse(BaseModel):
@@ -146,10 +150,12 @@ class LandingConfigUpdateRequest(BaseModel):
     form_presentation: str | None = None
     cta_band_style: str | None = None
     accent_color: str | None = None
+    form_accent_color: str | None = None
     offer_count: int | None = None
     offers: list[LandingOfferUpdate] | None = None
     cta_text: str | None = None
     cta_animation: str | None = None
+    cta_text_overrides: dict[str, str] | None = None
 
 
 class BannerUpdateRequest(BaseModel):
@@ -267,6 +273,7 @@ def _to_summary_response(landing) -> LandingSummaryResponse:  # type: ignore[no-
         form_presentation=landing.formPresentation,
         cta_band_style=landing.ctaBandStyle,
         accent_color=landing.accentColor or DEFAULT_ACCENT_COLOR,
+        form_accent_color=landing.formAccentColor,
         offer_count=landing.offerCount,
         offers=[
             LandingOfferResponse(
@@ -283,6 +290,9 @@ def _to_summary_response(landing) -> LandingSummaryResponse:  # type: ignore[no-
         banner_count=len(banners),
         cta_text=landing.ctaText,
         cta_animation=landing.ctaAnimation,
+        cta_text_overrides=(
+            landing.ctaTextOverrides if isinstance(landing.ctaTextOverrides, dict) else {}
+        ),
     )
 
 
@@ -381,12 +391,14 @@ async def update_landing_config(
             form_presentation=request.form_presentation,
             cta_band_style=request.cta_band_style,
             accent_color=request.accent_color,
+            form_accent_color=request.form_accent_color,
             offer_count=request.offer_count,
             offers=(
                 None if request.offers is None else [offer.model_dump() for offer in request.offers]
             ),
             cta_text=request.cta_text,
             cta_animation=request.cta_animation,
+            cta_text_overrides=request.cta_text_overrides,
             actor=admin_user.subject,
         )
     except LandingNotFoundError as exc:
