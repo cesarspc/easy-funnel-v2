@@ -37,11 +37,13 @@ export interface CtaBackground {
 
 /**
  * Pre-defined conversion components a landing can place between its rendered
- * elements. The type is a closed vocabulary; `config` carries content only,
- * because every component's spacing, type, and color are fixed in the landing
- * chrome and tuned for conversion.
+ * elements. The type is a closed vocabulary; `config` carries content plus,
+ * for every type, an optional `accent_color` override — everything else
+ * (spacing, type, layout) is fixed in the landing chrome and tuned for
+ * conversion.
  */
 export type ConversionBlockType =
+  | "announcement_bar"
   | "cod_assurance"
   | "benefits"
   | "offer_price"
@@ -58,6 +60,14 @@ export interface ConversionBlockConfig {
   text?: string | null;
   days?: number | null;
   compare_at_price?: number | null;
+  /**
+   * Optional per-component accent override (`#rrggbb`). When absent, the
+   * component inherits the landing's form accent color. Present on every
+   * block type — it is a bounded content field, not a presentation escape
+   * hatch: it only ever recolors the buttons/lines/background this
+   * component already draws with the accent token.
+   */
+  accent_color?: string | null;
 }
 
 export interface ConversionBlock {
@@ -67,6 +77,13 @@ export interface ConversionBlock {
   slot_index: number;
   order_index: number;
   config: ConversionBlockConfig;
+  /**
+   * Full derived palette for this component's `accent_color` override,
+   * computed server-side (same math as the landing's own accent) so the
+   * client never picks an unreadable foreground. `null` when the component
+   * has no override and inherits the page's form accent.
+   */
+  accent_palette: AccentPalette | null;
 }
 
 /**

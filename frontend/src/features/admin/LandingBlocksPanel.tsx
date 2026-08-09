@@ -34,6 +34,10 @@ interface BlockTypeMeta {
 
 /** Merchant-facing name and the objection each component removes. */
 const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
+  announcement_bar: {
+    label: "Barra superior",
+    purpose: "Un mensaje corto arriba de todo (envío gratis, promo). Es su propia franja de color.",
+  },
   cod_assurance: {
     label: "Pago contraentrega",
     purpose: "Quita el miedo a pagar por adelantado. Solo agregas una nota opcional.",
@@ -65,6 +69,7 @@ const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
 };
 
 const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
+  "announcement_bar",
   "cod_assurance",
   "offer_price",
   "benefits",
@@ -79,12 +84,14 @@ type Draft = Record<string, unknown>;
 /** Starting content per type. `how_it_works` ships the real COD flow as text. */
 function defaultDraft(type: ConversionBlockType): Draft {
   switch (type) {
+    case "announcement_bar":
+      return { text: "Envío gratis + Paga al recibir", accent_color: "" };
     case "cod_assurance":
-      return { note: "" };
+      return { note: "", accent_color: "" };
     case "benefits":
-      return { title: "", items: ["", ""] };
+      return { title: "", items: ["", ""], accent_color: "" };
     case "offer_price":
-      return { compare_at_price: "", note: "" };
+      return { compare_at_price: "", note: "", accent_color: "" };
     case "how_it_works":
       return {
         title: "",
@@ -93,13 +100,14 @@ function defaultDraft(type: ConversionBlockType): Draft {
           "Escribes tus datos de entrega en el formulario.",
           "Recibes el pedido y pagas en efectivo al mensajero.",
         ],
+        accent_color: "",
       };
     case "reviews":
-      return { title: "", items: [{ name: "", city: "", text: "", rating: "" }] };
+      return { title: "", items: [{ name: "", city: "", text: "", rating: "" }], accent_color: "" };
     case "faq":
-      return { title: "", items: [{ question: "", answer: "" }] };
+      return { title: "", items: [{ question: "", answer: "" }], accent_color: "" };
     case "guarantee":
-      return { title: "", text: "", days: "" };
+      return { title: "", text: "", days: "", accent_color: "" };
     default:
       return {};
   }
@@ -173,7 +181,71 @@ function ContentEditor({
     </div>
   );
 
+  // Every component type accepts this same optional override: a color for its
+  // own buttons/lines/background, in place of the landing's form accent. One
+  // field, shared across all eight editors, so adding it here cannot drift
+  // per type the way a copy-pasted field eventually would.
+  const accentColorField = (
+    <div className="landings-field">
+      <label className="landings-field__label" htmlFor={`${idPrefix}-accent`}>
+        Color de acento (opcional)
+      </label>
+      <div className="lblocks__row">
+        <input
+          id={`${idPrefix}-accent`}
+          className="landings-field__input"
+          type="color"
+          style={{ maxWidth: 56, padding: 2 }}
+          value={/^#[0-9a-fA-F]{6}$/.test(textValue(draft, "accent_color")) ? textValue(draft, "accent_color") : "#1a7a4c"}
+          onChange={(event) => set("accent_color", event.target.value)}
+          aria-label="Elegir color de acento"
+        />
+        <input
+          className="landings-field__input"
+          value={textValue(draft, "accent_color")}
+          placeholder="Usa el acento del formulario"
+          maxLength={7}
+          onChange={(event) => set("accent_color", event.target.value)}
+        />
+        {textValue(draft, "accent_color") && (
+          <button
+            type="button"
+            className="landings-table__action"
+            onClick={() => set("accent_color", "")}
+          >
+            Quitar
+          </button>
+        )}
+      </div>
+      <p className="landings-page__muted">
+        Sin color propio, este componente usa el acento configurado en el formulario.
+      </p>
+      <FieldError id={`${idPrefix}-accent-error`} message={fieldErrors.accent_color} />
+    </div>
+  );
+
   switch (type) {
+    case "announcement_bar":
+      return (
+        <div className="lblocks__editor">
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor={`${idPrefix}-text`}>
+              Texto
+            </label>
+            <input
+              id={`${idPrefix}-text`}
+              className="landings-field__input"
+              value={textValue(draft, "text")}
+              maxLength={80}
+              placeholder="Envío gratis + Paga al recibir"
+              onChange={(event) => set("text", event.target.value)}
+            />
+            <FieldError id={`${idPrefix}-text-error`} message={fieldErrors.text} />
+          </div>
+          {accentColorField}
+        </div>
+      );
+
     case "cod_assurance":
       return (
         <div className="lblocks__editor">
@@ -195,6 +267,7 @@ function ContentEditor({
             />
             <FieldError id={`${idPrefix}-note-error`} message={fieldErrors.note} />
           </div>
+          {accentColorField}
         </div>
       );
 
@@ -240,6 +313,7 @@ function ContentEditor({
             )}
             <FieldError id={`${idPrefix}-items-error`} message={fieldErrors.items} />
           </fieldset>
+          {accentColorField}
         </div>
       );
     }
@@ -281,6 +355,7 @@ function ContentEditor({
             />
             <FieldError id={`${idPrefix}-note-error`} message={fieldErrors.note} />
           </div>
+          {accentColorField}
         </div>
       );
 
@@ -307,6 +382,7 @@ function ContentEditor({
             ))}
             <FieldError id={`${idPrefix}-steps-error`} message={fieldErrors.steps} />
           </fieldset>
+          {accentColorField}
         </div>
       );
     }
@@ -395,6 +471,7 @@ function ContentEditor({
             )}
             <FieldError id={`${idPrefix}-items-error`} message={fieldErrors.items} />
           </fieldset>
+          {accentColorField}
         </div>
       );
     }
@@ -455,6 +532,7 @@ function ContentEditor({
             )}
             <FieldError id={`${idPrefix}-items-error`} message={fieldErrors.items} />
           </fieldset>
+          {accentColorField}
         </div>
       );
     }
@@ -505,6 +583,7 @@ function ContentEditor({
             />
             <FieldError id={`${idPrefix}-days-error`} message={fieldErrors.days} />
           </div>
+          {accentColorField}
         </div>
       );
 

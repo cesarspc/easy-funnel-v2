@@ -64,22 +64,6 @@ class CtaBackgroundResponse(BaseModel):
     source: str
 
 
-class ConversionBlockResponse(BaseModel):
-    """One placed conversion component (Requirements 3.27-3.31).
-
-    `slot_index` counts the rendered elements the component follows, so the
-    client inserts it after that many banners/CTA bands. A slot beyond the
-    sequence renders at the end rather than disappearing. `config` is content
-    only; every component's presentation is fixed in the Landing chrome.
-    """
-
-    id: int
-    block_type: str
-    slot_index: int
-    order_index: int
-    config: dict
-
-
 class AccentPaletteResponse(BaseModel):
     """The landing's accent and every shade the chrome derives from it.
 
@@ -92,6 +76,29 @@ class AccentPaletteResponse(BaseModel):
     deep: str
     tint: str
     ink: str
+
+
+class ConversionBlockResponse(BaseModel):
+    """One placed conversion component (Requirements 3.27-3.31).
+
+    `slot_index` counts the rendered elements the component follows, so the
+    client inserts it after that many banners/CTA bands. A slot beyond the
+    sequence renders at the end rather than disappearing. `config` is content
+    only — presentation is fixed in the Landing chrome — except for the one
+    bounded override every type accepts: `accent_color`. When set,
+    `accent_palette` carries its fully derived shades (deep/tint/ink), computed
+    server-side the same way the landing's own accent is, so the client never
+    has to do contrast math and can never end up with unreadable text on a
+    merchant-chosen color. `accent_palette` is `None` when the component has no
+    override, meaning it inherits the form accent already on the page.
+    """
+
+    id: int
+    block_type: str
+    slot_index: int
+    order_index: int
+    config: dict
+    accent_palette: AccentPaletteResponse | None = None
 
 
 class LandingOfferResponse(BaseModel):
@@ -314,6 +321,12 @@ async def get_public_landing(
             slot_index=block.slotIndex,
             order_index=block.orderIndex,
             config=block.config if isinstance(block.config, dict) else {},
+            accent_palette=(
+                AccentPaletteResponse(**derive_accent_palette(override).__dict__)
+                if isinstance(block.config, dict)
+                and isinstance(override := block.config.get("accent_color"), str)
+                else None
+            ),
         )
         # Prisma relations are opt-in; `or []` keeps a payload without the
         # relation from becoming a 500.

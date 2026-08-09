@@ -48,7 +48,7 @@ class TestPlacement:
         assert len(body["slots"]) == 7
         assert body["slots"][1].startswith("1-2")
         assert body["slots"][2].startswith("2-3")
-        assert len(body["allowed_block_types"]) == 7
+        assert len(body["allowed_block_types"]) == 8
 
     async def test_places_components_in_two_slots_and_reports_them_in_render_order(
         self, cod_flow: CodFlowHarness
@@ -195,6 +195,7 @@ class TestPlacement:
             "title": "Garantía de 30 días",
             "text": "Si no te sirve, lo devuelves.",
             "days": 30,
+            "accent_color": None,
         }
 
     async def test_anonymous_callers_cannot_place_components(
@@ -323,3 +324,42 @@ class TestPublicRendering:
 
         assert public.status_code == 200
         assert public.json()["blocks"] == []
+
+    async def test_a_component_without_an_override_carries_no_accent_palette(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _seed_three_banner_landing(cod_flow)
+        await cod_flow.client.post(
+            f"/api/admin/landings/{landing.landing_id}/blocks",
+            json={"block_type": "cod_assurance", "slot_index": 1, "config": {}},
+            headers=cod_flow.admin_headers(),
+        )
+
+        public = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+
+        assert public.status_code == 200
+        assert public.json()["blocks"][0]["accent_palette"] is None
+
+    async def test_a_component_with_an_override_carries_its_derived_palette(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _seed_three_banner_landing(cod_flow)
+        await cod_flow.client.post(
+            f"/api/admin/landings/{landing.landing_id}/blocks",
+            json={
+                "block_type": "announcement_bar",
+                "slot_index": 0,
+                "config": {"text": "Envío gratis", "accent_color": "#ff6600"},
+            },
+            headers=cod_flow.admin_headers(),
+        )
+
+        public = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+
+        assert public.status_code == 200
+        block = public.json()["blocks"][0]
+        assert block["config"]["accent_color"] == "#ff6600"
+        palette = block["accent_palette"]
+        assert palette is not None
+        assert palette["accent"] == "#ff6600"
+        assert palette["deep"] and palette["tint"] and palette["ink"]

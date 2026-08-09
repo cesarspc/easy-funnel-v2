@@ -3,16 +3,21 @@ elements (Requirements 3.27-3.31).
 
 Two ideas own this module:
 
-**A fixed vocabulary, not a page builder.** Seven component types exist,
+**A fixed vocabulary, not a page builder.** Eight component types exist,
 each one a device that measurably moves cold cash-on-delivery traffic in this
-market: the COD assurance strip, benefit bullets, the price/saving statement,
-the three-step "how it works" explainer, customer reviews, the FAQ objection
-handler, and the guarantee. A merchant chooses a type, writes its content, and
-places it. Nothing else is configurable, because everything else — spacing,
-type scale, color, order of elements inside the component, mobile behavior —
-is already decided in the Landing chrome for conversion. `config` therefore
-carries content only; a key that would change presentation is rejected here
-rather than quietly stored.
+market: a top-of-page announcement bar, the COD assurance strip, benefit
+bullets, the price/saving statement, the three-step "how it works" explainer,
+customer reviews, the FAQ objection handler, and the guarantee. A merchant
+chooses a type, writes its content, and places it. Almost nothing else is
+configurable — spacing, type scale, layout, order of elements inside the
+component, mobile behavior are already decided in the Landing chrome for
+conversion. The one exception is `accent_color`: every type accepts the same
+optional hex field so a merchant can match (or intentionally break) a
+component's buttons/lines against the rest of the page, defaulting to the
+landing's form accent when unset. That single knob does not turn this into a
+page builder — it is one more bounded content field, validated the same way
+`compare_at_price` or `days` are. Any other key that would change presentation
+is rejected here rather than quietly stored.
 
 Deliberately absent: countdown timers and "only N left" counters. Both are
 unverifiable by this platform, and against cold traffic that is being asked to
@@ -34,6 +39,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.domains.landings.accent_color import normalize_accent_color
 from app.domains.landings.errors import LandingValidationError
 
 BLOCK_COD_ASSURANCE = "cod_assurance"
@@ -43,6 +49,7 @@ BLOCK_HOW_IT_WORKS = "how_it_works"
 BLOCK_REVIEWS = "reviews"
 BLOCK_FAQ = "faq"
 BLOCK_GUARANTEE = "guarantee"
+BLOCK_ANNOUNCEMENT_BAR = "announcement_bar"
 
 # Mirrors the `landing_blocks_type_allowed` database check.
 ALLOWED_BLOCK_TYPES = (
@@ -53,6 +60,7 @@ ALLOWED_BLOCK_TYPES = (
     BLOCK_REVIEWS,
     BLOCK_FAQ,
     BLOCK_GUARANTEE,
+    BLOCK_ANNOUNCEMENT_BAR,
 )
 
 # 15 banners + one CTA band each is the longest sequence the page can render,
@@ -191,6 +199,39 @@ def _require_list(value: Any, *, field: str, label: str) -> list[Any]:
     return value
 
 
+def _optional_accent_color(config: dict[str, Any]) -> str | None:
+    """Return the component's own accent override, or `None` to inherit.
+
+    `None` means "use the landing's form accent" — the default this feature
+    exists to express — so an absent or blank value is not an error, unlike
+    every other color field in this codebase which is either required or
+    fully absent from the vocabulary. Reuses `normalize_accent_color` so this
+    field can never disagree with the format the CTA/form accent already
+    enforces (`#rrggbb`, shorthand expanded).
+    """
+    raw = config.get("accent_color")
+    if raw is None or raw == "":
+        return None
+    return normalize_accent_color(raw, field="accent_color")
+
+
+def _validate_announcement_bar(config: dict[str, Any]) -> dict[str, Any]:
+    """Top-of-page announcement bar: one line of text, own accent background.
+
+    Deliberately the smallest component in the vocabulary — a single required
+    line, because a bar competing for attention with the hero banner should not
+    grow into a second headline. `accent_color` here doubles as the bar's own
+    background (not just its buttons/lines), since the bar has no button —
+    it *is* the accent surface.
+    """
+    return {
+        "text": _require_text(
+            config.get("text"), field="text", label="Announcement text", maximum=_TITLE_MAX
+        ),
+        "accent_color": _optional_accent_color(config),
+    }
+
+
 def _validate_cod_assurance(config: dict[str, Any]) -> dict[str, Any]:
     """COD assurance strip: the three assurances are fixed copy in the chrome.
 
@@ -200,7 +241,8 @@ def _validate_cod_assurance(config: dict[str, Any]) -> dict[str, Any]:
     into something the platform does not do.
     """
     return {
-        "note": _optional_text(config.get("note"), field="note", label="Note", maximum=_NOTE_MAX)
+        "note": _optional_text(config.get("note"), field="note", label="Note", maximum=_NOTE_MAX),
+        "accent_color": _optional_accent_color(config),
     }
 
 
@@ -219,6 +261,7 @@ def _validate_benefits(config: dict[str, Any]) -> dict[str, Any]:
             config.get("title"), field="title", label="Title", maximum=_TITLE_MAX
         ),
         "items": items,
+        "accent_color": _optional_accent_color(config),
     }
 
 
@@ -243,6 +286,7 @@ def _validate_offer_price(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "compare_at_price": compare_at_price,
         "note": _optional_text(config.get("note"), field="note", label="Note", maximum=_NOTE_MAX),
+        "accent_color": _optional_accent_color(config),
     }
 
 
@@ -259,6 +303,7 @@ def _validate_how_it_works(config: dict[str, Any]) -> dict[str, Any]:
             config.get("title"), field="title", label="Title", maximum=_TITLE_MAX
         ),
         "steps": steps,
+        "accent_color": _optional_accent_color(config),
     }
 
 
@@ -312,6 +357,7 @@ def _validate_reviews(config: dict[str, Any]) -> dict[str, Any]:
             config.get("title"), field="title", label="Title", maximum=_TITLE_MAX
         ),
         "items": items,
+        "accent_color": _optional_accent_color(config),
     }
 
 
@@ -345,6 +391,7 @@ def _validate_faq(config: dict[str, Any]) -> dict[str, Any]:
             config.get("title"), field="title", label="Title", maximum=_TITLE_MAX
         ),
         "items": items,
+        "accent_color": _optional_accent_color(config),
     }
 
 
@@ -366,6 +413,7 @@ def _validate_guarantee(config: dict[str, Any]) -> dict[str, Any]:
         ),
         "text": _require_text(config.get("text"), field="text", label="Text", maximum=_TEXT_MAX),
         "days": days,
+        "accent_color": _optional_accent_color(config),
     }
 
 
@@ -377,6 +425,7 @@ _VALIDATORS = {
     BLOCK_REVIEWS: _validate_reviews,
     BLOCK_FAQ: _validate_faq,
     BLOCK_GUARANTEE: _validate_guarantee,
+    BLOCK_ANNOUNCEMENT_BAR: _validate_announcement_bar,
 }
 
 

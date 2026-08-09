@@ -43,6 +43,7 @@ function response(blocks: LandingBlock[]): LandingBlockListResponse {
     blocks,
     slots: SLOTS,
     allowed_block_types: [
+      "announcement_bar",
       "cod_assurance",
       "benefits",
       "offer_price",
@@ -88,19 +89,23 @@ describe("LandingBlocksPanel", () => {
     expect(options[2]).toBe("2-3 · entre CTA 1 y banner 2");
   });
 
-  it("lists the seven pre-defined components with what each one is for", async () => {
+  it("lists the eight pre-defined components with what each one is for", async () => {
     renderPanel();
 
     const typeSelect = await screen.findByLabelText("Componente");
-    expect(typeSelect.querySelectorAll("option")).toHaveLength(7);
+    expect(typeSelect.querySelectorAll("option")).toHaveLength(8);
     expect(screen.getByText(/Quita el miedo a pagar por adelantado/)).toBeInTheDocument();
   });
 
-  it("exposes no presentation control at all", async () => {
+  it("exposes only the accent color as presentation, nothing else", async () => {
     renderPanel();
     await screen.findByLabelText("Componente");
 
-    for (const forbidden of [/padding/i, /color/i, /tipografía/i, /ancho/i, /margen/i, /fondo/i]) {
+    // The one approved override — a color for this component's own
+    // buttons/lines/background — is present; every other presentation
+    // control (spacing, typography, layout) remains absent.
+    expect(screen.getByLabelText("Color de acento (opcional)")).toBeInTheDocument();
+    for (const forbidden of [/padding/i, /tipografía/i, /ancho/i, /margen/i, /fondo/i]) {
       expect(screen.queryByLabelText(forbidden)).not.toBeInTheDocument();
     }
   });
@@ -122,7 +127,7 @@ describe("LandingBlocksPanel", () => {
       expect(landingsApi.createBlock).toHaveBeenCalledWith(7, {
         block_type: "cod_assurance",
         slot_index: 1,
-        config: { note: "Cobertura nacional" },
+        config: { note: "Cobertura nacional", accent_color: "" },
       }),
     );
     const list = await screen.findByRole("list", { name: "Componentes colocados" });
@@ -226,7 +231,7 @@ describe("LandingBlocksPanel", () => {
 
     await waitFor(() =>
       expect(landingsApi.updateBlock).toHaveBeenCalledWith(7, 11, {
-        config: { note: "Entrega en 1 a 3 días" },
+        config: { note: "Entrega en 1 a 3 días", accent_color: "" },
       }),
     );
   });

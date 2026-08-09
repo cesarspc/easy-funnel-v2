@@ -43,6 +43,38 @@ async def test_create_product_response_includes_its_draft_landing(
     await _cleanup_product(cod_flow, product_id=body["id"])
 
 
+async def test_create_product_seeds_a_default_announcement_bar(
+    cod_flow: CodFlowHarness,
+) -> None:
+    """A new draft landing starts with one announcement_bar component in
+    slot 0 (above everything), so the merchant sees the top-of-page header in
+    place rather than having to know to add it. It behaves like any other
+    conversion component afterward: editable, movable, removable."""
+    sku = _unique_sku()
+    created = await cod_flow.client.post(
+        "/api/admin/products",
+        json={"name": "Parlante Portátil", "sku": sku, "price": 55000.0},
+        headers=cod_flow.admin_headers(),
+    )
+    product_id = created.json()["id"]
+
+    try:
+        landing = await cod_flow.db.landing.find_unique(where={"productId": product_id})
+        assert landing is not None
+
+        blocks_response = await cod_flow.client.get(
+            f"/api/admin/landings/{landing.id}/blocks", headers=cod_flow.admin_headers()
+        )
+        assert blocks_response.status_code == 200
+        blocks = blocks_response.json()["blocks"]
+        assert len(blocks) == 1
+        assert blocks[0]["block_type"] == "announcement_bar"
+        assert blocks[0]["slot_index"] == 0
+        assert blocks[0]["config"]["text"]
+    finally:
+        await _cleanup_product(cod_flow, product_id=product_id)
+
+
 async def test_list_products_includes_landing_slug_and_status(
     cod_flow: CodFlowHarness,
 ) -> None:
@@ -128,6 +160,10 @@ async def _cleanup_product(cod_flow: CodFlowHarness, *, product_id: int) -> None
         await db.order.delete_many(where={"landingId": landing.id})
         await db.ctaclick.delete_many(where={"landingId": landing.id})
         await db.landingview.delete_many(where={"landingId": landing.id})
+        # Every landing now starts with a default announcement_bar component
+        # (Requirement: default header component on creation), so it must be
+        # cleared before the landing itself can be deleted (restrict FK).
+        await db.landingblock.delete_many(where={"landingId": landing.id})
         await db.landing.delete(where={"id": landing.id})
     await db.auditlog.delete_many(where={"targetId": str(product_id), "targetType": "product"})
     await db.product.delete(where={"id": product_id})

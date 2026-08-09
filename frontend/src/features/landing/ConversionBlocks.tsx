@@ -1,15 +1,22 @@
 /**
- * The seven pre-defined conversion components a landing can place between its
- * banners and CTA bands (Requirements 3.27-3.31).
+ * The eight pre-defined conversion components a landing can place, including
+ * above its first banner (Requirements 3.27-3.31).
  *
  * Every component's presentation lives here and nowhere else: the merchant
  * places a type in a slot and writes its content, and cannot change spacing,
- * type scale, color, or internal order. That is the point of a fixed
+ * type scale, or internal order. That is the point of a fixed
  * vocabulary — a component whose job is to convert should not be de-optimizable
- * from a settings screen.
+ * from a settings screen. The one configurable presentation knob is
+ * `accent_color`: every type accepts it, applied as a scoped CSS variable
+ * override so that component's buttons/lines/background use it instead of the
+ * landing's form accent — a single bounded field, not a door into arbitrary
+ * styling.
  *
  * What each one is for, against cold cash-on-delivery traffic on a phone:
  *
+ * - `announcement_bar` — the first thing a visitor sees, above the hero
+ *   banner: one line (free shipping, a promo window) in a bar that is its own
+ *   accent surface.
  * - `cod_assurance` — removes the payment objection at the moment it appears.
  *   Its three points are platform facts (pay on delivery, check first, no card),
  *   so they are fixed copy; only a merchant note is configurable.
@@ -26,8 +33,9 @@
  * - `guarantee` — risk reversal, stated once, plainly.
  */
 
-import type { JSX } from "react";
-import type { ConversionBlock, ConversionBlockConfig } from "../../api";
+import type { CSSProperties, JSX } from "react";
+import type { AccentPalette, ConversionBlock, ConversionBlockConfig } from "../../api";
+import { safeColor } from "../../utils";
 import "./ConversionBlocks.css";
 
 const CURRENCY = new Intl.NumberFormat("es-CO", {
@@ -44,6 +52,38 @@ export interface ConversionBlockViewProps {
 
 function asStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+/**
+ * Scoped accent override for one component, from its server-derived palette.
+ * When a component has no override (`palette` is `null`) this returns
+ * `undefined` rather than an empty object — no inline `style` prop is added,
+ * and the component simply inherits `--lp-form-action*` from the page root
+ * (Requirement: default accent = form accent).
+ *
+ * All four shades are overridden together so a merchant's color never leaves
+ * a checkmark or step number painted in the *page's* accent next to text
+ * colored in the *override* — the two would visibly disagree. `deep`/`tint`/
+ * `ink` come pre-derived from the backend (same contrast-safe math as the
+ * landing's own accent), so this never risks unreadable text.
+ */
+function accentStyle(palette: AccentPalette | null | undefined): CSSProperties | undefined {
+  const accent = safeColor(palette?.accent);
+  if (!accent) return undefined;
+  const deep = safeColor(palette?.deep) ?? accent;
+  const tint = safeColor(palette?.tint) ?? accent;
+  const ink = safeColor(palette?.ink) ?? "#ffffff";
+  const style: Record<string, string> = {
+    "--lp-action": accent,
+    "--lp-action-deep": deep,
+    "--lp-action-tint": tint,
+    "--lp-action-ink": ink,
+    "--lp-form-action": accent,
+    "--lp-form-action-deep": deep,
+    "--lp-form-action-tint": tint,
+    "--lp-form-action-ink": ink,
+  };
+  return style as CSSProperties;
 }
 
 interface ReviewItem {
@@ -90,10 +130,36 @@ function BlockHeading({ title }: { title?: string | null }): JSX.Element | null 
   return <h2 className="cblock__title">{title}</h2>;
 }
 
-/** Pay-on-delivery assurances. Fixed copy: these are facts about the platform. */
-function CodAssurance({ config }: { config: ConversionBlockConfig }): JSX.Element {
+/** Top-of-page bar: one line, its own accent as background. */
+function AnnouncementBar({
+  config,
+  palette,
+}: {
+  config: ConversionBlockConfig;
+  palette: AccentPalette | null;
+}): JSX.Element | null {
+  if (!config.text) return null;
   return (
-    <section className="cblock cblock--assurance" aria-label="Pago contraentrega">
+    <section className="cblock cblock--announcement" style={accentStyle(palette)} role="note">
+      <p className="cblock__announcement-text">{config.text}</p>
+    </section>
+  );
+}
+
+/** Pay-on-delivery assurances. Fixed copy: these are facts about the platform. */
+function CodAssurance({
+  config,
+  palette,
+}: {
+  config: ConversionBlockConfig;
+  palette: AccentPalette | null;
+}): JSX.Element {
+  return (
+    <section
+      className="cblock cblock--assurance"
+      style={accentStyle(palette)}
+      aria-label="Pago contraentrega"
+    >
       <ul className="cblock__assurances">
         <li>
           <strong>Pagas al recibir</strong>
@@ -113,11 +179,17 @@ function CodAssurance({ config }: { config: ConversionBlockConfig }): JSX.Elemen
   );
 }
 
-function Benefits({ config }: { config: ConversionBlockConfig }): JSX.Element | null {
+function Benefits({
+  config,
+  palette,
+}: {
+  config: ConversionBlockConfig;
+  palette: AccentPalette | null;
+}): JSX.Element | null {
   const items = asStrings(config.items);
   if (items.length === 0) return null;
   return (
-    <section className="cblock cblock--benefits">
+    <section className="cblock cblock--benefits" style={accentStyle(palette)}>
       <BlockHeading title={config.title ?? "Por qué lo vas a querer"} />
       <ul className="cblock__benefits">
         {items.map((item) => (
@@ -131,9 +203,11 @@ function Benefits({ config }: { config: ConversionBlockConfig }): JSX.Element | 
 function OfferPrice({
   config,
   productPrice,
+  palette,
 }: {
   config: ConversionBlockConfig;
   productPrice: number;
+  palette: AccentPalette | null;
 }): JSX.Element {
   const compareAt =
     typeof config.compare_at_price === "number" && config.compare_at_price > productPrice
@@ -144,7 +218,7 @@ function OfferPrice({
     compareAt === null || savings === null ? null : Math.round((savings / compareAt) * 100);
 
   return (
-    <section className="cblock cblock--price" aria-label="Precio">
+    <section className="cblock cblock--price" style={accentStyle(palette)} aria-label="Precio">
       <p className="cblock__price-row">
         {compareAt !== null && (
           <span className="cblock__price-was">
@@ -164,11 +238,17 @@ function OfferPrice({
   );
 }
 
-function HowItWorks({ config }: { config: ConversionBlockConfig }): JSX.Element | null {
+function HowItWorks({
+  config,
+  palette,
+}: {
+  config: ConversionBlockConfig;
+  palette: AccentPalette | null;
+}): JSX.Element | null {
   const steps = asStrings(config.steps);
   if (steps.length === 0) return null;
   return (
-    <section className="cblock cblock--steps">
+    <section className="cblock cblock--steps" style={accentStyle(palette)}>
       <BlockHeading title={config.title ?? "Cómo funciona"} />
       <ol className="cblock__steps">
         {steps.map((step, index) => (
@@ -184,11 +264,17 @@ function HowItWorks({ config }: { config: ConversionBlockConfig }): JSX.Element 
   );
 }
 
-function Reviews({ config }: { config: ConversionBlockConfig }): JSX.Element | null {
+function Reviews({
+  config,
+  palette,
+}: {
+  config: ConversionBlockConfig;
+  palette: AccentPalette | null;
+}): JSX.Element | null {
   const items = asReviews(config.items);
   if (items.length === 0) return null;
   return (
-    <section className="cblock cblock--reviews">
+    <section className="cblock cblock--reviews" style={accentStyle(palette)}>
       <BlockHeading title={config.title ?? "Lo que dicen los clientes"} />
       <ul className="cblock__reviews">
         {items.map((review) => (
@@ -213,11 +299,17 @@ function Reviews({ config }: { config: ConversionBlockConfig }): JSX.Element | n
   );
 }
 
-function Faq({ config }: { config: ConversionBlockConfig }): JSX.Element | null {
+function Faq({
+  config,
+  palette,
+}: {
+  config: ConversionBlockConfig;
+  palette: AccentPalette | null;
+}): JSX.Element | null {
   const items = asFaqItems(config.items);
   if (items.length === 0) return null;
   return (
-    <section className="cblock cblock--faq">
+    <section className="cblock cblock--faq" style={accentStyle(palette)}>
       <BlockHeading title={config.title ?? "Preguntas frecuentes"} />
       <div className="cblock__faq">
         {items.map((item) => (
@@ -234,10 +326,16 @@ function Faq({ config }: { config: ConversionBlockConfig }): JSX.Element | null 
   );
 }
 
-function Guarantee({ config }: { config: ConversionBlockConfig }): JSX.Element | null {
+function Guarantee({
+  config,
+  palette,
+}: {
+  config: ConversionBlockConfig;
+  palette: AccentPalette | null;
+}): JSX.Element | null {
   if (!config.title || !config.text) return null;
   return (
-    <section className="cblock cblock--guarantee">
+    <section className="cblock cblock--guarantee" style={accentStyle(palette)}>
       <p className="cblock__guarantee-title">
         {config.title}
         {typeof config.days === "number" ? ` · ${config.days} días` : ""}
@@ -255,23 +353,25 @@ export function ConversionBlockView({
   block,
   productPrice,
 }: ConversionBlockViewProps): JSX.Element | null {
-  const { config } = block;
+  const { config, accent_palette: palette } = block;
 
   switch (block.block_type) {
+    case "announcement_bar":
+      return <AnnouncementBar config={config} palette={palette} />;
     case "cod_assurance":
-      return <CodAssurance config={config} />;
+      return <CodAssurance config={config} palette={palette} />;
     case "benefits":
-      return <Benefits config={config} />;
+      return <Benefits config={config} palette={palette} />;
     case "offer_price":
-      return <OfferPrice config={config} productPrice={productPrice} />;
+      return <OfferPrice config={config} productPrice={productPrice} palette={palette} />;
     case "how_it_works":
-      return <HowItWorks config={config} />;
+      return <HowItWorks config={config} palette={palette} />;
     case "reviews":
-      return <Reviews config={config} />;
+      return <Reviews config={config} palette={palette} />;
     case "faq":
-      return <Faq config={config} />;
+      return <Faq config={config} palette={palette} />;
     case "guarantee":
-      return <Guarantee config={config} />;
+      return <Guarantee config={config} palette={palette} />;
     default:
       return null;
   }

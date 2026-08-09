@@ -31,6 +31,29 @@
   color: var(--lp-ink-quiet);
 }
 
+/* --- Announcement bar ---------------------------------------------------- */
+
+/* The one component that *is* its own accent surface rather than drawing an
+   accent on top of a neutral background — a thin colored strip above
+   everything else, the first thing cold traffic sees. `--lp-action` is
+   already the merchant's form-accent-or-override by the time this rule reads
+   it (see accentStyle() in ConversionBlocks.tsx), so no separate color
+   variable is needed here. */
+
+.cblock--announcement {
+  padding: 10px var(--lp-space-md);
+  background: var(--lp-action);
+  text-align: center;
+}
+
+.cblock__announcement-text {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--lp-action-ink);
+}
+
 /* --- COD assurances ------------------------------------------------------ */
 
 .cblock--assurance {

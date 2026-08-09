@@ -13,11 +13,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
-from prisma import Prisma
+from prisma import Json, Prisma
 from prisma.models import Landing, Product
 
 from app.db.client import utcnow
-from app.db.repositories import AuditLogRepository, LandingRepository, ProductRepository
+from app.db.repositories import (
+    AuditLogRepository,
+    LandingBlockRepository,
+    LandingRepository,
+    ProductRepository,
+)
+from app.domains.landings.blocks import BLOCK_ANNOUNCEMENT_BAR, validate_block_config
 from app.domains.products.errors import DuplicateSkuError, ProductNotFoundError
 from app.domains.products.lifecycle import (
     next_status_on_activate,
@@ -39,6 +45,13 @@ _TransitionFn = Callable[[int, str], str]
 # landings domain (task 7) before publishing.
 _DEFAULT_DRAFT_CTA_MODE = "after_every"
 _DEFAULT_DRAFT_FORM_PRESENTATION = "inline"
+
+# Every new landing starts with one announcement bar above everything (slot 0),
+# so a merchant sees the component in place rather than having to know to add
+# it. Content is a placeholder the merchant is expected to rewrite; the
+# component itself (and its slot) can be edited or removed like any other.
+_DEFAULT_ANNOUNCEMENT_TEXT = "Envío gratis + Paga al recibir"
+_ANNOUNCEMENT_SLOT_INDEX = 0
 
 
 @dataclass(frozen=True)
@@ -78,6 +91,7 @@ class ProductLifecycleService:
         async with self._db.tx() as tx:
             products = ProductRepository(tx)
             landings = LandingRepository(tx)
+            blocks = LandingBlockRepository(tx)
             audit_log = AuditLogRepository(tx)
 
             existing = await products.get_by_sku(validated_sku)
@@ -99,6 +113,19 @@ class ProductLifecycleService:
                     "slug": f"draft-{product.id}",
                     "ctaMode": _DEFAULT_DRAFT_CTA_MODE,
                     "formPresentation": _DEFAULT_DRAFT_FORM_PRESENTATION,
+                }
+            )
+            announcement_config = validate_block_config(
+                BLOCK_ANNOUNCEMENT_BAR, {"text": _DEFAULT_ANNOUNCEMENT_TEXT}
+            )
+            await blocks.create(
+                {
+                    "landingId": landing.id,
+                    "blockType": BLOCK_ANNOUNCEMENT_BAR,
+                    "slotIndex": _ANNOUNCEMENT_SLOT_INDEX,
+                    "orderIndex": 0,
+                    "config": Json(announcement_config),
+                    "enabled": True,
                 }
             )
             await audit_log.record(

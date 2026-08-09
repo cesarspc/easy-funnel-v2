@@ -60,6 +60,7 @@ function block(overrides: Partial<ConversionBlock>): ConversionBlock {
     slot_index: 1,
     order_index: 0,
     config: {},
+    accent_palette: null,
     ...overrides,
   };
 }

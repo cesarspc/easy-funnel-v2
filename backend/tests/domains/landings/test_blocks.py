@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 from app.domains.landings.blocks import (
     ALLOWED_BLOCK_TYPES,
+    BLOCK_ANNOUNCEMENT_BAR,
     BLOCK_BENEFITS,
     BLOCK_COD_ASSURANCE,
     BLOCK_FAQ,
@@ -34,13 +35,14 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 SUPPORTED_KEYS = {
-    BLOCK_COD_ASSURANCE: {"note"},
-    BLOCK_BENEFITS: {"title", "items"},
-    BLOCK_OFFER_PRICE: {"compare_at_price", "note"},
-    BLOCK_HOW_IT_WORKS: {"title", "steps"},
-    BLOCK_REVIEWS: {"title", "items"},
-    BLOCK_FAQ: {"title", "items"},
-    BLOCK_GUARANTEE: {"title", "text", "days"},
+    BLOCK_ANNOUNCEMENT_BAR: {"text", "accent_color"},
+    BLOCK_COD_ASSURANCE: {"note", "accent_color"},
+    BLOCK_BENEFITS: {"title", "items", "accent_color"},
+    BLOCK_OFFER_PRICE: {"compare_at_price", "note", "accent_color"},
+    BLOCK_HOW_IT_WORKS: {"title", "steps", "accent_color"},
+    BLOCK_REVIEWS: {"title", "items", "accent_color"},
+    BLOCK_FAQ: {"title", "items", "accent_color"},
+    BLOCK_GUARANTEE: {"title", "text", "days", "accent_color"},
 }
 
 
@@ -48,8 +50,8 @@ class TestVocabulary:
     def test_every_type_has_a_validator_and_key_set(self) -> None:
         assert set(SUPPORTED_KEYS) == set(ALLOWED_BLOCK_TYPES)
 
-    def test_seven_types_exist(self) -> None:
-        assert len(ALLOWED_BLOCK_TYPES) == 7
+    def test_eight_types_exist(self) -> None:
+        assert len(ALLOWED_BLOCK_TYPES) == 8
 
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_known_type_is_accepted(self, block_type: str) -> None:
@@ -135,14 +137,25 @@ class TestSlotLabels:
 
 
 class TestContentValidation:
+    def test_announcement_bar_requires_text(self) -> None:
+        with pytest.raises(LandingValidationError) as excinfo:
+            validate_block_config(BLOCK_ANNOUNCEMENT_BAR, {})
+        assert excinfo.value.field == "text"
+
+        result = validate_block_config(BLOCK_ANNOUNCEMENT_BAR, {"text": "  Envío gratis  "})
+        assert result == {"text": "Envío gratis", "accent_color": None}
+
     def test_cod_assurance_needs_no_content(self) -> None:
-        assert validate_block_config(BLOCK_COD_ASSURANCE, {}) == {"note": None}
+        assert validate_block_config(BLOCK_COD_ASSURANCE, {}) == {
+            "note": None,
+            "accent_color": None,
+        }
 
     def test_cod_assurance_keeps_only_its_note(self) -> None:
         result = validate_block_config(
             BLOCK_COD_ASSURANCE, {"note": "  Envío a todo el país  ", "padding": "40px"}
         )
-        assert result == {"note": "Envío a todo el país"}
+        assert result == {"note": "Envío a todo el país", "accent_color": None}
 
     @pytest.mark.parametrize(
         ("block_type", "config"),
@@ -159,12 +172,61 @@ class TestContentValidation:
         ],
     )
     def test_presentation_keys_are_never_stored(self, block_type: str, config: dict) -> None:
-        """Spacing/color/type are decided by the Landing chrome, so a client
-        that sends them gets them dropped rather than persisted."""
+        """Spacing/type are decided by the Landing chrome, so a client that
+        sends a presentation key gets it dropped rather than persisted. Color
+        is the one exception (`accent_color`, tested separately below)."""
         result = validate_block_config(block_type, config)
         assert set(result).issubset(SUPPORTED_KEYS[block_type])
         for presentation_key in ("background", "font_size", "margin", "color", "css", "padding"):
             assert presentation_key not in result
+
+    def test_accent_color_defaults_to_none_on_every_type(self) -> None:
+        """Absent `accent_color` means "inherit the form accent" — every type
+        accepts the key, and every type is valid without it."""
+        minimal_config = {
+            BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
+            BLOCK_COD_ASSURANCE: {},
+            BLOCK_BENEFITS: {"items": ["a", "b"]},
+            BLOCK_OFFER_PRICE: {},
+            BLOCK_HOW_IT_WORKS: {"steps": ["a", "b", "c"]},
+            BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
+            BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
+            BLOCK_GUARANTEE: {"title": "G", "text": "T"},
+        }
+        for block_type, config in minimal_config.items():
+            result = validate_block_config(block_type, config)
+            assert result["accent_color"] is None
+
+    @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
+    def test_accent_color_is_normalized_like_any_other_accent(self, block_type: str) -> None:
+        base_config = {
+            BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
+            BLOCK_COD_ASSURANCE: {},
+            BLOCK_BENEFITS: {"items": ["a", "b"]},
+            BLOCK_OFFER_PRICE: {},
+            BLOCK_HOW_IT_WORKS: {"steps": ["a", "b", "c"]},
+            BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
+            BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
+            BLOCK_GUARANTEE: {"title": "G", "text": "T"},
+        }[block_type]
+        result = validate_block_config(block_type, {**base_config, "accent_color": "#ABC"})
+        assert result["accent_color"] == "#aabbcc"
+
+    @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
+    def test_malformed_accent_color_is_rejected_with_its_field(self, block_type: str) -> None:
+        base_config = {
+            BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
+            BLOCK_COD_ASSURANCE: {},
+            BLOCK_BENEFITS: {"items": ["a", "b"]},
+            BLOCK_OFFER_PRICE: {},
+            BLOCK_HOW_IT_WORKS: {"steps": ["a", "b", "c"]},
+            BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
+            BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
+            BLOCK_GUARANTEE: {"title": "G", "text": "T"},
+        }[block_type]
+        with pytest.raises(LandingValidationError) as excinfo:
+            validate_block_config(block_type, {**base_config, "accent_color": "not-a-color"})
+        assert excinfo.value.field == "accent_color"
 
     def test_benefits_bounds(self) -> None:
         with pytest.raises(LandingValidationError) as excinfo:
@@ -192,6 +254,7 @@ class TestContentValidation:
         assert validate_block_config(BLOCK_OFFER_PRICE, {}) == {
             "compare_at_price": None,
             "note": None,
+            "accent_color": None,
         }
 
     def test_how_it_works_requires_exactly_three_steps(self) -> None:
@@ -258,7 +321,17 @@ class TestContentValidation:
         block_type=st.sampled_from(ALLOWED_BLOCK_TYPES),
         config=st.dictionaries(
             keys=st.sampled_from(
-                ["note", "title", "items", "steps", "text", "days", "compare_at_price", "padding"]
+                [
+                    "note",
+                    "title",
+                    "items",
+                    "steps",
+                    "text",
+                    "days",
+                    "compare_at_price",
+                    "padding",
+                    "accent_color",
+                ]
             ),
             values=st.one_of(
                 st.none(),
