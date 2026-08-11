@@ -317,7 +317,7 @@ export function LandingPage(): JSX.Element {
     const group = blocksBySlot.get(slot);
     if (!group) return null;
     return group.map((block) => (
-      <ConversionBlockView key={block.id} block={block} productPrice={productPrice} />
+      <ConversionBlockView key={block.id} block={block} productPrice={productPrice} blocksDarkMode={landing.blocks_dark_mode} />
     ));
   }
 
@@ -351,21 +351,23 @@ export function LandingPage(): JSX.Element {
    * The COD form's own accent (tier tiles, focus rings, submit button),
    * independent of the CTA/page accent above. Falls back to the CTA's palette
    * when the landing never set one, so payloads cached before this field
-   * existed keep rendering identically. Composed onto `accentStyle` (not a
-   * separate root) so the modal — which sits outside `.lp-page`'s DOM subtree
-   * — still receives both sets of variables via its own `style` prop.
+   * existed keep rendering identically. Written onto BOTH `accentStyle` (the
+   * page root, so ConversionBlocks inherit it) and `formAccentStyle` (the
+   * modal, which sits outside `.lp-page`'s DOM subtree).
    */
   const formPalette = landing.form_accent_palette ?? palette;
-  const formAccentStyle: React.CSSProperties = { ...accentStyle };
-  const formAccentProperties = formAccentStyle as Record<string, string>;
   const formAccent = safeColor(formPalette?.accent ?? landing.form_accent_color ?? accent);
   const formAccentDeep = safeColor(formPalette?.deep);
   const formAccentTint = safeColor(formPalette?.tint);
   const formAccentInk = safeColor(formPalette?.ink);
-  if (formAccent) formAccentProperties["--lp-form-action"] = formAccent;
-  if (formAccentDeep) formAccentProperties["--lp-form-action-deep"] = formAccentDeep;
-  if (formAccentTint) formAccentProperties["--lp-form-action-tint"] = formAccentTint;
-  if (formAccentInk) formAccentProperties["--lp-form-action-ink"] = formAccentInk;
+  if (formAccent) accentProperties["--lp-form-action"] = formAccent;
+  if (formAccentDeep) accentProperties["--lp-form-action-deep"] = formAccentDeep;
+  if (formAccentTint) accentProperties["--lp-form-action-tint"] = formAccentTint;
+  if (formAccentInk) accentProperties["--lp-form-action-ink"] = formAccentInk;
+
+  // The modal needs both CTA and form variables since it's portaled outside
+  // .lp-page. Spread accentStyle (which now includes both) into formAccentStyle.
+  const formAccentStyle: React.CSSProperties = { ...accentStyle };
 
   return (
     <div className="lp-page" style={accentStyle}>
@@ -378,7 +380,7 @@ export function LandingPage(): JSX.Element {
           </Fragment>
         ))}
         {trailingBlocks.map((block) => (
-          <ConversionBlockView key={block.id} block={block} productPrice={productPrice} />
+          <ConversionBlockView key={block.id} block={block} productPrice={productPrice} blocksDarkMode={landing.blocks_dark_mode} />
         ))}
       </div>
 

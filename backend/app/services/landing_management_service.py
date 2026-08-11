@@ -79,6 +79,7 @@ class LandingManagementService:
         cta_text: str | None = None,
         cta_animation: str | None = None,
         cta_text_overrides: dict[object, object] | None = None,
+        blocks_dark_mode: bool | None = None,
         actor: str,
     ) -> Landing:
         """Update the landing's slug, CTA configuration, and form presentation.
@@ -188,6 +189,9 @@ class LandingManagementService:
             if cta_text_overrides is not None:
                 validated_overrides = validate_cta_text_overrides(cta_text_overrides)
                 data["ctaTextOverrides"] = Json(validated_overrides)
+
+            if blocks_dark_mode is not None:
+                data["blocksDarkMode"] = blocks_dark_mode
 
             if offer_count is not None or offers is not None:
                 count = validate_offer_count(

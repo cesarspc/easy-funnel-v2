@@ -12,25 +12,46 @@
  * landing's form accent — a single bounded field, not a door into arbitrary
  * styling.
  *
+ * This pass restyles every component against reference screenshots of
+ * high-converting cash-on-delivery landings. Where a component's config
+ * shape had to grow to support the new layout, it grew in an
+ * additive/optional way — older stored content (a bare `items: string[]`
+ * for `benefits`, a bare `text` for `announcement_bar`) still renders,
+ * just via the previous, simpler layout, so this is not a breaking change
+ * for landings written before the redesign.
+ *
  * What each one is for, against cold cash-on-delivery traffic on a phone:
  *
  * - `announcement_bar` — the first thing a visitor sees, above the hero
- *   banner: one line (free shipping, a promo window) in a bar that is its own
- *   accent surface.
- * - `cod_assurance` — removes the payment objection at the moment it appears.
- *   Its three points are platform facts (pay on delivery, check first, no card),
- *   so they are fixed copy; only a merchant note is configurable.
- * - `benefits` — turns product features into reasons, scannable in one pass.
- * - `offer_price` — states price and, when the merchant declares a reference
- *   price, the saving. The selling price always comes from the product, so it
- *   cannot disagree with what the order charges.
- * - `how_it_works` — three steps, because "what happens after I submit?" is the
- *   second objection after price for COD buyers.
- * - `reviews` — social proof with a name and city; the merchant supplies real
- *   ones, this renders them.
- * - `faq` — native `<details>` accordion: answers objections without pushing the
- *   CTA off the screen.
- * - `guarantee` — risk reversal, stated once, plainly.
+ *   banner. A `text`-only config renders the original one-line accent strip.
+ *   An `items` config renders the new urgency card: a countdown-flavored
+ *   title, icon bullet lines, and an optional stock bar — built to create
+ *   movement ("order now"), not just announce a promo.
+ * - `cod_assurance` — removes the payment objection at the moment it
+ *   appears. Its three points are platform facts (pay on delivery, check
+ *   first, no card), so they stay fixed copy; a merchant note and an
+ *   optional delivery window are the configurable parts.
+ * - `benefits` — "why this, not the generic thing": a two-column
+ *   comparison table (`rows`) when the merchant has written one, or the
+ *   original scannable checklist (`items`) otherwise.
+ * - `offer_price` — states price and, when the merchant declares a
+ *   reference price, the saving — as a badge next to the number and a
+ *   money-amount pill, the two most legible ways to say "you're saving"
+ *   on a small screen. The selling price always comes from the product, so
+ *   it cannot disagree with what the order charges.
+ * - `included_benefits` — what's included in the purchase, with optional value
+ *   and tag per item, because showing the total value the buyer gets drives
+ *   conversions for COD bundles.
+ * - `reviews` — social proof with a name and city; the merchant supplies
+ *   real ones, this renders them. Two visual variants, picked with
+ *   `variant`: `"detailed"` (default) pairs a rating header and quality
+ *   bars with pull-quote review cards; `"verified"` pairs an overall score
+ *   with order-number / phone-tail / date proof lines per review.
+ * - `faq` — native `<details>` accordion: answers objections without
+ *   pushing the CTA off the screen.
+ * - `guarantee` — risk reversal, stated once, plainly, or — when the
+ *   merchant supplies `stats` — the richer store-trust badge (checkmark,
+ *   confidence meter, proof stats) from the reference screenshots.
  */
 
 import type { CSSProperties, JSX } from "react";
@@ -48,10 +69,30 @@ export interface ConversionBlockViewProps {
   block: ConversionBlock;
   /** Product price, used by `offer_price` so it can never disagree with the order. */
   productPrice: number;
+  /** Landing-level dark mode default. Individual blocks override via config.dark_mode. */
+  blocksDarkMode?: boolean;
 }
+
+/**
+ * `ConversionBlockConfig` is a fixed shape per pre-existing block type. The
+ * fields this redesign adds (`rows`, `variant`, `stats`, delivery-window
+ * dates, etc.) are additive and merchant-optional, so rather than widen the
+ * shared type for every block type they're read through this permissive
+ * view and validated at runtime, the same way `asStrings`/`asReviews`/
+ * `asFaqItems` already validate the pre-existing loosely-typed fields below.
+ */
+type LooseConfig = ConversionBlockConfig & Record<string, unknown>;
 
 function asStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function asOptionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function asOptionalNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 /**
@@ -74,10 +115,6 @@ function accentStyle(palette: AccentPalette | null | undefined): CSSProperties |
   const tint = safeColor(palette?.tint) ?? accent;
   const ink = safeColor(palette?.ink) ?? "#ffffff";
   const style: Record<string, string> = {
-    "--lp-action": accent,
-    "--lp-action-deep": deep,
-    "--lp-action-tint": tint,
-    "--lp-action-ink": ink,
     "--lp-form-action": accent,
     "--lp-form-action-deep": deep,
     "--lp-form-action-tint": tint,
@@ -86,11 +123,35 @@ function accentStyle(palette: AccentPalette | null | undefined): CSSProperties |
   return style as CSSProperties;
 }
 
+/** Deterministic avatar palette so the same reviewer name always draws the same color. */
+const AVATAR_COLORS = ["#f97316", "#0ea5e9", "#22c55e", "#a855f7", "#ef4444", "#14b8a6", "#eab308"];
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const chars = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "");
+  return chars.join("") || "?";
+}
+
 interface ReviewItem {
   name: string;
   city?: string | null;
   text: string;
   rating?: number | null;
+  /** Bold pull-line shown above the quote in the "detailed" variant. */
+  headline?: string | null;
+  /** Reviews shown here are always from real buyers; defaults true. */
+  verified: boolean;
+  /** e.g. "Instagram" / "Compra web" — used by the "verified" variant. */
+  channel?: string | null;
+  order_id?: string | null;
+  phone?: string | null;
+  date?: string | null;
 }
 
 function asReviews(value: unknown): ReviewItem[] {
@@ -105,8 +166,29 @@ function asReviews(value: unknown): ReviewItem[] {
         city: typeof candidate.city === "string" ? candidate.city : null,
         text: candidate.text,
         rating: typeof candidate.rating === "number" ? candidate.rating : null,
+        headline: typeof candidate.headline === "string" ? candidate.headline : null,
+        verified: typeof candidate.verified === "boolean" ? candidate.verified : true,
+        channel: typeof candidate.channel === "string" ? candidate.channel : null,
+        order_id: typeof candidate.order_id === "string" ? candidate.order_id : null,
+        phone: typeof candidate.phone === "string" ? candidate.phone : null,
+        date: typeof candidate.date === "string" ? candidate.date : null,
       },
     ];
+  });
+}
+
+interface QualityMetric {
+  label: string;
+  percent: number;
+}
+
+function asQualityMetrics(value: unknown): QualityMetric[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const candidate = item as Record<string, unknown>;
+    if (typeof candidate.label !== "string" || typeof candidate.percent !== "number") return [];
+    return [{ label: candidate.label, percent: Math.min(100, Math.max(0, candidate.percent)) }];
   });
 }
 
@@ -125,12 +207,74 @@ function asFaqItems(value: unknown): FaqItem[] {
   });
 }
 
+interface CompareRow {
+  label: string;
+  common: string;
+  ours: string;
+}
+
+function asCompareRows(value: unknown): CompareRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const candidate = item as Record<string, unknown>;
+    if (
+      typeof candidate.label !== "string" ||
+      typeof candidate.common !== "string" ||
+      typeof candidate.ours !== "string"
+    ) {
+      return [];
+    }
+    return [{ label: candidate.label, common: candidate.common, ours: candidate.ours }];
+  });
+}
+
+interface UrgencyItem {
+  /** Bold lead phrase, e.g. "Pedidos antes de las 2:00 p.m." */
+  lead: string;
+  /** Plain continuation, e.g. "salen el mismo día" */
+  text?: string | null;
+}
+
+function asUrgencyItems(value: unknown): UrgencyItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const candidate = item as Record<string, unknown>;
+    if (typeof candidate.lead !== "string") return [];
+    return [{ lead: candidate.lead, text: typeof candidate.text === "string" ? candidate.text : null }];
+  });
+}
+
+interface TrustStat {
+  /** Optional lead number, e.g. "37.320" — omit for an icon-style stat with only a label. */
+  value?: string | null;
+  label: string;
+}
+
+function asTrustStats(value: unknown): TrustStat[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const candidate = item as Record<string, unknown>;
+    if (typeof candidate.label !== "string") return [];
+    return [{ value: typeof candidate.value === "string" ? candidate.value : null, label: candidate.label }];
+  });
+}
+
 function BlockHeading({ title }: { title?: string | null }): JSX.Element | null {
   if (!title) return null;
   return <h2 className="cblock__title">{title}</h2>;
 }
 
-/** Top-of-page bar: one line, its own accent as background. */
+const URGENCY_ICONS = ["⏰", "📦", "🚚", "🔥", "🎁"];
+
+/**
+ * Top-of-page announcement. Renders the rich urgency card (reference:
+ * "Aprovecha hoy") whenever the merchant has written `items`; falls back to
+ * the original one-line accent strip for a bare `text` config, so landings
+ * saved before this redesign keep rendering unchanged.
+ */
 function AnnouncementBar({
   config,
   palette,
@@ -138,6 +282,54 @@ function AnnouncementBar({
   config: ConversionBlockConfig;
   palette: AccentPalette | null;
 }): JSX.Element | null {
+  const loose = config as LooseConfig;
+  const items = asUrgencyItems(loose.items);
+
+  if (items.length > 0) {
+    const title = asOptionalString(config.title) ?? "Aprovecha hoy";
+    const stockLabel = asOptionalString(loose.stock_label);
+    const stockPercentRaw = asOptionalNumber(loose.stock_percent);
+    const stockPercent = stockPercentRaw === null ? null : Math.min(100, Math.max(0, stockPercentRaw));
+
+    return (
+      <section className="cblock cblock--urgency" style={accentStyle(palette)} role="note" aria-label={title}>
+        <p className="cblock__urgency-title">
+          <span aria-hidden="true">⏰</span> {title}
+        </p>
+        <ul className="cblock__urgency-list">
+          {items.map((item, index) => (
+            <li key={`${item.lead}-${index}`}>
+              <span className="cblock__urgency-icon" aria-hidden="true">
+                {URGENCY_ICONS[index % URGENCY_ICONS.length]}
+              </span>
+              <span>
+                <strong>{item.lead}</strong>
+                {item.text ? ` ${item.text}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {stockLabel && (
+          <div className="cblock__urgency-stock">
+            <p className="cblock__urgency-stock-label">{stockLabel}</p>
+            {stockPercent !== null && (
+              <div
+                className="cblock__urgency-bar"
+                role="progressbar"
+                aria-valuenow={stockPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={stockLabel}
+              >
+                <div className="cblock__urgency-bar-fill" style={{ width: `${stockPercent}%` }} />
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   if (!config.text) return null;
   return (
     <section className="cblock cblock--announcement" style={accentStyle(palette)} role="note">
@@ -154,6 +346,10 @@ function CodAssurance({
   config: ConversionBlockConfig;
   palette: AccentPalette | null;
 }): JSX.Element {
+  const loose = config as LooseConfig;
+  const deliveryFrom = asOptionalString(loose.delivery_from);
+  const deliveryTo = asOptionalString(loose.delivery_to);
+
   return (
     <section
       className="cblock cblock--assurance"
@@ -162,23 +358,48 @@ function CodAssurance({
     >
       <ul className="cblock__assurances">
         <li>
-          <strong>Pagas al recibir</strong>
-          <span>En efectivo, cuando el pedido llega a tu puerta.</span>
+          <span className="cblock__assurances-icon" aria-hidden="true">
+            $
+          </span>
+          <p className="cblock__assurances-line">
+            <strong>Pagas al recibir</strong>
+            <span className="cblock__assurances-detail">En efectivo, cuando el pedido llega a tu puerta.</span>
+          </p>
         </li>
         <li>
-          <strong>Revisas antes de pagar</strong>
-          <span>Ves el producto con el mensajero presente.</span>
+          <span className="cblock__assurances-icon" aria-hidden="true">
+            ◎
+          </span>
+          <p className="cblock__assurances-line">
+            <strong>Revisas antes de pagar</strong>
+            <span className="cblock__assurances-detail">Ves el producto con el mensajero presente.</span>
+          </p>
         </li>
         <li>
-          <strong>Sin tarjeta</strong>
-          <span>No pedimos datos bancarios en ningún momento.</span>
+          <span className="cblock__assurances-icon" aria-hidden="true">
+            ⛔
+          </span>
+          <p className="cblock__assurances-line">
+            <strong>Sin tarjeta</strong>
+            <span className="cblock__assurances-detail">No pedimos datos bancarios en ningún momento.</span>
+          </p>
         </li>
       </ul>
+      {deliveryFrom && deliveryTo && (
+        <p className="cblock__assurances-delivery">
+          Se entrega entre el: {deliveryFrom} al {deliveryTo}.
+        </p>
+      )}
       {config.note && <p className="cblock__note">{config.note}</p>}
     </section>
   );
 }
 
+/**
+ * "Why this, not the generic thing." Renders a head-to-head comparison
+ * table when the merchant has written `rows`; falls back to the original
+ * checklist for a bare `items: string[]` config.
+ */
 function Benefits({
   config,
   palette,
@@ -186,16 +407,54 @@ function Benefits({
   config: ConversionBlockConfig;
   palette: AccentPalette | null;
 }): JSX.Element | null {
-  const items = asStrings(config.items);
-  if (items.length === 0) return null;
+  const loose = config as LooseConfig;
+  const rows = asCompareRows(loose.rows);
+  const legacyItems = asStrings(config.items);
+  if (rows.length === 0 && legacyItems.length === 0) return null;
+
+  const oursLabel = asOptionalString(loose.ours_label) ?? "Este producto";
+
   return (
     <section className="cblock cblock--benefits" style={accentStyle(palette)}>
-      <BlockHeading title={config.title ?? "Por qué lo vas a querer"} />
-      <ul className="cblock__benefits">
-        {items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
+      <BlockHeading title={config.title ?? "Por qué elegir este producto"} />
+      {rows.length > 0 ? (
+        <div className="cblock__compare" role="table" aria-label="Comparación de producto">
+          <div className="cblock__compare-row cblock__compare-row--head" role="row">
+            <span className="cblock__compare-cell cblock__compare-cell--label" role="columnheader" aria-hidden="true" />
+            <span className="cblock__compare-cell cblock__compare-cell--common" role="columnheader">
+              Común
+            </span>
+            <span className="cblock__compare-cell cblock__compare-cell--ours" role="columnheader">
+              {oursLabel}
+            </span>
+          </div>
+          {rows.map((row) => (
+            <div className="cblock__compare-row" role="row" key={row.label}>
+              <span className="cblock__compare-cell cblock__compare-cell--label" role="rowheader">
+                {row.label}
+              </span>
+              <span className="cblock__compare-cell cblock__compare-cell--common" role="cell">
+                <span className="cblock__compare-icon--no" aria-hidden="true">
+                  ✕
+                </span>
+                {row.common}
+              </span>
+              <span className="cblock__compare-cell cblock__compare-cell--ours" role="cell">
+                <span className="cblock__compare-icon--yes" aria-hidden="true">
+                  ✓
+                </span>
+                {row.ours}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <ul className="cblock__benefits">
+          {legacyItems.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -209,6 +468,7 @@ function OfferPrice({
   productPrice: number;
   palette: AccentPalette | null;
 }): JSX.Element {
+  const loose = config as LooseConfig;
   const compareAt =
     typeof config.compare_at_price === "number" && config.compare_at_price > productPrice
       ? config.compare_at_price
@@ -217,50 +477,290 @@ function OfferPrice({
   const percent =
     compareAt === null || savings === null ? null : Math.round((savings / compareAt) * 100);
 
+  // Trust badge fields
+  const trustTitle = asOptionalString(loose.trust_title) ?? "Tienda Líder Platinum";
+  const trustSubtitle = asOptionalString(loose.trust_subtitle) ?? "¡Uno de los mejores del sitio!";
+  const trustStats = asTrustStats(loose.stats);
+
+  // Shipping/guarantee info card fields
+  const shippingLabel = asOptionalString(loose.shipping_label) ?? "Envío Gratis";
+  const shippingTag = asOptionalString(loose.shipping_tag); // e.g. "FULL"
+  const shippingAvailable = asOptionalString(loose.shipping_available) ?? "Disponible";
+  const deliveryFrom = asOptionalString(loose.delivery_from);
+  const deliveryTo = asOptionalString(loose.delivery_to);
+  const guaranteeText = asOptionalString(loose.guarantee_text) ?? "Compra Garantizada. Satisfacción Garantizada o le devolvemos el dinero";
+  const bestseller = asOptionalString(loose.bestseller_label);
+
   return (
     <section className="cblock cblock--price" style={accentStyle(palette)} aria-label="Precio">
-      <p className="cblock__price-row">
+      {/* ──── Part 1: Price card ──── */}
+      <div className="cblock__price-card">
+        <p className="cblock__price-eyebrow">{config.title || "Precio:"}</p>
         {compareAt !== null && (
-          <span className="cblock__price-was">
+          <p className="cblock__price-was">
             <span className="sr-only">Antes </span>
-            {CURRENCY.format(compareAt)}
-          </span>
+            DE {CURRENCY.format(compareAt)}
+          </p>
         )}
-        <span className="cblock__price-now">{CURRENCY.format(productPrice)}</span>
-      </p>
-      {savings !== null && percent !== null && (
-        <p className="cblock__price-save">
-          Ahorras {CURRENCY.format(savings)} ({percent}%)
-        </p>
-      )}
-      {config.note && <p className="cblock__note">{config.note}</p>}
+
+        <div className="cblock__price-now-row">
+          <p className="cblock__price-now" aria-label={`Precio: ${CURRENCY.format(productPrice)}`}>
+            {CURRENCY.format(productPrice)}
+          </p>
+          {percent !== null && (
+            <span className="cblock__price-badge" aria-label={`${percent}% de descuento`}>
+              <svg className="cblock__price-badge-icon" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+                <path d="M6 1l1.5 3.5L11 5l-2.5 2.5.5 3.5L6 9.5 3 11l.5-3.5L1 5l3.5-.5z" />
+              </svg>
+              {percent}%
+            </span>
+          )}
+        </div>
+
+        {savings !== null && (
+          <p className="cblock__price-discount-pill">
+            {CURRENCY.format(savings)} de descuento
+          </p>
+        )}
+      </div>
+
+      {/* ──── Part 2: Trust badge ──── */}
+      <div className="cblock__trust-badge">
+        <div className="cblock__trust-topbar" aria-hidden="true" />
+
+        <div className="cblock__trust-header">
+          <svg className="cblock__trust-shield" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <circle cx="20" cy="20" r="18" fill="#e8f5e9" />
+            <path d="M20 8l8 4v6c0 5.5-3.5 10.5-8 12-4.5-1.5-8-6.5-8-12v-6l8-4z" fill="#4caf50" />
+            <path d="M17 20l2.5 2.5L24 17" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+          <div className="cblock__trust-titles">
+            <p className="cblock__trust-title">Tienda Lider Certificada</p>
+            <p className="cblock__trust-subtitle">Líderes en Comercio <strong>bodegapremium.co</strong></p>
+          </div>
+        </div>
+
+        <div className="cblock__trust-meter" aria-hidden="true">
+          <div className="cblock__trust-meter-fill" />
+          <div className="cblock__trust-meter-indicator" />
+        </div>
+
+        {trustStats.length > 0 && (
+          <div className="cblock__trust-stats">
+            {trustStats.map((stat, index) => (
+              <div key={stat.label} className="cblock__trust-stat">
+                {index > 0 && <div className="cblock__trust-stat-divider" aria-hidden="true" />}
+                {stat.value && <p className="cblock__trust-stat-value">{stat.value}</p>}
+                <p className="cblock__trust-stat-label">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ──── Part 3: Shipping, COD & guarantee info card ──── */}
+      <div className="cblock__price-info">
+        <div className="cblock__info-row cblock__info-row--shipping">
+          <svg className="cblock__info-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4h2l.4 2M7 13h6l4-8H5.4M7 13L5.4 6M7 13l-1.7 2" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <p className="cblock__info-text">
+            <strong>{shippingLabel}</strong>
+            {shippingTag && <span className="cblock__info-tag">{shippingTag}</span>}
+            <span className="cblock__info-dot">·</span>
+            <span>{shippingAvailable}</span>
+          </p>
+        </div>
+
+        <div className="cblock__info-row">
+          <svg className="cblock__info-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
+          </svg>
+          <p className="cblock__info-text">
+            Pago Contraentrega Seguro de Envío
+            {deliveryFrom && deliveryTo && (
+              <>
+                <br />
+                <span className="cblock__info-delivery">
+                  Se entrega entre el: {deliveryFrom} al {deliveryTo}.
+                </span>
+              </>
+            )}
+          </p>
+        </div>
+
+        <div className="cblock__info-row">
+          <svg className="cblock__info-icon cblock__info-icon--success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <p className="cblock__info-text">Compra Garantizada: Si no es lo que esperas te devolvemos el 100%</p>
+        </div>
+
+        {bestseller && (
+          <div className="cblock__info-row">
+            <svg className="cblock__info-icon cblock__info-icon--highlight" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M10 2a1 1 0 01.894.553l1.789 3.575 3.96.576a1 1 0 01.553 1.706l-2.867 2.794.677 3.943a1 1 0 01-1.451 1.054L10 14.347l-3.555 1.854A1 1 0 015 15.147l.677-3.943L2.804 8.41a1 1 0 01.553-1.706l3.96-.576L9.106 2.553A1 1 0 0110 2z" />
+            </svg>
+            <p className="cblock__info-text">
+              <strong>Más Vendido</strong> {bestseller}
+            </p>
+          </div>
+        )}
+
+        {config.note && <p className="cblock__price-note">{config.note}</p>}
+      </div>
     </section>
   );
 }
 
-function HowItWorks({
+interface BenefitItem {
+  name: string;
+  value: string | null;
+  tag: string | null;
+}
+
+function asBenefitItems(value: unknown): BenefitItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const candidate = item as Record<string, unknown>;
+    if (typeof candidate.name !== "string" || !candidate.name.trim()) return [];
+    return [
+      {
+        name: candidate.name,
+        value: typeof candidate.value === "string" && candidate.value.trim() ? candidate.value : null,
+        tag: typeof candidate.tag === "string" && candidate.tag.trim() ? candidate.tag : null,
+      },
+    ];
+  });
+}
+
+function IncludedBenefits({
   config,
   palette,
 }: {
   config: ConversionBlockConfig;
   palette: AccentPalette | null;
 }): JSX.Element | null {
-  const steps = asStrings(config.steps);
-  if (steps.length === 0) return null;
+  const loose = config as LooseConfig;
+  const items = asBenefitItems(loose.items);
+  if (items.length === 0) return null;
+
+  // Parse **bold** segments in the title for the "Todo lo que incluye **PRODUCT**" pattern
+  const rawTitle = config.title ?? "Incluido en tu compra";
+  const titleParts = rawTitle.split(/\*\*(.+?)\*\*/g);
+
   return (
-    <section className="cblock cblock--steps" style={accentStyle(palette)}>
-      <BlockHeading title={config.title ?? "Cómo funciona"} />
-      <ol className="cblock__steps">
-        {steps.map((step, index) => (
-          <li key={step}>
-            <span className="cblock__step-number" aria-hidden="true">
-              {index + 1}
-            </span>
-            <span className="cblock__step-text">{step}</span>
-          </li>
-        ))}
-      </ol>
+    <section className="cblock cblock--included-benefits" style={accentStyle(palette)}>
+      {/* Header with accent top rule */}
+      <div className="cblock__benefits-header">
+        <div className="cblock__benefits-header-rule" aria-hidden="true" />
+        <h2 className="cblock__benefits-heading">
+          {titleParts.map((part, i) =>
+            i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+          )}
+        </h2>
+      </div>
+      {/* Dark card body for the list */}
+      <div className="cblock__benefits-card">
+        <ul className="cblock__benefits-list">
+          {items.map((item) => (
+            <li key={item.name} className="cblock__benefit-row">
+              <svg
+                className="cblock__benefit-check"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle cx="10" cy="10" r="10" fill="var(--lp-action)" />
+                <path
+                  d="M6 10.5l2.5 2.5L14 8"
+                  stroke="#fff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="cblock__benefit-name">{item.name}</span>
+              <span className="cblock__benefit-meta">
+                {item.value && <span className="cblock__benefit-value">{item.value}</span>}
+                {item.tag && <span className="cblock__benefit-tag">{item.tag}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
+  );
+}
+
+/** "Verified"-variant review card: order/phone/date proof instead of quality bars. */
+function VerifiedReviewCard({ review }: { review: ReviewItem }): JSX.Element {
+  const meta = [review.order_id ? `Pedido #${review.order_id}` : null, review.phone, review.date]
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
+
+  return (
+    <li className="cblock__review cblock__review--verified">
+      <div className="cblock__review-head">
+        <span className="cblock__review-avatar" aria-hidden="true" style={{ background: avatarColor(review.name) }}>
+          {initials(review.name)}
+        </span>
+        <div className="cblock__review-identity">
+          <p className="cblock__review-name">
+            {review.name}
+            {review.verified && (
+              <span className="cblock__review-check" aria-label="Compra verificada">
+                {" "}✓
+              </span>
+            )}
+          </p>
+          {review.city && (
+            <p className="cblock__review-location">
+              <span aria-hidden="true">📍</span> {review.city}
+            </p>
+          )}
+          <p className="cblock__review-tag">
+            Compra verificada
+            {review.channel ? ` · ${review.channel}` : ""}
+          </p>
+        </div>
+        {typeof review.rating === "number" && (
+          <span className="cblock__review-score" aria-label={`${review.rating} de 5 estrellas`}>
+            {review.rating.toFixed(1).replace(".", ",")}
+          </span>
+        )}
+      </div>
+      <p className="cblock__review-text">{review.text}</p>
+      {meta && <p className="cblock__review-meta">{meta}</p>}
+    </li>
+  );
+}
+
+/** "Detailed"-variant review card: star rating, optional bold pull-line, then the quote. */
+function DetailedReviewCard({ review }: { review: ReviewItem }): JSX.Element {
+  return (
+    <li className="cblock__review">
+      <div className="cblock__review-head">
+        <span className="cblock__review-avatar" aria-hidden="true" style={{ background: avatarColor(review.name) }}>
+          {initials(review.name)}
+        </span>
+        {typeof review.rating === "number" && (
+          <p className="cblock__rating" aria-label={`${review.rating} de 5 estrellas`}>
+            <span aria-hidden="true">{"★".repeat(review.rating)}</span>
+            <span aria-hidden="true" className="cblock__rating-empty">
+              {"★".repeat(Math.max(0, 5 - review.rating))}
+            </span>
+          </p>
+        )}
+      </div>
+      {review.headline && <p className="cblock__review-headline">{review.headline}</p>}
+      <blockquote className="cblock__review-text">{review.text}</blockquote>
+      <p className="cblock__review-author">
+        {review.name}
+        {review.city ? ` · ${review.city}` : ""}
+      </p>
+    </li>
   );
 }
 
@@ -271,28 +771,63 @@ function Reviews({
   config: ConversionBlockConfig;
   palette: AccentPalette | null;
 }): JSX.Element | null {
-  const items = asReviews(config.items);
+  const loose = config as LooseConfig;
+  const items = asReviews(loose.items);
   if (items.length === 0) return null;
+
+  const variant = loose.variant === "verified" ? "verified" : "detailed";
+  const rating = asOptionalNumber(loose.rating);
+  const ratingCount = asOptionalNumber(loose.rating_count);
+
+  if (variant === "verified") {
+    return (
+      <section className="cblock cblock--reviews cblock--reviews-verified" style={accentStyle(palette)}>
+        <BlockHeading title={config.title ?? "Lo que dicen quienes ya lo recibieron"} />
+        {rating !== null && (
+          <p className="cblock__reviews-summary">
+            <span aria-hidden="true">★</span>
+            <strong>{rating.toFixed(1).replace(".", ",")}</strong>
+            {ratingCount !== null && <span>· {ratingCount} opiniones reales de clientes</span>}
+          </p>
+        )}
+        <ul className="cblock__reviews">
+          {items.map((review) => (
+            <VerifiedReviewCard key={`${review.name}-${review.text}`} review={review} />
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
+  const metrics = asQualityMetrics(loose.quality_metrics);
+
   return (
     <section className="cblock cblock--reviews" style={accentStyle(palette)}>
-      <BlockHeading title={config.title ?? "Lo que dicen los clientes"} />
+      <BlockHeading title={config.title ?? "Reseñas"} />
+      {rating !== null && (
+        <p className="cblock__reviews-summary">
+          <strong>{rating.toFixed(1).replace(".", ",")}</strong>
+          <span aria-hidden="true">★★★★★</span>
+          {ratingCount !== null && <span>{ratingCount} calificaciones</span>}
+        </p>
+      )}
+      <p className="cblock__reviews-verified-line">✓ Todo desde compras verificadas</p>
+      {metrics.length > 0 && (
+        <ul className="cblock__reviews-metrics">
+          {metrics.map((metric) => (
+            <li key={metric.label}>
+              <span className="cblock__reviews-metric-label">{metric.label}</span>
+              <span className="cblock__reviews-metric-bar" aria-hidden="true">
+                <span style={{ width: `${metric.percent}%` }} />
+              </span>
+              <span className="cblock__reviews-metric-value">{metric.percent}%</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <ul className="cblock__reviews">
         {items.map((review) => (
-          <li key={`${review.name}-${review.text}`} className="cblock__review">
-            {typeof review.rating === "number" && (
-              <p className="cblock__rating" aria-label={`${review.rating} de 5 estrellas`}>
-                <span aria-hidden="true">{"★".repeat(review.rating)}</span>
-                <span aria-hidden="true" className="cblock__rating-empty">
-                  {"★".repeat(Math.max(0, 5 - review.rating))}
-                </span>
-              </p>
-            )}
-            <blockquote className="cblock__review-text">{review.text}</blockquote>
-            <p className="cblock__review-author">
-              {review.name}
-              {review.city ? ` · ${review.city}` : ""}
-            </p>
-          </li>
+          <DetailedReviewCard key={`${review.name}-${review.text}`} review={review} />
         ))}
       </ul>
     </section>
@@ -326,6 +861,11 @@ function Faq({
   );
 }
 
+/**
+ * Risk reversal. With `stats`, renders as the richer store-trust badge from
+ * the reference screenshots (checkmark, confidence meter, proof stats).
+ * Without `stats`, renders as the original plain two-line statement.
+ */
 function Guarantee({
   config,
   palette,
@@ -334,13 +874,42 @@ function Guarantee({
   palette: AccentPalette | null;
 }): JSX.Element | null {
   if (!config.title || !config.text) return null;
+  const loose = config as LooseConfig;
+  const stats = asTrustStats(loose.stats);
+
+  if (stats.length === 0) {
+    return (
+      <section className="cblock cblock--guarantee" style={accentStyle(palette)}>
+        <p className="cblock__guarantee-title">
+          {config.title}
+          {typeof config.days === "number" ? ` · ${config.days} días` : ""}
+        </p>
+        <p className="cblock__guarantee-text">{config.text}</p>
+      </section>
+    );
+  }
+
   return (
     <section className="cblock cblock--guarantee" style={accentStyle(palette)}>
-      <p className="cblock__guarantee-title">
-        {config.title}
-        {typeof config.days === "number" ? ` · ${config.days} días` : ""}
-      </p>
-      <p className="cblock__guarantee-text">{config.text}</p>
+      <div className="cblock__trust-header">
+        <svg className="cblock__trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+          <path d="M8.5 12.5l2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <div>
+          <p className="cblock__trust-title">{config.title}</p>
+          <p className="cblock__trust-subtitle">{config.text}</p>
+        </div>
+      </div>
+      <div className="cblock__trust-meter" aria-hidden="true" />
+      <ul className="cblock__trust-stats">
+        {stats.map((stat) => (
+          <li key={stat.label}>
+            {stat.value && <span className="cblock__trust-stat-value">{stat.value}</span>}
+            <span className="cblock__trust-stat-label">{stat.label}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -352,27 +921,45 @@ function Guarantee({
 export function ConversionBlockView({
   block,
   productPrice,
+  blocksDarkMode = false,
 }: ConversionBlockViewProps): JSX.Element | null {
   const { config, accent_palette: palette } = block;
+  const configDark = (config as Record<string, unknown>).dark_mode;
+  // Per-block dark_mode overrides the landing-level default.
+  // true/false in config = explicit override; undefined/null = use landing default.
+  const isDark = configDark === true ? true : configDark === false ? false : blocksDarkMode;
 
+  let content: JSX.Element | null;
   switch (block.block_type) {
     case "announcement_bar":
-      return <AnnouncementBar config={config} palette={palette} />;
+      content = <AnnouncementBar config={config} palette={palette} />;
+      break;
     case "cod_assurance":
-      return <CodAssurance config={config} palette={palette} />;
+      content = <CodAssurance config={config} palette={palette} />;
+      break;
     case "benefits":
-      return <Benefits config={config} palette={palette} />;
+      content = <Benefits config={config} palette={palette} />;
+      break;
     case "offer_price":
-      return <OfferPrice config={config} productPrice={productPrice} palette={palette} />;
-    case "how_it_works":
-      return <HowItWorks config={config} palette={palette} />;
+      content = <OfferPrice config={config} productPrice={productPrice} palette={palette} />;
+      break;
+    case "included_benefits":
+      content = <IncludedBenefits config={config} palette={palette} />;
+      break;
     case "reviews":
-      return <Reviews config={config} palette={palette} />;
+      content = <Reviews config={config} palette={palette} />;
+      break;
     case "faq":
-      return <Faq config={config} palette={palette} />;
+      content = <Faq config={config} palette={palette} />;
+      break;
     case "guarantee":
-      return <Guarantee config={config} palette={palette} />;
+      content = <Guarantee config={config} palette={palette} />;
+      break;
     default:
-      return null;
+      content = null;
   }
+
+  if (!content) return null;
+  if (!isDark) return content;
+  return <div className="cblock-dark-wrap">{content}</div>;
 }

@@ -161,6 +161,7 @@ class LandingResponse(BaseModel):
     # The quantity offers the COD form presents, already priced.
     offers: list[LandingOfferResponse]
     blocks: list[ConversionBlockResponse]
+    blocks_dark_mode: bool = False
 
 
 def _to_offer_response(offer: LandingOffer, pricing: OfferPricing) -> LandingOfferResponse:
@@ -325,6 +326,7 @@ async def get_public_landing(
                 AccentPaletteResponse(**derive_accent_palette(override).__dict__)
                 if isinstance(block.config, dict)
                 and isinstance(override := block.config.get("accent_color"), str)
+                and override.strip()
                 else None
             ),
         )
@@ -378,6 +380,7 @@ async def get_public_landing(
         ),
         offers=offers,
         blocks=blocks,
+        blocks_dark_mode=bool(landing.blocksDarkMode),
     )
 
 

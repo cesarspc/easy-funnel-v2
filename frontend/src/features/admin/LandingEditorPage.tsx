@@ -57,6 +57,7 @@ interface ConfigForm {
   ctaText: string;
   ctaAnimation: string;
   ctaTextOverrides: Record<string, string>;
+  blocksDarkMode: boolean;
 }
 
 function toOfferForm(offer: LandingOffer): OfferForm {
@@ -108,6 +109,7 @@ function toConfigForm(landing: LandingDetail): ConfigForm {
     ctaText: landing.cta_text ?? "",
     ctaAnimation: landing.cta_animation ?? "",
     ctaTextOverrides: { ...(landing.cta_text_overrides ?? {}) },
+    blocksDarkMode: landing.blocks_dark_mode ?? false,
   };
 }
 
@@ -287,6 +289,7 @@ export function LandingEditorPage() {
         cta_text: config.ctaText.trim() || null,
         cta_animation: (config.ctaAnimation as "slide" | "shake") || null,
         cta_text_overrides: config.ctaTextOverrides,
+        blocks_dark_mode: config.blocksDarkMode,
         // Only the rows the merchant can actually see are sent, so lowering the
         // count drops the trailing offers instead of submitting copy for tiers
         // the form no longer shows.
@@ -831,6 +834,26 @@ export function LandingEditorPage() {
             )}
           </div>
 
+          {/* Blocks dark mode global toggle */}
+          <div className="landings-field">
+            <label className="lblocks__checkbox-label">
+              <input
+                type="checkbox"
+                checked={config.blocksDarkMode}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, blocksDarkMode: event.target.checked } : current,
+                  )
+                }
+              />
+              Componentes de conversión en modo oscuro
+            </label>
+            <p className="landings-field__hint">
+              Fondo oscuro en todos los componentes de conversión. Los componentes individuales
+              pueden sobreescribir este ajuste.
+            </p>
+          </div>
+
           {/* Quantity offers. The count drives how many rows render, so the
               merchant never edits copy for a tier the buyer will not see. */}
           <div className="landings-field">
@@ -1231,6 +1254,7 @@ export function LandingEditorPage() {
       <LandingBlocksPanel
         landingId={landing.id}
         sequenceSignature={`${banners.length}:${landing.resolved_cta_positions.join(",")}`}
+        formAccentColor={config.formAccentColor || config.accentColor}
       />
     </div>
   );

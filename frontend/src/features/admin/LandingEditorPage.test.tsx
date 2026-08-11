@@ -74,6 +74,7 @@ const DETAIL: LandingDetail = {
   cta_text: null,
   cta_animation: null,
   cta_text_overrides: {},
+  blocks_dark_mode: false,
   banners: [banner(1, 0, "Primero"), banner(2, 1, "Segundo")],
   resolved_cta_positions: [1, 2],
 };
@@ -219,6 +220,7 @@ describe("LandingEditorPage", () => {
         cta_text: null,
         cta_animation: null,
         cta_text_overrides: {},
+        blocks_dark_mode: false,
         offers: [
           {
             quantity: 1,

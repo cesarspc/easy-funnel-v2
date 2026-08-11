@@ -342,6 +342,7 @@ export interface LandingSummary {
    * (or the default label) instead.
    */
   cta_text_overrides: Record<string, string>;
+  blocks_dark_mode: boolean;
 }
 
 export interface LandingDetail extends LandingSummary {
@@ -384,6 +385,7 @@ export interface LandingConfigUpdate {
   cta_text?: string | null;
   cta_animation?: "slide" | "shake" | null;
   cta_text_overrides?: Record<string, string>;
+  blocks_dark_mode?: boolean;
 }
 
 /**

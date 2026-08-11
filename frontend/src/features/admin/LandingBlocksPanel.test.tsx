@@ -47,7 +47,7 @@ function response(blocks: LandingBlock[]): LandingBlockListResponse {
       "cod_assurance",
       "benefits",
       "offer_price",
-      "how_it_works",
+      "included_benefits",
       "reviews",
       "faq",
       "guarantee",
@@ -65,7 +65,7 @@ const ASSURANCE: LandingBlock = {
 };
 
 function renderPanel() {
-  return render(<LandingBlocksPanel landingId={7} sequenceSignature="3:1,2,3" />);
+  return render(<LandingBlocksPanel landingId={7} sequenceSignature="3:1,2,3" formAccentColor="#1a7a4c" />);
 }
 
 describe("LandingBlocksPanel", () => {
@@ -137,17 +137,17 @@ describe("LandingBlocksPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("sends exactly three steps for the how-it-works component", async () => {
+  it("sends one default item for the included_benefits component", async () => {
     vi.mocked(landingsApi.createBlock).mockResolvedValue(response([]));
     const user = userEvent.setup();
     renderPanel();
 
-    await user.selectOptions(await screen.findByLabelText("Componente"), "how_it_works");
+    await user.selectOptions(await screen.findByLabelText("Componente"), "included_benefits");
     await user.click(screen.getByRole("button", { name: "Agregar componente" }));
 
     await waitFor(() => expect(landingsApi.createBlock).toHaveBeenCalled());
     const payload = vi.mocked(landingsApi.createBlock).mock.calls[0][1];
-    expect((payload.config.steps as string[]).length).toBe(3);
+    expect((payload.config.items as unknown[]).length).toBe(1);
   });
 
   it("binds a field-specific rejection to the control that produced it", async () => {

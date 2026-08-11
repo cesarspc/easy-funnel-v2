@@ -98,3 +98,19 @@
   text-transform: uppercase;
   color: var(--gf-ink-quiet, #5b6169);
 }
+
+
+.lblocks__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--gf-ink);
+  cursor: pointer;
+}
+
+.lblocks__checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gf-signal-amber);
+}

@@ -180,13 +180,13 @@ CATALOG: tuple[CatalogSpec, ...] = (
         ),
         blocks=(
             (
-                "how_it_works",
+                "included_benefits",
                 1,
                 {
-                    "steps": [
-                        "Elige la cantidad y toca Pedir ahora.",
-                        "Escribes tus datos de entrega en el formulario.",
-                        "Recibes el pedido y pagas en efectivo al mensajero.",
+                    "items": [
+                        {"name": "Reloj deportivo resistente al agua", "value": "Valor $64.900", "tag": ""},
+                        {"name": "Correa de silicona extra", "value": "Valor $19.900", "tag": "GRATIS"},
+                        {"name": "Estuche de transporte", "value": "Valor $12.000", "tag": "GRATIS"},
                     ]
                 },
             ),

@@ -190,7 +190,88 @@ describe("conversion components on the landing", () => {
     renderPage();
 
     await screen.findByAltText("Banner 1");
-    expect(screen.queryByText(/Ahorras/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/de descuento/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^DE /)).not.toBeInTheDocument();
+  });
+
+  it("renders a comparison table when the block stores rows, instead of the plain checklist", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([
+        block({
+          block_type: "benefits",
+          slot_index: 1,
+          config: {
+            ours_label: "Este de 2L",
+            rows: [
+              { label: "Capacidad", common: "Muy pequeña", ours: "2 litros" },
+              { label: "Material", common: "Plástico", ours: "Acero inoxidable" },
+            ],
+          },
+        }),
+      ]),
+    );
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+
+    expect(document.querySelector(".cblock__compare")).toBeInTheDocument();
+    expect(screen.getByText("Común")).toBeInTheDocument();
+    expect(screen.getByText("Este de 2L")).toBeInTheDocument();
+    expect(screen.getByText("2 litros")).toBeInTheDocument();
+  });
+
+  it("falls back to the plain checklist for a legacy items-only benefits config", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([
+        block({ block_type: "benefits", slot_index: 1, config: { items: ["Antiadherente", "Apta para gas"] } }),
+      ]),
+    );
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+    expect(document.querySelector(".cblock__compare")).not.toBeInTheDocument();
+    expect(screen.getByText("Antiadherente")).toBeInTheDocument();
+  });
+
+  it("renders the urgency card for an announcement_bar with items", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([
+        block({
+          block_type: "announcement_bar",
+          slot_index: 0,
+          config: {
+            title: "Aprovecha hoy",
+            items: [
+              { lead: "Pedidos antes de las 2:00 p.m.", text: "salen el mismo día" },
+              { lead: "Envío GRATIS", text: "a todo Colombia esta semana" },
+            ],
+            stock_label: "Stock disponible — quedan pocas unidades",
+            stock_percent: 70,
+          },
+        }),
+      ]),
+    );
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+    expect(document.querySelector(".cblock--urgency")).toBeInTheDocument();
+    expect(screen.getByText("Pedidos antes de las 2:00 p.m.")).toBeInTheDocument();
+    expect(screen.getByText("Stock disponible — quedan pocas unidades")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "70");
+  });
+
+  it("renders the legacy single-line strip for an announcement_bar with only text", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([
+        block({ block_type: "announcement_bar", slot_index: 0, config: { text: "Envío gratis hoy" } }),
+      ]),
+    );
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+    expect(document.querySelector(".cblock--announcement")).toBeInTheDocument();
+    expect(document.querySelector(".cblock--urgency")).not.toBeInTheDocument();
+    expect(screen.getByText("Envío gratis hoy")).toBeInTheDocument();
   });
 
   it("renders FAQ answers in collapsed native disclosures", async () => {
@@ -218,7 +299,7 @@ describe("conversion components on the landing", () => {
     expect(details).toHaveAttribute("open");
   });
 
-  it("renders reviews with an accessible rating label", async () => {
+  it("renders reviews with an accessible rating label (detailed variant, default)", async () => {
     vi.mocked(publicApi.getLanding).mockResolvedValue(
       makeLanding([
         block({
@@ -237,6 +318,40 @@ describe("conversion components on the landing", () => {
     await screen.findByAltText("Banner 1");
     expect(screen.getByLabelText("5 de 5 estrellas")).toBeInTheDocument();
     expect(screen.getByText("Cliente de ejemplo · Cali")).toBeInTheDocument();
+  });
+
+  it("renders the verified variant with order, phone, and date proof", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([
+        block({
+          block_type: "reviews",
+          slot_index: 4,
+          config: {
+            variant: "verified",
+            rating: 4.9,
+            rating_count: 5,
+            items: [
+              {
+                name: "Brayan S.",
+                city: "Pereira, Risaralda",
+                text: "Muele carne y verdura en segundos.",
+                rating: 5,
+                channel: "Instagram",
+                order_id: "MO-11170",
+                phone: "+57 313 141 51**",
+                date: "2026-06-08",
+              },
+            ],
+          },
+        }),
+      ]),
+    );
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+    expect(document.querySelector(".cblock--reviews-verified")).toBeInTheDocument();
+    expect(screen.getByText("Compra verificada · Instagram")).toBeInTheDocument();
+    expect(screen.getByText("Pedido #MO-11170 · +57 313 141 51** · 2026-06-08")).toBeInTheDocument();
   });
 
   it("skips a component whose content is unusable instead of failing the page", async () => {

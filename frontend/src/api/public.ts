@@ -47,7 +47,7 @@ export type ConversionBlockType =
   | "cod_assurance"
   | "benefits"
   | "offer_price"
-  | "how_it_works"
+  | "included_benefits"
   | "reviews"
   | "faq"
   | "guarantee";
@@ -68,6 +68,14 @@ export interface ConversionBlockConfig {
    * component already draws with the accent token.
    */
   accent_color?: string | null;
+  /**
+   * Additive fields for newer block variants (comparison rows, urgency
+   * items, trust stats, delivery dates, etc.) are stored in the same JSON
+   * config blob but differ per block type. An index signature allows the
+   * frontend to read them without duplicating the union of every possible
+   * key as explicit optional properties.
+   */
+  [key: string]: unknown;
 }
 
 export interface ConversionBlock {
@@ -134,6 +142,8 @@ export interface PublicLanding {
   cta_band_style?: CtaBandStyle;
   /** Absent on payloads cached before conversion components existed. */
   blocks?: ConversionBlock[];
+  /** Landing-level dark mode default for all conversion blocks. */
+  blocks_dark_mode?: boolean;
   /** Absent on payloads cached before per-landing accents existed. */
   accent_color?: string;
   accent_palette?: AccentPalette;

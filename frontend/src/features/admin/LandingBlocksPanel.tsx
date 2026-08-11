@@ -25,6 +25,8 @@ export interface LandingBlocksPanelProps {
    * placement slots are re-read instead of going stale.
    */
   sequenceSignature: string;
+  /** Current form accent color (hex), used as the visible default for blocks without a custom accent. */
+  formAccentColor: string;
 }
 
 interface BlockTypeMeta {
@@ -50,9 +52,9 @@ const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
     label: "Precio y ahorro",
     purpose: "Muestra el precio del producto y, si indicas el precio anterior, el ahorro.",
   },
-  how_it_works: {
-    label: "Cómo funciona",
-    purpose: "Tres pasos: responde qué pasa después de enviar el formulario.",
+  included_benefits: {
+    label: "Incluido en tu pedido",
+    purpose: "Lista de lo que recibe el comprador, con valor y etiqueta opcionales.",
   },
   reviews: {
     label: "Reseñas",
@@ -73,7 +75,7 @@ const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
   "cod_assurance",
   "offer_price",
   "benefits",
-  "how_it_works",
+  "included_benefits",
   "reviews",
   "faq",
   "guarantee",
@@ -81,7 +83,7 @@ const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
 
 type Draft = Record<string, unknown>;
 
-/** Starting content per type. `how_it_works` ships the real COD flow as text. */
+/** Starting content per type. `included_benefits` ships a blank item list. */
 function defaultDraft(type: ConversionBlockType): Draft {
   switch (type) {
     case "announcement_bar":
@@ -92,14 +94,10 @@ function defaultDraft(type: ConversionBlockType): Draft {
       return { title: "", items: ["", ""], accent_color: "" };
     case "offer_price":
       return { compare_at_price: "", note: "", accent_color: "" };
-    case "how_it_works":
+    case "included_benefits":
       return {
         title: "",
-        steps: [
-          "Elige la cantidad y toca Pedir ahora.",
-          "Escribes tus datos de entrega en el formulario.",
-          "Recibes el pedido y pagas en efectivo al mensajero.",
-        ],
+        items: [{ name: "", value: "", tag: "" }],
         accent_color: "",
       };
     case "reviews":
@@ -143,6 +141,8 @@ interface EditorProps {
   onChange: (draft: Draft) => void;
   idPrefix: string;
   fieldErrors: Record<string, string>;
+  /** Current form accent color for the color picker default. */
+  formAccentColor: string;
 }
 
 function FieldError({ id, message }: { id: string; message?: string }): JSX.Element | null {
@@ -160,6 +160,7 @@ function ContentEditor({
   onChange,
   idPrefix,
   fieldErrors,
+  formAccentColor,
 }: EditorProps): JSX.Element {
   function set(key: string, value: unknown) {
     onChange({ ...draft, [key]: value });
@@ -196,7 +197,7 @@ function ContentEditor({
           className="landings-field__input"
           type="color"
           style={{ maxWidth: 56, padding: 2 }}
-          value={/^#[0-9a-fA-F]{6}$/.test(textValue(draft, "accent_color")) ? textValue(draft, "accent_color") : "#1a7a4c"}
+          value={/^#[0-9a-fA-F]{6}$/.test(textValue(draft, "accent_color")) ? textValue(draft, "accent_color") : formAccentColor}
           onChange={(event) => set("accent_color", event.target.value)}
           aria-label="Elegir color de acento"
         />
@@ -224,6 +225,25 @@ function ContentEditor({
     </div>
   );
 
+  const darkModeField = (
+    <div className="landings-field">
+      <label className="landings-field__label">Modo oscuro</label>
+      <select
+        className="landings-field__input"
+        style={{ maxWidth: 220 }}
+        value={draft.dark_mode === true ? "dark" : draft.dark_mode === false ? "light" : "default"}
+        onChange={(event) => {
+          const v = event.target.value;
+          set("dark_mode", v === "dark" ? true : v === "light" ? false : "");
+        }}
+      >
+        <option value="default">Usar default de la landing</option>
+        <option value="light">Siempre claro</option>
+        <option value="dark">Siempre oscuro</option>
+      </select>
+    </div>
+  );
+
   switch (type) {
     case "announcement_bar":
       return (
@@ -243,6 +263,7 @@ function ContentEditor({
             <FieldError id={`${idPrefix}-text-error`} message={fieldErrors.text} />
           </div>
           {accentColorField}
+          {darkModeField}
         </div>
       );
 
@@ -268,6 +289,7 @@ function ContentEditor({
             <FieldError id={`${idPrefix}-note-error`} message={fieldErrors.note} />
           </div>
           {accentColorField}
+          {darkModeField}
         </div>
       );
 
@@ -314,6 +336,7 @@ function ContentEditor({
             <FieldError id={`${idPrefix}-items-error`} message={fieldErrors.items} />
           </fieldset>
           {accentColorField}
+          {darkModeField}
         </div>
       );
     }
@@ -356,33 +379,83 @@ function ContentEditor({
             <FieldError id={`${idPrefix}-note-error`} message={fieldErrors.note} />
           </div>
           {accentColorField}
+          {darkModeField}
         </div>
       );
 
-    case "how_it_works": {
-      const steps = asStringList(draft.steps, 3);
+    case "included_benefits": {
+      const items = asRecordList(draft.items);
       return (
         <div className="lblocks__editor">
           {titleField}
           <fieldset className="lblocks__fieldset">
-            <legend className="landings-field__label">Pasos (exactamente 3)</legend>
-            {[0, 1, 2].map((index) => (
-              <input
-                key={index}
-                className="landings-field__input"
-                aria-label={`Paso ${index + 1}`}
-                value={steps[index] ?? ""}
-                maxLength={110}
-                onChange={(event) => {
-                  const next = [steps[0] ?? "", steps[1] ?? "", steps[2] ?? ""];
-                  next[index] = event.target.value;
-                  set("steps", next);
-                }}
-              />
+            <legend className="landings-field__label">Beneficios incluidos (2–8)</legend>
+            {items.map((item, index) => (
+              <div className="lblocks__group" key={index}>
+                <input
+                  className="landings-field__input"
+                  aria-label={`Nombre beneficio ${index + 1}`}
+                  placeholder="Nombre del beneficio"
+                  value={textValue(item, "name")}
+                  maxLength={90}
+                  onChange={(event) => {
+                    const next = [...items];
+                    next[index] = { ...item, name: event.target.value };
+                    set("items", next);
+                  }}
+                />
+                <input
+                  className="landings-field__input"
+                  aria-label={`Valor ${index + 1}`}
+                  placeholder="Valor (ej: Valor USD 497)"
+                  value={textValue(item, "value")}
+                  maxLength={40}
+                  onChange={(event) => {
+                    const next = [...items];
+                    next[index] = { ...item, value: event.target.value };
+                    set("items", next);
+                  }}
+                />
+                <input
+                  className="landings-field__input"
+                  aria-label={`Etiqueta ${index + 1}`}
+                  placeholder="Etiqueta (ej: GRATIS)"
+                  value={textValue(item, "tag")}
+                  maxLength={20}
+                  onChange={(event) => {
+                    const next = [...items];
+                    next[index] = { ...item, tag: event.target.value };
+                    set("items", next);
+                  }}
+                />
+                {items.length > 2 && (
+                  <button
+                    type="button"
+                    className="lblocks__remove"
+                    aria-label={`Eliminar beneficio ${index + 1}`}
+                    onClick={() => {
+                      const next = items.filter((_, i) => i !== index);
+                      set("items", next);
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
-            <FieldError id={`${idPrefix}-steps-error`} message={fieldErrors.steps} />
+            {items.length < 8 && (
+              <button
+                type="button"
+                className="lblocks__add-item"
+                onClick={() => set("items", [...items, { name: "", value: "", tag: "" }])}
+              >
+                + Agregar beneficio
+              </button>
+            )}
+            <FieldError id={`${idPrefix}-items-error`} message={fieldErrors.items} />
           </fieldset>
           {accentColorField}
+          {darkModeField}
         </div>
       );
     }
@@ -472,6 +545,7 @@ function ContentEditor({
             <FieldError id={`${idPrefix}-items-error`} message={fieldErrors.items} />
           </fieldset>
           {accentColorField}
+          {darkModeField}
         </div>
       );
     }
@@ -533,6 +607,7 @@ function ContentEditor({
             <FieldError id={`${idPrefix}-items-error`} message={fieldErrors.items} />
           </fieldset>
           {accentColorField}
+          {darkModeField}
         </div>
       );
     }
@@ -584,6 +659,7 @@ function ContentEditor({
             <FieldError id={`${idPrefix}-days-error`} message={fieldErrors.days} />
           </div>
           {accentColorField}
+          {darkModeField}
         </div>
       );
 
@@ -595,6 +671,7 @@ function ContentEditor({
 export function LandingBlocksPanel({
   landingId,
   sequenceSignature,
+  formAccentColor,
 }: LandingBlocksPanelProps): JSX.Element {
   const [blocks, setBlocks] = useState<LandingBlock[]>([]);
   const [slots, setSlots] = useState<string[]>([]);
@@ -853,6 +930,7 @@ export function LandingBlocksPanel({
                     // in both this panel and the add form below would announce
                     // the same problem twice.
                     fieldErrors={editingId === block.id ? fieldErrors : {}}
+                    formAccentColor={formAccentColor}
                   />
                   <button
                     type="button"
@@ -922,6 +1000,7 @@ export function LandingBlocksPanel({
           onChange={setNewDraft}
           idPrefix="new-block"
           fieldErrors={editingId === null ? fieldErrors : {}}
+          formAccentColor={formAccentColor}
         />
 
         <button

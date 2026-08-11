@@ -6,7 +6,7 @@ Two ideas own this module:
 **A fixed vocabulary, not a page builder.** Eight component types exist,
 each one a device that measurably moves cold cash-on-delivery traffic in this
 market: a top-of-page announcement bar, the COD assurance strip, benefit
-bullets, the price/saving statement, the three-step "how it works" explainer,
+bullets, the price/saving statement, the included benefits list,
 customer reviews, the FAQ objection handler, and the guarantee. A merchant
 chooses a type, writes its content, and places it. Almost nothing else is
 configurable — spacing, type scale, layout, order of elements inside the
@@ -45,7 +45,7 @@ from app.domains.landings.errors import LandingValidationError
 BLOCK_COD_ASSURANCE = "cod_assurance"
 BLOCK_BENEFITS = "benefits"
 BLOCK_OFFER_PRICE = "offer_price"
-BLOCK_HOW_IT_WORKS = "how_it_works"
+BLOCK_INCLUDED_BENEFITS = "included_benefits"
 BLOCK_REVIEWS = "reviews"
 BLOCK_FAQ = "faq"
 BLOCK_GUARANTEE = "guarantee"
@@ -56,7 +56,7 @@ ALLOWED_BLOCK_TYPES = (
     BLOCK_COD_ASSURANCE,
     BLOCK_BENEFITS,
     BLOCK_OFFER_PRICE,
-    BLOCK_HOW_IT_WORKS,
+    BLOCK_INCLUDED_BENEFITS,
     BLOCK_REVIEWS,
     BLOCK_FAQ,
     BLOCK_GUARANTEE,
@@ -71,7 +71,6 @@ MAX_BLOCKS_PER_LANDING = 12
 
 _NOTE_MAX = 140
 _ITEM_MAX = 90
-_STEP_MAX = 110
 _NAME_MAX = 60
 _CITY_MAX = 60
 _REVIEW_MAX = 280
@@ -82,7 +81,11 @@ _TEXT_MAX = 320
 
 MAX_BENEFITS = 5
 MIN_BENEFITS = 2
-HOW_IT_WORKS_STEPS = 3
+MIN_INCLUDED_BENEFITS = 2
+MAX_INCLUDED_BENEFITS = 8
+_BENEFIT_NAME_MAX = 90
+_BENEFIT_VALUE_MAX = 40
+_BENEFIT_TAG_MAX = 20
 MAX_REVIEWS = 4
 MAX_FAQ_ITEMS = 6
 MAX_GUARANTEE_DAYS = 365
@@ -215,6 +218,12 @@ def _optional_accent_color(config: dict[str, Any]) -> str | None:
     return normalize_accent_color(raw, field="accent_color")
 
 
+def _optional_dark_mode(config: dict[str, Any]) -> bool:
+    """Return True when the merchant explicitly enabled dark mode for this block."""
+    raw = config.get("dark_mode")
+    return raw is True or raw == "true" or raw == "1"
+
+
 def _validate_announcement_bar(config: dict[str, Any]) -> dict[str, Any]:
     """Top-of-page announcement bar: one line of text, own accent background.
 
@@ -229,6 +238,7 @@ def _validate_announcement_bar(config: dict[str, Any]) -> dict[str, Any]:
             config.get("text"), field="text", label="Announcement text", maximum=_TITLE_MAX
         ),
         "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
     }
 
 
@@ -243,6 +253,7 @@ def _validate_cod_assurance(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "note": _optional_text(config.get("note"), field="note", label="Note", maximum=_NOTE_MAX),
         "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
     }
 
 
@@ -262,6 +273,7 @@ def _validate_benefits(config: dict[str, Any]) -> dict[str, Any]:
         ),
         "items": items,
         "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
     }
 
 
@@ -287,23 +299,62 @@ def _validate_offer_price(config: dict[str, Any]) -> dict[str, Any]:
         "compare_at_price": compare_at_price,
         "note": _optional_text(config.get("note"), field="note", label="Note", maximum=_NOTE_MAX),
         "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
     }
 
 
-def _validate_how_it_works(config: dict[str, Any]) -> dict[str, Any]:
-    raw_steps = _require_list(config.get("steps"), field="steps", label="Steps")
-    if len(raw_steps) != HOW_IT_WORKS_STEPS:
-        raise LandingValidationError("steps", f"Describe exactly {HOW_IT_WORKS_STEPS} steps.")
-    steps = [
-        _require_text(step, field="steps", label=f"Step {index + 1}", maximum=_STEP_MAX)
-        for index, step in enumerate(raw_steps)
-    ]
+def _validate_included_benefits(config: dict[str, Any]) -> dict[str, Any]:
+    """Included benefits/items list: what the buyer gets, optionally with a
+    crossed-out value and a highlight tag per item.
+
+    Schema:
+      title: optional (max 80)
+      items: required list of 2-8 objects, each with:
+        name: required (max 90)
+        value: optional (max 40)
+        tag: optional (max 20)
+      accent_color: optional
+    """
+    raw_items = _require_list(config.get("items"), field="items", label="Items")
+    if len(raw_items) < MIN_INCLUDED_BENEFITS or len(raw_items) > MAX_INCLUDED_BENEFITS:
+        raise LandingValidationError(
+            "items",
+            f"Add between {MIN_INCLUDED_BENEFITS} and {MAX_INCLUDED_BENEFITS} items.",
+        )
+
+    items: list[dict[str, Any]] = []
+    for index, raw_item in enumerate(raw_items):
+        if not isinstance(raw_item, dict):
+            raise LandingValidationError("items", f"Item {index + 1} must be an object.")
+        items.append(
+            {
+                "name": _require_text(
+                    raw_item.get("name"),
+                    field="items",
+                    label=f"Item {index + 1}: name",
+                    maximum=_BENEFIT_NAME_MAX,
+                ),
+                "value": _optional_text(
+                    raw_item.get("value"),
+                    field="items",
+                    label=f"Item {index + 1}: value",
+                    maximum=_BENEFIT_VALUE_MAX,
+                ),
+                "tag": _optional_text(
+                    raw_item.get("tag"),
+                    field="items",
+                    label=f"Item {index + 1}: tag",
+                    maximum=_BENEFIT_TAG_MAX,
+                ),
+            }
+        )
     return {
         "title": _optional_text(
             config.get("title"), field="title", label="Title", maximum=_TITLE_MAX
         ),
-        "steps": steps,
+        "items": items,
         "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
     }
 
 
@@ -358,6 +409,7 @@ def _validate_reviews(config: dict[str, Any]) -> dict[str, Any]:
         ),
         "items": items,
         "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
     }
 
 
@@ -392,6 +444,7 @@ def _validate_faq(config: dict[str, Any]) -> dict[str, Any]:
         ),
         "items": items,
         "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
     }
 
 
@@ -414,6 +467,7 @@ def _validate_guarantee(config: dict[str, Any]) -> dict[str, Any]:
         "text": _require_text(config.get("text"), field="text", label="Text", maximum=_TEXT_MAX),
         "days": days,
         "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
     }
 
 
@@ -421,7 +475,7 @@ _VALIDATORS = {
     BLOCK_COD_ASSURANCE: _validate_cod_assurance,
     BLOCK_BENEFITS: _validate_benefits,
     BLOCK_OFFER_PRICE: _validate_offer_price,
-    BLOCK_HOW_IT_WORKS: _validate_how_it_works,
+    BLOCK_INCLUDED_BENEFITS: _validate_included_benefits,
     BLOCK_REVIEWS: _validate_reviews,
     BLOCK_FAQ: _validate_faq,
     BLOCK_GUARANTEE: _validate_guarantee,

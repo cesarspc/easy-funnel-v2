@@ -2,18 +2,43 @@
    Merchants place and write; spacing, scale, and color are fixed here so a
    component that exists to convert cannot be de-tuned from a settings screen.
 
-   Shared rules across all seven:
+   Shared rules across all eight:
    - One rhythm: 24px block padding, 8/12/16px inside, more space above a
      heading than below it.
    - One type scale, reused: 1.125rem headings, 1rem body, 0.875rem support.
-   - Color is rationed to the action green (already the page's one accent) and
-     ink; components never introduce a second accent.
-   - Full-width on the 640px page column, no cards inside cards, no shadows. */
+   - The page's form accent (`--lp-form-action`, merchant-overridable per block
+     via `accent_color`) does all "this is the brand" work: checkmarks,
+     icons, bars, borders. Falls back to `--lp-action` when no form accent
+     is set.
+   - Two additional colors are used, and *only* here, because they encode a
+     meaning the brand accent can't: `--lp-urgent` (coral/red) marks money
+     saved and time pressure, `--lp-trust` (navy) marks a badge/authority
+     moment. They never appear as a background wash or a text color for body
+     copy — only as small, high-contrast surfaces (a pill, a badge) at the
+     single most decisive moment of their component. This is the one
+     deliberate exception to "one accent"; it's bounded to two components
+     (offer_price, announcement_bar's urgency card) that live or die on
+     conveying "act now" in under a second.
+   - Full-width on the 640px page column, no cards inside cards (except the
+     price and urgency components, which are themselves the hero moment and
+     earn a raised surface), no drop shadows anywhere else. */
 
 .cblock {
   padding: var(--lp-space-lg) var(--lp-space-md);
   font-family: var(--lp-font);
   color: var(--lp-ink);
+}
+
+/* Dark mode wrapper: inverts neutral palette while keeping accent colors intact.
+   Activated via `dark_mode: true` in block config. */
+.cblock-dark-wrap {
+  --lp-bg: #1a1d21;
+  --lp-ink: #f0f1f3;
+  --lp-ink-quiet: #9a9fa6;
+  --lp-hairline: #2e3338;
+  --lp-surface: #22262b;
+  background-color: var(--lp-bg);
+  color-scheme: dark;
 }
 
 .cblock__title {
@@ -31,18 +56,31 @@
   color: var(--lp-ink-quiet);
 }
 
-/* --- Announcement bar ---------------------------------------------------- */
+/* Shared avatar chip used by both review layouts. */
+.cblock__review-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
 
-/* The one component that *is* its own accent surface rather than drawing an
-   accent on top of a neutral background — a thin colored strip above
-   everything else, the first thing cold traffic sees. `--lp-action` is
-   already the merchant's form-accent-or-override by the time this rule reads
-   it (see accentStyle() in ConversionBlocks.tsx), so no separate color
-   variable is needed here. */
+/* --- Announcement bar / urgency card -------------------------------------
+   Two shapes live under one component, chosen by the shape of the config:
+   a short `text` renders the original thin accent strip (kept for landings
+   written before this redesign); a list of `items` renders the new urgency
+   card from the reference screenshot — the first thing cold traffic sees,
+   built to create movement, not just announce a promo. */
 
 .cblock--announcement {
   padding: 10px var(--lp-space-md);
-  background: var(--lp-action);
+  background: var(--lp-form-action, var(--lp-action));
   text-align: center;
 }
 
@@ -51,13 +89,90 @@
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.35;
-  color: var(--lp-action-ink);
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
 }
 
-/* --- COD assurances ------------------------------------------------------ */
+.cblock--urgency {
+  --lp-urgent: #e5484d;
+  padding: var(--lp-space-lg) var(--lp-space-md);
+  background: #16181d;
+  color: #f4f5f6;
+}
+
+.cblock__urgency-title {
+  margin: 0 0 var(--lp-space-md);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.cblock__urgency-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cblock__urgency-list li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: var(--lp-space-sm);
+  align-items: start;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: #d7dadf;
+}
+
+.cblock__urgency-list li strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.cblock__urgency-icon {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.cblock__urgency-stock {
+  margin-top: var(--lp-space-md);
+  padding-top: var(--lp-space-sm);
+}
+
+.cblock__urgency-stock-label {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--lp-urgent);
+}
+
+.cblock__urgency-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #2b2e35;
+  overflow: hidden;
+}
+
+.cblock__urgency-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f5a524, var(--lp-urgent));
+}
+
+/* --- COD assurances -------------------------------------------------------
+   The list of platform facts a buyer needs before trusting cash-on-delivery.
+   Each row reads as one flowing line — icon, bold lead, plain continuation —
+   the way a buyer skims a checklist on a small screen, not a two-column
+   grid to parse. */
 
 .cblock--assurance {
   background: var(--lp-surface);
+  border-radius: var(--lp-radius-md);
 }
 
 .cblock__assurances {
@@ -70,43 +185,124 @@
 
 .cblock__assurances li {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  gap: 2px var(--lp-space-sm);
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: var(--lp-space-sm);
   align-items: start;
 }
 
-/* The check mark is drawn from type, not an icon file or an icon service:
-   one glyph, no extra request, scales with the text. */
-.cblock__assurances li::before {
-  content: "✓";
-  grid-row: span 2;
+.cblock__assurances-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: var(--lp-action);
-  color: var(--lp-action-ink);
-  font-size: 0.75rem;
-  font-weight: 700;
-  margin-top: 1px;
+  background: var(--lp-form-action-tint, var(--lp-action-tint));
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+  font-size: 0.8125rem;
+  flex: none;
 }
 
-.cblock__assurances strong {
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.3;
+.cblock__assurances-line {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--lp-ink);
 }
 
-.cblock__assurances span {
+.cblock__assurances-line strong {
+  font-weight: 700;
+}
+
+.cblock__assurances-detail {
+  display: block;
   font-size: 0.875rem;
-  line-height: 1.45;
   color: var(--lp-ink-quiet);
 }
 
-/* --- Benefits ------------------------------------------------------------ */
+.cblock__assurances-delivery {
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--lp-bg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--lp-ink-quiet);
+}
 
+/* --- Benefits: comparison table -------------------------------------------
+   "Why this over the generic thing" answered as a two-column verdict — the
+   single highest-leverage reframe for a cold buyer comparing tabs. Falls
+   back to a plain checklist for landings written before this table existed
+   (`items` instead of `rows`), so older content keeps rendering as-is. */
+
+.cblock__compare {
+  display: grid;
+  border-radius: var(--lp-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--lp-hairline);
+}
+
+.cblock__compare-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.cblock__compare-row:not(:last-child) {
+  border-bottom: 1px solid var(--lp-hairline);
+}
+
+.cblock__compare-row--head {
+  background: var(--lp-surface);
+}
+
+.cblock__compare-cell {
+  padding: 10px var(--lp-space-sm);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cblock__compare-cell--label {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.cblock__compare-row--head .cblock__compare-cell--common,
+.cblock__compare-row--head .cblock__compare-cell--ours {
+  font-weight: 700;
+  font-size: 0.8125rem;
+}
+
+.cblock__compare-cell--common {
+  color: var(--lp-ink-quiet);
+}
+
+.cblock__compare-cell--ours {
+  background: var(--lp-form-action-tint, var(--lp-action-tint));
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+  font-weight: 600;
+}
+
+.cblock__compare-row--head .cblock__compare-cell--ours {
+  background: var(--lp-form-action, var(--lp-action));
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
+}
+
+.cblock__compare-icon--no {
+  flex: none;
+  color: #d64545;
+  font-weight: 800;
+}
+
+.cblock__compare-icon--yes {
+  flex: none;
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+  font-weight: 800;
+}
+
+/* Legacy checklist, kept for `items`-only configs written before the table. */
 .cblock__benefits {
   display: grid;
   gap: var(--lp-space-sm);
@@ -126,48 +322,315 @@
 
 .cblock__benefits li::before {
   content: "✓";
-  color: var(--lp-action);
+  color: var(--lp-form-action, var(--lp-action));
   font-weight: 700;
   text-align: center;
 }
 
-/* --- Price -------------------------------------------------------------- */
+/* --- Price — high-conversion card ---------------------------------------- */
+
+/* The price section is three stacked blocks: (1) the price card, (2) the
+   trust badge, (3) the shipping/guarantee info card. Together they form the
+   complete "should I buy this?" answer: price, social proof, and logistics —
+   all before the buyer scrolls past or taps the CTA. Designed for cold ad
+   traffic on cheap Android screens in direct sunlight. */
 
 .cblock--price {
-  text-align: center;
+  padding: var(--lp-space-lg) var(--lp-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.cblock__price-row {
+/* ── Part 1: Price card ── */
+
+.cblock__price-card {
   display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: var(--lp-space-sm);
-  margin: 0;
-  font-variant-numeric: tabular-nums;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cblock__price-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--lp-ink-quiet);
 }
 
 .cblock__price-was {
-  font-size: 1rem;
-  color: var(--lp-ink-quiet);
-  text-decoration: line-through;
-}
-
-.cblock__price-now {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.cblock__price-save {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--lp-action-deep);
+  font-weight: 500;
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--lp-form-action-deep, var(--lp-action-deep));
   font-variant-numeric: tabular-nums;
 }
 
-/* --- How it works ------------------------------------------------------- */
+.cblock__price-now-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cblock__price-now {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--lp-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cblock__price-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  background: #142850;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.cblock__price-badge-icon {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
+.cblock__price-discount-pill {
+  display: inline-flex;
+  align-self: flex-start;
+  margin: 8px 0 0;
+  padding: 5px 12px;
+  background: #d6394a;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Part 2: Trust badge ── */
+
+.cblock__trust-badge {
+  border: 1px solid var(--lp-hairline);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--lp-bg);
+}
+
+/* Multicolor thin bar at top of trust badge */
+.cblock__trust-topbar {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    #ef4444 0%,
+    #f97316 20%,
+    #eab308 40%,
+    #22c55e 60%,
+    #14b8a6 80%,
+    #3b82f6 100%
+  );
+}
+
+.cblock__trust-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px 8px;
+}
+
+.cblock__trust-shield {
+  width: 40px;
+  height: 40px;
+  flex: none;
+}
+
+.cblock__trust-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cblock__trust-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--lp-ink);
+}
+
+.cblock__trust-subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--lp-ink-quiet);
+}
+
+/* Confidence meter — gradient bar (red → yellow → green) with pointer */
+.cblock__trust-meter {
+  position: relative;
+  height: 6px;
+  margin: 4px 16px 12px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #ef4444, #f59e0b, #22c55e);
+}
+
+.cblock__trust-meter-fill {
+  display: none;
+}
+
+.cblock__trust-meter-indicator {
+  position: absolute;
+  top: -3px;
+  right: 12%;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid #22c55e;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+/* Stats row — three columns separated by dividers */
+.cblock__trust-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 0 12px 14px;
+  gap: 0;
+}
+
+.cblock__trust-stat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.cblock__trust-stat-divider {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--lp-hairline);
+}
+
+.cblock__trust-stat-value {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--lp-ink);
+  line-height: 1.2;
+}
+
+.cblock__trust-stat-label {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--lp-ink-quiet);
+}
+
+/* ── Part 3: Info card (shipping, COD, guarantee, bestseller) ── */
+
+.cblock__price-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--lp-surface);
+  border-radius: 10px;
+}
+
+.cblock__info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.cblock__info-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--lp-form-action, var(--lp-action));
+}
+
+.cblock__info-icon--success {
+  color: var(--lp-form-action, var(--lp-action));
+}
+
+.cblock__info-icon--highlight {
+  color: #7c3aed;
+}
+
+.cblock__info-text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--lp-ink);
+}
+
+.cblock__info-text strong {
+  font-weight: 700;
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+}
+
+.cblock__info-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 1px 6px;
+  background: var(--lp-form-action, var(--lp-action));
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border-radius: 3px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.cblock__info-dot {
+  margin: 0 4px;
+  color: var(--lp-ink-quiet);
+}
+
+.cblock__info-delivery {
+  font-size: 0.8125rem;
+  color: var(--lp-ink-quiet);
+}
+
+.cblock__info-row--shipping .cblock__info-icon {
+  color: var(--lp-form-action, var(--lp-action));
+}
+
+/* Merchant note at bottom of info card */
+.cblock__price-note {
+  margin: 4px 0 0;
+  padding-left: 28px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--lp-ink-quiet);
+}
+
+/* --- How it works ---------------------------------------------------------
+   Order carries real information here — buy, wait, receive — so the
+   numbered marker is earned, not decorative. A connecting line ties the
+   steps into one path instead of three unrelated facts. */
+
+.cblock--steps {
+  background: var(--lp-surface);
+  border-radius: var(--lp-radius-md);
+}
 
 .cblock__steps {
   display: grid;
@@ -176,6 +639,7 @@
   padding: 0;
   list-style: none;
   counter-reset: step;
+  position: relative;
 }
 
 .cblock__steps li {
@@ -183,6 +647,17 @@
   grid-template-columns: 28px minmax(0, 1fr);
   gap: var(--lp-space-sm);
   align-items: start;
+  position: relative;
+}
+
+.cblock__steps li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  left: 13px;
+  width: 2px;
+  height: calc(100% - 20px);
+  background: var(--lp-form-action-tint, var(--lp-action-tint));
 }
 
 .cblock__step-number {
@@ -192,11 +667,13 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid var(--lp-action);
-  color: var(--lp-action-deep);
+  background: var(--lp-form-action, var(--lp-action));
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
   font-size: 0.875rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  position: relative;
+  z-index: 1;
 }
 
 .cblock__step-text {
@@ -205,10 +682,207 @@
   padding-top: 4px;
 }
 
-/* --- Reviews ------------------------------------------------------------ */
+/* --- Included Benefits -------------------------------------------------------
+   Checklist of what's included in the purchase — each row shows a green
+   checkmark, the item name, an optional value, and an optional tag pill.
+   Light-mode surface card optimized for COD landing pages. */
+
+/* --- Included Benefits: light value-stack card -----------------------------
+   Accent-colored top rule on header, light gray card body with checkmark rows,
+   value text, and optional highlight tag. */
+
+.cblock--included-benefits {
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Header: accent rule + bold centered title */
+.cblock__benefits-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 16px 18px;
+  background: var(--lp-surface);
+  border-radius: var(--lp-radius-md) var(--lp-radius-md) 0 0;
+  border: 1px solid var(--lp-hairline);
+  border-bottom: none;
+}
+
+.cblock__benefits-header-rule {
+  width: 56px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--lp-form-action, var(--lp-action));
+  margin-bottom: 14px;
+}
+
+.cblock__benefits-heading {
+  margin: 0;
+  font-size: 1.1875rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--lp-ink);
+  letter-spacing: -0.01em;
+}
+
+.cblock__benefits-heading strong {
+  font-weight: 900;
+  color: var(--lp-form-action, var(--lp-action));
+}
+
+/* Card body: light gray surface */
+.cblock__benefits-card {
+  background: var(--lp-surface);
+  border-radius: 0 0 var(--lp-radius-md) var(--lp-radius-md);
+  border: 1px solid var(--lp-hairline);
+  border-top: none;
+  padding: 4px 0;
+}
+
+.cblock__benefits-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cblock__benefit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--lp-hairline);
+}
+
+.cblock__benefit-row:last-child {
+  border-bottom: none;
+}
+
+.cblock__benefit-check {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.cblock__benefit-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--lp-ink);
+  flex: 1 1 0%;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.cblock__benefit-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.cblock__benefit-value {
+  font-size: 0.8125rem;
+  color: var(--lp-ink-quiet);
+  white-space: nowrap;
+}
+
+.cblock__benefit-tag {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--lp-form-action, var(--lp-action));
+  white-space: nowrap;
+}
+
+/* Mobile: stack meta below the name */
+@media (max-width: 480px) {
+  .cblock__benefit-row {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+
+  .cblock__benefit-name {
+    flex-basis: calc(100% - 34px);
+  }
+
+  .cblock__benefit-meta {
+    margin-left: 34px;
+    margin-top: 4px;
+  }
+}
+
+/* --- Reviews: detailed (default) -------------------------------------------
+   Rating header, quality breakdown bars, and review cards with an avatar
+   and a bold pull-line ahead of the full quote — matches the "Reseñas"
+   reference screenshot. */
 
 .cblock--reviews {
   background: var(--lp-surface);
+}
+
+.cblock__reviews-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.cblock__reviews-summary strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.cblock__reviews-verified-line {
+  margin: 0 0 var(--lp-space-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+}
+
+.cblock__reviews-metrics {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 var(--lp-space-md);
+  padding: var(--lp-space-sm) var(--lp-space-sm);
+  background: var(--lp-bg);
+  border-radius: 10px;
+  list-style: none;
+}
+
+.cblock__reviews-metrics li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(60px, 90px) 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+}
+
+.cblock__reviews-metric-label {
+  color: var(--lp-ink-quiet);
+}
+
+.cblock__reviews-metric-bar {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--lp-hairline);
+  overflow: hidden;
+}
+
+.cblock__reviews-metric-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--lp-form-action, var(--lp-action));
+}
+
+.cblock__reviews-metric-value {
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .cblock__reviews {
@@ -225,8 +899,15 @@
   padding: var(--lp-space-md);
 }
 
+.cblock__review-head {
+  display: flex;
+  align-items: center;
+  gap: var(--lp-space-sm);
+  margin: 0 0 8px;
+}
+
 .cblock__rating {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 0.9375rem;
   letter-spacing: 0.08em;
   color: #b8860b;
@@ -234,6 +915,13 @@
 
 .cblock__rating-empty {
   color: var(--lp-hairline);
+}
+
+.cblock__review-headline {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .cblock__review-text {
@@ -249,15 +937,94 @@
   color: var(--lp-ink-quiet);
 }
 
-/* --- FAQ ---------------------------------------------------------------- */
+/* --- Reviews: verified (second layout) -------------------------------------
+   Same block type, `variant: "verified"` — order-number / phone-tail /
+   date proof rather than star-quality bars. Matches the "Lo que dicen
+   quienes ya lo recibieron" reference screenshot. Named a *variant*, not a
+   new block type: it is the same promise (real buyers said this) shown a
+   second way, and a merchant picks one, not both. */
+
+.cblock--reviews-verified {
+  background: var(--lp-bg);
+}
+
+.cblock--reviews-verified .cblock__review {
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-hairline);
+}
+
+.cblock__review--verified .cblock__review-head {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.cblock__review-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.cblock__review-name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.cblock__review-check {
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+  font-weight: 800;
+}
+
+.cblock__review-location {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: var(--lp-ink-quiet);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cblock__review-tag {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+}
+
+.cblock__review-score {
+  flex: none;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--lp-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cblock__review--verified .cblock__review-text {
+  margin-top: 2px;
+}
+
+.cblock__review-meta {
+  margin: var(--lp-space-sm) 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--lp-hairline);
+  font-size: 0.75rem;
+  color: var(--lp-ink-quiet);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- FAQ -------------------------------------------------------------------
+   Each question is its own soft card rather than a flat bordered row, so
+   the accordion reads as a set of small decisions to open, not a legal
+   document to scroll past. */
 
 .cblock__faq {
   display: grid;
-  border-top: 1px solid var(--lp-hairline);
+  gap: 8px;
 }
 
 .cblock__faq-item {
-  border-bottom: 1px solid var(--lp-hairline);
+  background: var(--lp-surface);
+  border-radius: 10px;
+  padding: 0 var(--lp-space-sm);
 }
 
 .cblock__faq-question {
@@ -267,8 +1034,8 @@
   gap: var(--lp-space-sm);
   /* 48px minimum row: this is a touch target, not a text run. */
   min-height: 48px;
-  padding: 12px 0;
-  font-size: 1rem;
+  padding: 12px 4px;
+  font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.4;
   cursor: pointer;
@@ -286,7 +1053,7 @@
   text-align: center;
   font-size: 1.25rem;
   font-weight: 400;
-  color: var(--lp-ink-quiet);
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
 }
 
 .cblock__faq-item[open] .cblock__faq-question::after {
@@ -295,32 +1062,103 @@
 
 .cblock__faq-answer {
   margin: 0;
-  padding: 0 0 var(--lp-space-md);
+  padding: 0 4px var(--lp-space-md);
   font-size: 0.9375rem;
   line-height: 1.55;
   color: var(--lp-ink-quiet);
 }
 
-/* --- Guarantee ---------------------------------------------------------- */
+/* --- Guarantee: store trust badge ------------------------------------------
+   Reused as the seller-authority moment from the reference screenshot — a
+   checkmark badge, a gradient confidence meter, and up to three proof
+   stats. Requires `title` and `text`; `stats` is optional so a plain
+   two-line risk-reversal statement (the original use of this block) still
+   renders as a quieter version of the same card. */
 
 .cblock--guarantee {
-  display: grid;
-  gap: 6px;
   border-top: 1px solid var(--lp-hairline);
   border-bottom: 1px solid var(--lp-hairline);
+}
+
+.cblock__trust-header {
+  display: flex;
+  align-items: center;
+  gap: var(--lp-space-sm);
+}
+
+.cblock__trust-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  color: var(--lp-form-action, var(--lp-action));
+}
+
+.cblock__trust-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+}
+
+.cblock__trust-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.9375rem;
+  color: var(--lp-ink-quiet);
+}
+
+.cblock__trust-meter {
+  margin: var(--lp-space-md) 0;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #f0d9a8 0%,
+    var(--lp-form-action, var(--lp-action)) 55%,
+    var(--lp-form-action-deep, var(--lp-action-deep)) 100%
+  );
+}
+
+.cblock__trust-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lp-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
   text-align: center;
 }
 
+.cblock__trust-stats li {
+  display: grid;
+  gap: 2px;
+}
+
+.cblock__trust-stat-value {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--lp-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cblock__trust-stat-label {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--lp-ink-quiet);
+}
+
+/* Original plain guarantee statement — used whenever `stats` is omitted. */
 .cblock__guarantee-title {
   margin: 0;
   font-size: 1.0625rem;
   font-weight: 700;
-  color: var(--lp-action-deep);
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+  text-align: center;
 }
 
 .cblock__guarantee-text {
-  margin: 0;
+  margin: 4px 0 0;
   font-size: 0.9375rem;
   line-height: 1.5;
   color: var(--lp-ink-quiet);
+  text-align: center;
 }

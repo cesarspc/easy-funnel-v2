@@ -18,7 +18,7 @@ from app.domains.landings.blocks import (
     BLOCK_COD_ASSURANCE,
     BLOCK_FAQ,
     BLOCK_GUARANTEE,
-    BLOCK_HOW_IT_WORKS,
+    BLOCK_INCLUDED_BENEFITS,
     BLOCK_OFFER_PRICE,
     BLOCK_REVIEWS,
     MAX_BLOCKS_PER_LANDING,
@@ -35,14 +35,14 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 SUPPORTED_KEYS = {
-    BLOCK_ANNOUNCEMENT_BAR: {"text", "accent_color"},
-    BLOCK_COD_ASSURANCE: {"note", "accent_color"},
-    BLOCK_BENEFITS: {"title", "items", "accent_color"},
-    BLOCK_OFFER_PRICE: {"compare_at_price", "note", "accent_color"},
-    BLOCK_HOW_IT_WORKS: {"title", "steps", "accent_color"},
-    BLOCK_REVIEWS: {"title", "items", "accent_color"},
-    BLOCK_FAQ: {"title", "items", "accent_color"},
-    BLOCK_GUARANTEE: {"title", "text", "days", "accent_color"},
+    BLOCK_ANNOUNCEMENT_BAR: {"text", "accent_color", "dark_mode"},
+    BLOCK_COD_ASSURANCE: {"note", "accent_color", "dark_mode"},
+    BLOCK_BENEFITS: {"title", "items", "accent_color", "dark_mode"},
+    BLOCK_OFFER_PRICE: {"compare_at_price", "note", "accent_color", "dark_mode"},
+    BLOCK_INCLUDED_BENEFITS: {"title", "items", "accent_color", "dark_mode"},
+    BLOCK_REVIEWS: {"title", "items", "accent_color", "dark_mode"},
+    BLOCK_FAQ: {"title", "items", "accent_color", "dark_mode"},
+    BLOCK_GUARANTEE: {"title", "text", "days", "accent_color", "dark_mode"},
 }
 
 
@@ -143,26 +143,27 @@ class TestContentValidation:
         assert excinfo.value.field == "text"
 
         result = validate_block_config(BLOCK_ANNOUNCEMENT_BAR, {"text": "  Envío gratis  "})
-        assert result == {"text": "Envío gratis", "accent_color": None}
+        assert result == {"text": "Envío gratis", "accent_color": None, "dark_mode": False}
 
     def test_cod_assurance_needs_no_content(self) -> None:
         assert validate_block_config(BLOCK_COD_ASSURANCE, {}) == {
             "note": None,
             "accent_color": None,
+            "dark_mode": False,
         }
 
     def test_cod_assurance_keeps_only_its_note(self) -> None:
         result = validate_block_config(
             BLOCK_COD_ASSURANCE, {"note": "  Envío a todo el país  ", "padding": "40px"}
         )
-        assert result == {"note": "Envío a todo el país", "accent_color": None}
+        assert result == {"note": "Envío a todo el país", "accent_color": None, "dark_mode": False}
 
     @pytest.mark.parametrize(
         ("block_type", "config"),
         [
             (BLOCK_BENEFITS, {"items": ["Uno", "Dos"], "background": "#ff0000"}),
             (BLOCK_OFFER_PRICE, {"compare_at_price": 120000, "font_size": "2rem"}),
-            (BLOCK_HOW_IT_WORKS, {"steps": ["a", "b", "c"], "margin": 20}),
+            (BLOCK_INCLUDED_BENEFITS, {"items": [{"name": "a"}, {"name": "b"}], "margin": 20}),
             (BLOCK_REVIEWS, {"items": [{"name": "Ana", "text": "Buen producto"}], "color": "red"}),
             (
                 BLOCK_FAQ,
@@ -188,7 +189,7 @@ class TestContentValidation:
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
-            BLOCK_HOW_IT_WORKS: {"steps": ["a", "b", "c"]},
+            BLOCK_INCLUDED_BENEFITS: {"items": [{"name": "a"}, {"name": "b"}]},
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
             BLOCK_GUARANTEE: {"title": "G", "text": "T"},
@@ -204,7 +205,7 @@ class TestContentValidation:
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
-            BLOCK_HOW_IT_WORKS: {"steps": ["a", "b", "c"]},
+            BLOCK_INCLUDED_BENEFITS: {"items": [{"name": "a"}, {"name": "b"}]},
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
             BLOCK_GUARANTEE: {"title": "G", "text": "T"},
@@ -219,7 +220,7 @@ class TestContentValidation:
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
-            BLOCK_HOW_IT_WORKS: {"steps": ["a", "b", "c"]},
+            BLOCK_INCLUDED_BENEFITS: {"items": [{"name": "a"}, {"name": "b"}]},
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
             BLOCK_GUARANTEE: {"title": "G", "text": "T"},
@@ -255,16 +256,41 @@ class TestContentValidation:
             "compare_at_price": None,
             "note": None,
             "accent_color": None,
+            "dark_mode": False,
         }
 
-    def test_how_it_works_requires_exactly_three_steps(self) -> None:
+    def test_included_benefits_requires_between_2_and_8_items(self) -> None:
         with pytest.raises(LandingValidationError) as excinfo:
-            validate_block_config(BLOCK_HOW_IT_WORKS, {"steps": ["uno", "dos"]})
-        assert excinfo.value.field == "steps"
+            validate_block_config(BLOCK_INCLUDED_BENEFITS, {"items": [{"name": "solo uno"}]})
+        assert excinfo.value.field == "items"
 
-        assert (
-            len(validate_block_config(BLOCK_HOW_IT_WORKS, {"steps": ["a", "b", "c"]})["steps"]) == 3
+        valid = validate_block_config(
+            BLOCK_INCLUDED_BENEFITS, {"items": [{"name": "a"}, {"name": "b"}]}
         )
+        assert len(valid["items"]) == 2
+
+    def test_included_benefits_item_requires_name(self) -> None:
+        with pytest.raises(LandingValidationError) as excinfo:
+            validate_block_config(
+                BLOCK_INCLUDED_BENEFITS, {"items": [{"value": "x"}, {"name": "b"}]}
+            )
+        assert excinfo.value.field == "items"
+
+    def test_included_benefits_item_optional_fields(self) -> None:
+        result = validate_block_config(
+            BLOCK_INCLUDED_BENEFITS,
+            {
+                "items": [
+                    {"name": "Curso completo", "value": "Valor USD 497", "tag": "GRATIS"},
+                    {"name": "Guía PDF"},
+                ]
+            },
+        )
+        assert result["items"][0]["name"] == "Curso completo"
+        assert result["items"][0]["value"] == "Valor USD 497"
+        assert result["items"][0]["tag"] == "GRATIS"
+        assert result["items"][1]["value"] is None
+        assert result["items"][1]["tag"] is None
 
     def test_review_rating_is_bounded_and_optional(self) -> None:
         result = validate_block_config(
