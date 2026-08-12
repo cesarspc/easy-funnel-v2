@@ -167,6 +167,81 @@
   color: #fff;
 }
 
+/* --- Configuration templates ---------------------------------------------
+   The template picker inside the "Cargar plantilla" dialog. Flat rows with
+   hairline separation, matching the Instrument Panel rule that depth comes
+   from contrast and 1px rules rather than shadows. A template that cannot
+   apply to the current landing is dimmed and non-selectable rather than
+   hidden: knowing it exists, and why it does not fit, is the useful state. */
+
+.ltemplates__list {
+  list-style: none;
+  margin: 0 0 var(--gf-space-md);
+  padding: 0;
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  overflow: hidden;
+}
+
+.ltemplates__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gf-space-sm);
+  padding: 10px var(--gf-space-md);
+}
+
+.ltemplates__item:not(:last-child) {
+  border-bottom: 1px solid var(--gf-hairline);
+}
+
+.ltemplates__item:has(.ltemplates__radio:checked) {
+  background: var(--gf-paper);
+}
+
+.ltemplates__radio {
+  margin-top: 3px;
+  flex: none;
+  accent-color: var(--gf-signal-amber);
+}
+
+.ltemplates__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.ltemplates__radio:disabled + .ltemplates__label {
+  cursor: not-allowed;
+  color: var(--gf-ink-faint);
+}
+
+.ltemplates__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.ltemplates__meta {
+  font-family: var(--gf-font-data);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--gf-ink-quiet);
+}
+
+.ltemplates__radio:disabled + .ltemplates__label .ltemplates__meta {
+  color: var(--gf-ink-faint);
+}
+
+.ltemplates__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gf-space-sm);
+  margin-top: var(--gf-space-md);
+}
+
 .banner-list {
   list-style: none;
   margin: 0 0 var(--gf-space-lg);

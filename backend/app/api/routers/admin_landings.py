@@ -46,6 +46,10 @@ from app.services.banner_upload_service import BannerUploadService
 from app.services.landing_block_service import BlockNotFoundError, LandingBlockService
 from app.services.landing_management_service import LandingManagementService
 from app.services.landing_publication_service import LandingPublicationService
+from app.services.landing_template_service import (
+    LandingTemplateService,
+    TemplateNotFoundError,
+)
 from app.storage.dependencies import get_r2_client
 from app.storage.r2_client import R2Client, variant_public_url
 
@@ -203,6 +207,12 @@ class LandingBlockUpdateRequest(BaseModel):
     slot_index: int | None = None
     config: dict | None = None
     enabled: bool | None = None
+
+
+class LandingLoadTemplateRequest(BaseModel):
+    """Which saved template to apply to this landing."""
+
+    template_id: int
 
 
 def _field_error(field: str, message: str) -> HTTPException:
@@ -579,6 +589,37 @@ async def unpublish_landing(
         await service.unpublish(landing_id, actor=admin_user.subject)
     except LandingNotFoundError as exc:
         raise _not_found("Landing not found") from exc
+
+    return await get_landing(landing_id, settings=settings, admin_user=admin_user)
+
+
+@router.post("/{landing_id}/load-template", response_model=LandingDetailResponse)
+async def load_landing_template(
+    landing_id: int,
+    request: LandingLoadTemplateRequest,
+    settings: Settings = Depends(get_settings),  # noqa: B008 (FastAPI DI convention)
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
+) -> LandingDetailResponse:
+    """Apply a saved template's configuration and components to this landing.
+
+    Refused with a 422 on `banner_count` unless the landing has exactly the
+    template's number of banners: the template's CTA positions and component
+    slots address places in the rendered sequence, so applying it to a sequence
+    of a different length would move or drop components silently.
+
+    Banners, slug, product, and publication status are never touched.
+    """
+    service = LandingTemplateService(get_prisma())
+    try:
+        await service.load_template(
+            landing_id, request.template_id, actor=admin_user.subject
+        )
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing not found") from exc
+    except TemplateNotFoundError as exc:
+        raise _not_found("Landing template not found") from exc
+    except LandingValidationError as exc:
+        raise _field_error(exc.field, exc.message) from exc
 
     return await get_landing(landing_id, settings=settings, admin_user=admin_user)
 

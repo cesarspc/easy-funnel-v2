@@ -96,6 +96,10 @@ class CodFlowHarness:
         self._blacklist_ids: list[int] = []
         self._geoip_rule_ids: list[int] = []
         self._admin_usernames: list[str] = []
+        # `landing_templates` has no FK to a landing (a template outlives the
+        # landing it was saved from, by design), so nothing else would clean
+        # these up and they would leak between tests.
+        self._template_ids: list[int] = []
 
     async def seed_landing(
         self,
@@ -232,6 +236,15 @@ class CodFlowHarness:
         self._admin_usernames.append(username)
         return username, password
 
+    def track_template(self, template_id: int) -> int:
+        """Register a template created through the API for cleanup.
+
+        Templates are saved by the endpoint under test rather than seeded here,
+        so the test hands the id back for teardown.
+        """
+        self._template_ids.append(template_id)
+        return template_id
+
     def admin_headers(self, subject: str = "e2e-admin") -> dict[str, str]:
         """Authorization header for the admin endpoints.
 
@@ -263,6 +276,11 @@ class CodFlowHarness:
 
     async def cleanup(self) -> None:
         """Delete every row this harness created, children first."""
+        for template_id in self._template_ids:
+            await self.db.auditlog.delete_many(
+                where={"targetType": "landing_template", "targetId": str(template_id)}
+            )
+            await self.db.landingtemplate.delete_many(where={"id": template_id})
         for username in self._admin_usernames:
             await self.db.auditlog.delete_many(where={"actor": username})
             await self.db.adminuser.delete(where={"username": username})

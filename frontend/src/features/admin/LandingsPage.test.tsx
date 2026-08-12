@@ -38,6 +38,7 @@ const DRAFT_LANDING: LandingSummary = {
   cta_text: null,
   cta_animation: null,
   cta_text_overrides: {},
+  blocks_dark_mode: false,
 };
 
 const PUBLISHED_LANDING: LandingSummary = {

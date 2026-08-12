@@ -151,6 +151,36 @@ model LandingBlock {
   @@map("landing_blocks")
 }
 
+/// A reusable snapshot of one Landing's configuration, saved by name so the
+/// Administrator can apply a funnel that already converts to the next product
+/// instead of re-entering every field.
+///
+/// **Images are deliberately not part of a template.** Banners are the one
+/// piece of a landing that is genuinely per-product, and they are also what
+/// `config`'s CTA positions and `blocks`' slot indices are indices *into*: the
+/// public page renders banners with CTA bands interleaved, so the same
+/// `slot_index` means a different place in a sequence of a different length.
+/// `banner_count` records how many banners the source landing had, and loading
+/// is refused unless the target landing has exactly that many — the alternative
+/// is components silently relocating or vanishing.
+///
+/// `config` holds the landing columns a template carries (CTA placement/copy,
+/// form presentation, offers, accents) and `blocks` the placed conversion
+/// components. Neither carries `slug`, product data, or publication status:
+/// those identify a landing rather than describe its configuration.
+model LandingTemplate {
+  id          BigInt @id @default(autoincrement())
+  name        String @unique
+  bannerCount Int    @map("banner_count")
+  config      Json
+  blocks      Json   @default("[]")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("landing_templates")
+}
+
 model Banner {
   id           BigInt   @id @default(autoincrement())
   landingId    BigInt   @map("landing_id")

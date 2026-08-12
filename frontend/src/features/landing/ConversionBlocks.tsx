@@ -478,8 +478,6 @@ function OfferPrice({
     compareAt === null || savings === null ? null : Math.round((savings / compareAt) * 100);
 
   // Trust badge fields
-  const trustTitle = asOptionalString(loose.trust_title) ?? "Tienda Líder Platinum";
-  const trustSubtitle = asOptionalString(loose.trust_subtitle) ?? "¡Uno de los mejores del sitio!";
   const trustStats = asTrustStats(loose.stats);
 
   // Shipping/guarantee info card fields
@@ -488,7 +486,6 @@ function OfferPrice({
   const shippingAvailable = asOptionalString(loose.shipping_available) ?? "Disponible";
   const deliveryFrom = asOptionalString(loose.delivery_from);
   const deliveryTo = asOptionalString(loose.delivery_to);
-  const guaranteeText = asOptionalString(loose.guarantee_text) ?? "Compra Garantizada. Satisfacción Garantizada o le devolvemos el dinero";
   const bestseller = asOptionalString(loose.bestseller_label);
 
   return (

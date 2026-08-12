@@ -313,11 +313,21 @@ export function LandingPage(): JSX.Element {
     else blocksBySlot.set(slot, [block]);
   }
 
+  // Read once, here, rather than inside `renderBlocks`: the guard above has
+  // already narrowed `landing` away from null, and reading it in a closure
+  // asks the compiler to re-prove that at every call site.
+  const blocksDarkMode = landing.blocks_dark_mode;
+
   function renderBlocks(slot: number) {
     const group = blocksBySlot.get(slot);
     if (!group) return null;
     return group.map((block) => (
-      <ConversionBlockView key={block.id} block={block} productPrice={productPrice} blocksDarkMode={landing.blocks_dark_mode} />
+      <ConversionBlockView
+        key={block.id}
+        block={block}
+        productPrice={productPrice}
+        blocksDarkMode={blocksDarkMode}
+      />
     ));
   }
 

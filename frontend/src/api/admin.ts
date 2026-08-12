@@ -411,6 +411,54 @@ export interface LandingBlockListResponse {
   allowed_block_types: ConversionBlockType[];
 }
 
+/**
+ * A saved snapshot of one landing's configuration, reusable on another product.
+ *
+ * `banner_count` is both a description and a precondition: it is how many
+ * banners the source landing had, and a template only loads onto a landing with
+ * exactly that many, because the stored CTA positions and component slots
+ * address places in the rendered banner/CTA sequence.
+ */
+export interface LandingTemplate {
+  id: number;
+  name: string;
+  banner_count: number;
+  /** How many conversion components the template carries. */
+  block_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LandingTemplateListResponse {
+  templates: LandingTemplate[];
+}
+
+export const landingTemplatesApi = {
+  list: async (): Promise<LandingTemplateListResponse> => {
+    return apiClient.get<LandingTemplateListResponse>("/admin/landing-templates");
+  },
+
+  /**
+   * Snapshot a landing's configuration under `name`.
+   *
+   * Rejects with a 409 `ApiError` when the name is taken and `overwrite` is
+   * false, so the caller can ask before replacing an existing template.
+   */
+  save: async (request: {
+    landing_id: number;
+    name: string;
+    overwrite?: boolean;
+  }): Promise<LandingTemplate> => {
+    return apiClient.post<LandingTemplate>("/admin/landing-templates", request);
+  },
+
+  remove: async (templateId: number): Promise<LandingTemplateListResponse> => {
+    return apiClient.delete<LandingTemplateListResponse>(
+      `/admin/landing-templates/${templateId}`,
+    );
+  },
+};
+
 export const landingsApi = {
   list: async (include_retired?: boolean): Promise<LandingListResponse> => {
     const params = new URLSearchParams();
@@ -461,6 +509,19 @@ export const landingsApi = {
 
   unpublish: async (id: number): Promise<LandingDetail> => {
     return apiClient.post<LandingDetail>(`/admin/landings/${id}/unpublish`);
+  },
+
+  /**
+   * Apply a saved template's configuration and components to this landing.
+   *
+   * Returns the updated landing so the editor re-renders from one round trip.
+   * Rejects with a 422 `ApiError` carrying a `banner_count` field error when the
+   * landing's banner count does not match the template's.
+   */
+  loadTemplate: async (id: number, templateId: number): Promise<LandingDetail> => {
+    return apiClient.post<LandingDetail>(`/admin/landings/${id}/load-template`, {
+      template_id: templateId,
+    });
   },
 
   listBlocks: async (id: number): Promise<LandingBlockListResponse> => {

@@ -196,6 +196,11 @@ class TestPlacement:
             "text": "Si no te sirve, lo devuelves.",
             "days": 30,
             "accent_color": None,
+            # Presentation is fixed in the chrome, with two bounded exceptions
+            # every type accepts: `accent_color` and `dark_mode`. An unset
+            # accent means "inherit the form accent"; an unset dark mode means
+            # "follow the landing default", which normalizes to False.
+            "dark_mode": False,
         }
 
     async def test_anonymous_callers_cannot_place_components(

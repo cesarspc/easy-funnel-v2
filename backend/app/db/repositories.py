@@ -30,6 +30,7 @@ from prisma.models import (
     ImageVariant,
     Landing,
     LandingBlock,
+    LandingTemplate,
     LandingView,
     Order,
     Product,
@@ -48,6 +49,8 @@ from prisma.types import (
     LandingBlockCreateInput,
     LandingBlockUpdateInput,
     LandingCreateInput,
+    LandingTemplateCreateInput,
+    LandingTemplateUpdateInput,
     LandingUpdateInput,
     OrderCreateInput,
     ProductCreateInput,
@@ -158,6 +161,47 @@ class LandingBlockRepository:
 
     async def delete(self, block_id: int) -> LandingBlock | None:
         return await self._db.landingblock.delete(where={"id": block_id})
+
+    async def delete_for_landing(self, landing_id: int) -> int:
+        """Remove every component of a landing, returning how many were deleted.
+
+        Used when applying a template, which replaces the landing's components
+        wholesale rather than merging into them: the target's
+        `(landing_id, slot_index, order_index)` is unique, so merging would
+        collide on every position the template also claims.
+        """
+        return await self._db.landingblock.delete_many(where={"landingId": landing_id})
+
+
+class LandingTemplateRepository:
+    """Named, reusable snapshots of a Landing's configuration.
+
+    Listed newest-first: the template a merchant just saved is the one they are
+    most likely to apply next.
+    """
+
+    def __init__(self, db: Prisma) -> None:
+        self._db = db
+
+    async def list_all(self) -> list[LandingTemplate]:
+        return await self._db.landingtemplate.find_many(order={"updatedAt": "desc"})
+
+    async def get_by_id(self, template_id: int) -> LandingTemplate | None:
+        return await self._db.landingtemplate.find_unique(where={"id": template_id})
+
+    async def get_by_name(self, name: str) -> LandingTemplate | None:
+        return await self._db.landingtemplate.find_unique(where={"name": name})
+
+    async def create(self, data: LandingTemplateCreateInput) -> LandingTemplate:
+        return await self._db.landingtemplate.create(data=data)
+
+    async def update(
+        self, template_id: int, data: LandingTemplateUpdateInput
+    ) -> LandingTemplate | None:
+        return await self._db.landingtemplate.update(where={"id": template_id}, data=data)
+
+    async def delete(self, template_id: int) -> LandingTemplate | None:
+        return await self._db.landingtemplate.delete(where={"id": template_id})
 
 
 class ImageAssetRepository:

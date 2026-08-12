@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers import (
     admin_analytics,
     admin_fraud,
+    admin_landing_templates,
     admin_landings,
     admin_orders,
     auth,
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(products.router)
     app.include_router(public.router)
     app.include_router(admin_landings.router)
+    app.include_router(admin_landing_templates.router)
     app.include_router(admin_orders.router)
     app.include_router(admin_fraud.router)
     app.include_router(admin_analytics.router)

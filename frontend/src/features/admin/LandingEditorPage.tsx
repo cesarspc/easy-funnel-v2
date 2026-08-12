@@ -24,6 +24,7 @@ import type {
 } from "../../api";
 import { ApiError, landingsApi } from "../../api";
 import { LandingBlocksPanel } from "./LandingBlocksPanel";
+import { LoadTemplateDialog, SaveTemplateControl } from "./LandingTemplates";
 import "./LandingsPage.css";
 
 const MAX_BANNERS = 15;
@@ -146,6 +147,14 @@ export function LandingEditorPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploadAltText, setUploadAltText] = useState("");
   const [brokenPreviews, setBrokenPreviews] = useState<number[]>([]);
+  /**
+   * Bumped when a template is applied. Loading a template rewrites the
+   * landing's conversion components, and the components panel reloads off its
+   * `sequenceSignature` — which a template need not change (a template with the
+   * same CTA layout produces the same signature). Without this the panel would
+   * keep showing the components the template just replaced.
+   */
+  const [templateReloadToken, setTemplateReloadToken] = useState(0);
 
   const applyDetail = useCallback((detail: LandingDetail) => {
     setLanding(detail);
@@ -354,6 +363,17 @@ export function LandingEditorPage() {
           </p>
         </div>
         <div className="landings-page__header-actions">
+          <LoadTemplateDialog
+            landingId={landing.id}
+            bannerCount={banners.length}
+            disabled={busy}
+            onLoaded={(detail) => {
+              applyDetail(detail);
+              setTemplateReloadToken((token) => token + 1);
+              resetMessages();
+              setNotice("Plantilla cargada.");
+            }}
+          />
           {landing.status === "draft" ? (
             <button
               type="button"
@@ -1249,11 +1269,17 @@ export function LandingEditorPage() {
         <p className="landings-page__muted">
           CTA después de los banners: {landing.resolved_cta_positions.join(", ") || "ninguno"}
         </p>
+
+        <SaveTemplateControl
+          landingId={landing.id}
+          bannerCount={banners.length}
+          disabled={busy}
+        />
       </section>
 
       <LandingBlocksPanel
         landingId={landing.id}
-        sequenceSignature={`${banners.length}:${landing.resolved_cta_positions.join(",")}`}
+        sequenceSignature={`${banners.length}:${landing.resolved_cta_positions.join(",")}:${templateReloadToken}`}
         formAccentColor={config.formAccentColor || config.accentColor}
       />
     </div>
