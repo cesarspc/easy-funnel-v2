@@ -41,7 +41,7 @@ function makeLanding(blocks: ConversionBlock[]): PublicLanding {
       id,
       alt_text: `Banner ${id}`,
       order_index: id - 1,
-      variants: [{ width: 480, format: "webp" as const, url: `https://r2.example/${id}.webp` }],
+      variants: [{ width: 480, height: 288, format: "webp" as const, url: `https://r2.example/${id}.webp` }],
       top_edge_color: null,
       bottom_edge_color: null,
     })),

@@ -39,8 +39,8 @@ function makeBanner(
     alt_text: `Banner ${id}`,
     order_index: orderIndex,
     variants: [
-      { width: 480, format: "webp", url: `https://r2.example/${id}/480.webp` },
-      { width: 480, format: "jpeg", url: `https://r2.example/${id}/480.jpg` },
+      { width: 480, height: 288, format: "webp", url: `https://r2.example/${id}/480.webp` },
+      { width: 480, height: 288, format: "jpeg", url: `https://r2.example/${id}/480.jpg` },
     ],
     top_edge_color: edges.top ?? null,
     bottom_edge_color: edges.bottom ?? null,

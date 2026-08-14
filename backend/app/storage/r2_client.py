@@ -16,6 +16,8 @@ import boto3
 
 from app.core.settings import Settings
 
+IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
 
 def create_r2_client(settings: Settings) -> Any:
     """Build a boto3 S3 client pointed at the configured R2 endpoint."""
@@ -76,6 +78,10 @@ class R2Client:
             Key=key,
             Body=data,
             ContentType=content_type,
+            # Every image object is stored below an opaque, never-reused key.
+            # Preserve Cloudflare's edge caching while also advertising the
+            # same immutable policy to browsers and direct R2 consumers.
+            CacheControl=IMMUTABLE_CACHE_CONTROL,
         )
 
     async def delete(self, key: str) -> None:

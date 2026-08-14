@@ -5,9 +5,12 @@ import "./Banner.css";
 
 export interface BannerVariant {
   width: number;
+  height: number;
   format: "webp" | "jpeg";
   url: string;
 }
+
+const BANNER_SIZES = "(max-width: 640px) 100vw, 640px";
 
 export interface BannerProps {
   /** Banner ID */
@@ -32,32 +35,30 @@ export function Banner({ id, alt_text, variants, lazy = true }: BannerProps): JS
     return <div data-test="banner-placeholder">No image variants available</div>;
   }
 
-  // Sort variants by width ascending
+  // Keep each format in its own candidate set: a <source type="image/webp">
+  // must never advertise JPEG URLs with duplicate width descriptors.
   const sortedVariants = [...variants].sort((a, b) => a.width - b.width);
-  const sourceWidths = sortedVariants.map((v) => `${v.url} ${v.width}w`).join(", ");
+  const webpVariants = sortedVariants.filter((variant) => variant.format === "webp");
+  const jpegVariants = sortedVariants.filter((variant) => variant.format === "jpeg");
+  const webpSrcSet = webpVariants.map((variant) => `${variant.url} ${variant.width}w`).join(", ");
+  const jpegSrcSet = jpegVariants.map((variant) => `${variant.url} ${variant.width}w`).join(", ");
 
-  // Get JPEG fallback (last variant in sorted list)
-  const jpegFallback = sortedVariants.find((v) => v.format === "jpeg") ?? sortedVariants[sortedVariants.length - 1];
-
-  // Get dimensions from variant URLs (extract from URL or use defaults)
-  // For simplicity, we'll derive dimensions from width - in production, these would be in the API response
-  const width = jpegFallback.width;
-  // Calculate aspect ratio from original - simplified for demo
-  const height = Math.round(width * 0.6); // Assume 5:3 aspect ratio
+  // The largest JPEG is the non-picture fallback. Every generated candidate
+  // has the same aspect ratio, so its stored dimensions reserve the right
+  // amount of space before any candidate finishes decoding.
+  const fallback = jpegVariants[jpegVariants.length - 1] ?? sortedVariants[sortedVariants.length - 1];
 
   return (
     <div className="banner" data-banner-id={id}>
       <picture>
-        <source
-          type="image/webp"
-          srcSet={sourceWidths}
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
-        />
+        {webpSrcSet && <source type="image/webp" srcSet={webpSrcSet} sizes={BANNER_SIZES} />}
         <img
-          src={jpegFallback.url}
+          src={fallback.url}
+          srcSet={jpegSrcSet || undefined}
+          sizes={jpegSrcSet ? BANNER_SIZES : undefined}
           alt={alt_text}
-          width={width}
-          height={height}
+          width={fallback.width}
+          height={fallback.height}
           loading={lazy ? "lazy" : "eager"}
           className="banner-image"
           decoding="async"

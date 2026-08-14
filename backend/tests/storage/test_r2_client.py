@@ -4,10 +4,29 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
-from app.storage.r2_client import R2Client
+from app.storage.r2_client import IMMUTABLE_CACHE_CONTROL, R2Client
 
 from tests.storage.conftest import requires_r2
+
+
+class RecordingS3Client:
+    def __init__(self) -> None:
+        self.put_kwargs: dict[str, Any] | None = None
+
+    def put_object(self, **kwargs: Any) -> None:
+        self.put_kwargs = kwargs
+
+
+async def test_put_advertises_immutable_browser_and_edge_caching() -> None:
+    boto_client = RecordingS3Client()
+    r2_client = R2Client(boto_client, bucket="images")
+
+    await r2_client.put_bytes("variants/opaque/480.webp", b"image", content_type="image/webp")
+
+    assert boto_client.put_kwargs is not None
+    assert boto_client.put_kwargs["CacheControl"] == IMMUTABLE_CACHE_CONTROL
 
 
 @requires_r2

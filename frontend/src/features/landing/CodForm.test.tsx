@@ -40,7 +40,7 @@ function makeLanding(overrides: Partial<PublicLanding> = {}): PublicLanding {
         id: 1,
         alt_text: "Set de sartenes",
         order_index: 0,
-        variants: [{ width: 480, format: "webp", url: "https://r2.example/1/480.webp" }],
+        variants: [{ width: 480, height: 288, format: "webp", url: "https://r2.example/1/480.webp" }],
         top_edge_color: null,
         bottom_edge_color: null,
       },

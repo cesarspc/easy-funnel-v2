@@ -8,6 +8,7 @@ export interface Banner {
   order_index: number;
   variants: {
     width: number;
+    height: number;
     format: "webp" | "jpeg";
     url: string;
   }[];
