@@ -20,6 +20,8 @@ never touched (Requirement 6.8).
 
 from __future__ import annotations
 
+from typing import Any
+
 from prisma import Prisma
 from prisma.models import BlacklistEntry, FraudConfig, GeoIpRule
 
@@ -47,6 +49,7 @@ from app.domains.fraud.settings_validation import (
     validate_rate_limit_max,
     validate_rate_limit_window_minutes,
 )
+from app.domains.orders.locations import validate_banned_cities
 from app.domains.orders.normalization import normalize_colombian_phone_key
 
 ENTRY_TYPE_PHONE = "phone"
@@ -72,6 +75,7 @@ class FraudSettingsService:
         duplicate_match_fields: list[str] | None = None,
         rate_limit_max: int | None = None,
         rate_limit_window_minutes: int | None = None,
+        banned_cities: list[str] | None = None,
         actor: str,
     ) -> FraudConfig:
         """Update the Fraud_Configuration; omitted fields keep their stored value.
@@ -88,7 +92,7 @@ class FraudSettingsService:
             if current is None:
                 raise ConfigNotFoundError()
 
-            data = {}
+            data: dict[str, Any] = {}
             if duplicate_window_hours is not None:
                 data["duplicateWindowHours"] = validate_duplicate_window_hours(
                     duplicate_window_hours
@@ -103,6 +107,8 @@ class FraudSettingsService:
                 data["rateLimitWindowMinutes"] = validate_rate_limit_window_minutes(
                     rate_limit_window_minutes
                 )
+            if banned_cities is not None:
+                data["bannedCities"] = validate_banned_cities(banned_cities)
 
             if not data:
                 return current
@@ -234,7 +240,7 @@ class FraudSettingsService:
             if current is None:
                 raise GeoIpRuleNotFoundError(rule_id)
 
-            data = {}
+            data: dict[str, Any] = {}
             if location_code is not None:
                 normalized = validate_location_code(location_code)
                 if normalized != current.locationCode:

@@ -12,6 +12,7 @@ vi.mock("../../api", async () => {
     ...actual,
     publicApi: {
       getLanding: vi.fn(),
+      getLocations: vi.fn().mockResolvedValue({ departments: [{ code: "05", name: "ANTIOQUIA", cities: [{ code: "05001", name: "MEDELLÍN" }] }] }),
       recordView: vi.fn().mockResolvedValue(undefined),
       recordCtaClick: vi.fn().mockResolvedValue(undefined),
       createOrder: vi.fn(),
@@ -174,8 +175,8 @@ describe("LandingPage", () => {
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
     await user.type(screen.getByLabelText("Nombre completo"), "María Gómez");
     await user.type(screen.getByLabelText("Número de celular"), "3001234567");
-    await user.type(screen.getByLabelText("Departamento"), "Antioquia");
-    await user.type(screen.getByLabelText("Ciudad o municipio"), "Medellín");
+    await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
+    await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
     await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 #20-30");
     await user.click(screen.getByRole("button", { name: /Confirmar pedido/i }));
 
@@ -195,8 +196,8 @@ describe("LandingPage", () => {
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
     await user.type(screen.getByLabelText("Nombre completo"), "María Gómez");
     await user.type(screen.getByLabelText("Número de celular"), "3009999999");
-    await user.type(screen.getByLabelText("Departamento"), "Antioquia");
-    await user.type(screen.getByLabelText("Ciudad o municipio"), "Medellín");
+    await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
+    await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
     await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 #20-30");
     await user.click(screen.getByRole("button", { name: /Confirmar pedido/i }));
 

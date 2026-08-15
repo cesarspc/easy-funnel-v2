@@ -87,6 +87,7 @@ class CsvExportService:
                 "city",
                 "address",
                 "quantity",
+                "variant_selections",
                 "status",
                 "ip_address",
                 "user_agent",
@@ -112,6 +113,9 @@ class CsvExportService:
                     escape_csv_value(order.get("city", "")),
                     escape_csv_value(order.get("address", "")),
                     str(order.get("quantity", "")),
+                    escape_csv_value(
+                        self._format_variant_selections(order.get("variant_selections", []))
+                    ),
                     escape_csv_value(order.get("status", "")),
                     escape_csv_value(order.get("ip_address", "")),
                     escape_csv_value(order.get("user_agent", "")),
@@ -126,6 +130,13 @@ class CsvExportService:
         except Exception as exc:
             # Fail atomically - no partial file
             raise ValueError(f"CSV export failed: {exc}") from exc
+
+    def _format_variant_selections(self, selections: list[dict[str, Any]]) -> str:
+        units = []
+        for index, selection in enumerate(selections, start=1):
+            values = ", ".join(f"{name}: {value}" for name, value in selection.items())
+            units.append(f"Unit {index} ({values})")
+        return "; ".join(units)
 
     def _format_fraud_flags(self, flags: list[dict[str, Any]]) -> str:
         """Format fraud flags as a readable string."""

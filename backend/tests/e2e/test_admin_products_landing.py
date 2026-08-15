@@ -38,6 +38,7 @@ async def test_create_product_response_includes_its_draft_landing(
     assert response.status_code == 201
     body = response.json()
     assert body["landing_slug"] is not None
+    assert body["landing_id"] is not None
     assert body["landing_status"] == "draft"
 
     await _cleanup_product(cod_flow, product_id=body["id"])
@@ -94,6 +95,7 @@ async def test_list_products_includes_landing_slug_and_status(
         products = response.json()["products"]
         match = next(p for p in products if p["id"] == product_id)
         assert match["landing_slug"] is not None
+        assert match["landing_id"] is not None
         assert match["landing_status"] == "draft"
     finally:
         await _cleanup_product(cod_flow, product_id=product_id)

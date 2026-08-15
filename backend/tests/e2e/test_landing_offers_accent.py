@@ -31,6 +31,7 @@ def _offer(quantity: int, **overrides: object) -> dict[str, object]:
         "label": f"{quantity} unidades",
         "sublabel": "",
         "discount_percent": None,
+        "discount_amount": None,
         "compare_at_price": None,
     }
     base.update(overrides)
@@ -59,8 +60,8 @@ async def _submit_order(cod_flow: CodFlowHarness, landing, *, quantity: int, pho
             "landing_slug": landing.slug,
             "full_name": "Camila Restrepo",
             "phone": phone,
-            "department": "Antioquia",
-            "city": "Medellin",
+            "department": "CUNDINAMARCA",
+            "city": "SOACHA",
             "address": "Calle 10 # 43-25 Apto 302",
             "quantity": quantity,
         },
@@ -326,6 +327,34 @@ class TestCtaTextOverrides:
 
 
 class TestOfferPricing:
+    async def test_a_fixed_discount_derives_percentage_and_is_snapshotted(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _published_landing(cod_flow)  # product price 59900.00
+        configured = await _configure(
+            cod_flow,
+            landing,
+            {
+                "offer_count": 2,
+                "offers": [_offer(1), _offer(2, discount_amount=20000)],
+            },
+        )
+        assert configured.status_code == 200
+        assert configured.json()["offers"][1]["calculated_discount_percent"] == 17
+
+        public_offer = (
+            await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+        ).json()["offers"][1]
+        assert public_offer["discount_percent"] == 17
+        assert public_offer["savings"] == pytest.approx(20000.0)
+        assert public_offer["total"] == pytest.approx(99800.0)
+
+        response = await _submit_order(cod_flow, landing, quantity=2, phone="300 111 2200")
+        order = await cod_flow.db.order.find_unique(where={"id": response.json()["order_id"]})
+        assert order is not None
+        assert order.discountPercent == 17
+        assert float(order.totalPrice) == pytest.approx(99800.0)
+
     async def test_a_discount_reduces_the_quoted_total_for_that_offer_only(
         self, cod_flow: CodFlowHarness
     ) -> None:

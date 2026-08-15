@@ -52,6 +52,8 @@ from app.domains.landings.errors import (
 from app.domains.landings.form_presentation import validate_form_presentation
 from app.domains.landings.offers import (
     parse_stored_offers,
+    resolve_offer_pricing,
+    validate_default_offer_quantity,
     validate_offer_count,
     validate_offers,
 )
@@ -76,6 +78,7 @@ class LandingManagementService:
         form_accent_color: str | None = None,
         offer_count: int | None = None,
         offers: list[dict[str, object]] | None = None,
+        default_offer_quantity: int | None = None,
         cta_text: str | None = None,
         cta_animation: str | None = None,
         cta_text_overrides: dict[object, object] | None = None,
@@ -193,6 +196,7 @@ class LandingManagementService:
             if blocks_dark_mode is not None:
                 data["blocksDarkMode"] = blocks_dark_mode
 
+            effective_count = landing.offerCount
             if offer_count is not None or offers is not None:
                 count = validate_offer_count(
                     offer_count if offer_count is not None else landing.offerCount
@@ -206,8 +210,24 @@ class LandingManagementService:
                     # quantity that survives, and a newly exposed quantity gets
                     # its default copy.
                     resolved_offers = parse_stored_offers(landing.offers, offer_count=count)
+                product = await tx.product.find_unique(where={"id": landing.productId})
+                if product is None:
+                    raise LandingNotFoundError(landing_id)
+                # A fixed COP discount is validated against this product's
+                # concrete gross price before the JSON configuration is saved.
+                # This keeps public pricing and order submission on one rule.
+                for resolved_offer in resolved_offers:
+                    resolve_offer_pricing(product.price, resolved_offer)
                 data["offerCount"] = count
                 data["offers"] = Json([offer.to_json() for offer in resolved_offers])
+                effective_count = count
+
+            if default_offer_quantity is not None:
+                data["defaultOfferQuantity"] = validate_default_offer_quantity(
+                    default_offer_quantity, offer_count=effective_count
+                )
+            elif effective_count < getattr(landing, "defaultOfferQuantity", 1):
+                data["defaultOfferQuantity"] = 1
 
             if not data:
                 return landing

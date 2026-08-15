@@ -5,8 +5,8 @@ number field, because a buyer choosing between three priced options converts
 better than one typing a digit. This module owns what those tiers are.
 
 **What a merchant controls.** How many tiers appear (1, 2, or 3), the headline
-and optional sub-line for each, a percentage discount on the multi-unit tiers,
-and an informational "was" price on the single-unit tier. Nothing else: the
+and optional sub-line for each, either a percentage or exact COP discount on
+the multi-unit tiers, and an informational "was" price on the single-unit tier. Nothing else: the
 tiles' spacing, type, selected state, and which tier carries the "most ordered"
 mark are fixed in the Landing chrome, for the same reason conversion components
 are (see `blocks.py`).
@@ -19,8 +19,8 @@ it at submission and snapshots the result onto the order. Editing a discount
 afterwards changes future orders only, never the amount already agreed with a
 buyer who has an order in the system.
 
-**Why the single-unit tier gets `compare_at_price` and the others get
-`discount_percent`.** They answer different questions. On one unit there is no
+**Why the single-unit tier gets `compare_at_price` and the others get a real
+discount.** They answer different questions. On one unit there is no
 volume saving to show, so the only honest anchor is the merchant's own reference
 price ("normally $X"), which is informational and never charged. On two or three
 units the saving is real and computable from the unit price, so it is expressed
@@ -54,9 +54,9 @@ LABEL_MAX = 60
 #: tile renders without a sub-line at all.
 SUBLABEL_MAX = 80
 
-#: Discounts are capped well below 100 so a rounding or typo cannot produce a
-#: free or negative order. Mirrors the `orders_discount_percent_range` and the
-#: application check here.
+#: Effective discounts are capped well below 100 so a rounding or typo cannot
+#: produce a free or negative order. This applies to entered percentages and
+#: the percentage derived from a fixed COP amount.
 MIN_DISCOUNT_PERCENT = 0
 MAX_DISCOUNT_PERCENT = 90
 
@@ -74,7 +74,8 @@ class LandingOffer:
     label: str
     sublabel: str | None
     discount_percent: int
-    compare_at_price: Decimal | None
+    discount_amount: Decimal | None = None
+    compare_at_price: Decimal | None = None
 
     def to_json(self) -> dict[str, Any]:
         """Serialize for the `landings.offers` jsonb column."""
@@ -83,6 +84,9 @@ class LandingOffer:
             "label": self.label,
             "sublabel": self.sublabel,
             "discount_percent": self.discount_percent,
+            "discount_amount": (
+                None if self.discount_amount is None else str(self.discount_amount)
+            ),
             "compare_at_price": (
                 None if self.compare_at_price is None else str(self.compare_at_price)
             ),
@@ -127,6 +131,19 @@ def validate_offer_count(raw_count: Any) -> int:
     return count
 
 
+def validate_default_offer_quantity(raw_quantity: Any, *, offer_count: int) -> int:
+    """Return a default tier that is present in the configured 1..N offers."""
+    if isinstance(raw_quantity, bool) or not isinstance(raw_quantity, int):
+        raise LandingValidationError(
+            "default_offer_quantity", "Default offer must be a whole quantity."
+        )
+    if raw_quantity < 1 or raw_quantity > offer_count:
+        raise LandingValidationError(
+            "default_offer_quantity", "Default offer must be one of the visible offers."
+        )
+    return raw_quantity
+
+
 def default_offers(offer_count: int) -> list[LandingOffer]:
     """Build the tiers a landing gets before a merchant edits any copy.
 
@@ -141,6 +158,7 @@ def default_offers(offer_count: int) -> list[LandingOffer]:
             label=f"{quantity} unidad" if quantity == 1 else f"{quantity} unidades",
             sublabel=None,
             discount_percent=0,
+            discount_amount=None,
             compare_at_price=None,
         )
         for quantity in range(1, count + 1)
@@ -185,6 +203,18 @@ def validate_offers(raw_offers: Any, *, offer_count: int) -> list[LandingOffer]:
             )
         seen.add(quantity)
 
+        discount_percent = _validate_discount_percent(
+            raw_offer.get("discount_percent"), position=position, quantity=quantity
+        )
+        discount_amount = _validate_discount_amount(
+            raw_offer.get("discount_amount"), position=position, quantity=quantity
+        )
+        if discount_percent and discount_amount is not None:
+            raise LandingValidationError(
+                "offers",
+                f"Offer {position}: use either a percentage or a fixed discount, not both.",
+            )
+
         offers.append(
             LandingOffer(
                 quantity=quantity,
@@ -200,9 +230,8 @@ def validate_offers(raw_offers: Any, *, offer_count: int) -> list[LandingOffer]:
                     label="Offer sub-text",
                     maximum=SUBLABEL_MAX,
                 ),
-                discount_percent=_validate_discount_percent(
-                    raw_offer.get("discount_percent"), position=position, quantity=quantity
-                ),
+                discount_percent=discount_percent,
+                discount_amount=discount_amount,
                 compare_at_price=_validate_compare_at_price(
                     raw_offer.get("compare_at_price"), position=position, quantity=quantity
                 ),
@@ -257,6 +286,9 @@ def parse_stored_offers(raw_offers: Any, *, offer_count: int) -> list[LandingOff
                     discount_percent=_safe_discount(
                         stored.get("discount_percent"), quantity=offer.quantity
                     ),
+                    discount_amount=_safe_discount_amount(
+                        stored.get("discount_amount"), quantity=offer.quantity
+                    ),
                     compare_at_price=_safe_price(stored.get("compare_at_price"))
                     if offer.quantity == 1
                     else None,
@@ -277,7 +309,23 @@ def resolve_offer_pricing(
     unit = _as_decimal(unit_price)
     gross = (unit * offer.quantity).quantize(_CENTS, rounding=ROUND_HALF_UP)
 
-    if offer.discount_percent:
+    effective_percent = offer.discount_percent
+    if offer.discount_amount is not None:
+        if offer.discount_amount >= gross:
+            raise LandingValidationError(
+                "offers", "The fixed discount must be lower than the offer's full price."
+            )
+        total = (gross - offer.discount_amount).quantize(_CENTS, rounding=ROUND_HALF_UP)
+        effective_percent = int(
+            ((offer.discount_amount / gross) * Decimal(100)).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
+        )
+        if effective_percent > MAX_DISCOUNT_PERCENT:
+            raise LandingValidationError(
+                "offers", f"The fixed discount cannot exceed {MAX_DISCOUNT_PERCENT} percent."
+            )
+    elif offer.discount_percent:
         multiplier = (Decimal(100) - Decimal(offer.discount_percent)) / Decimal(100)
         total = (gross * multiplier).quantize(_CENTS, rounding=ROUND_HALF_UP)
     else:
@@ -286,7 +334,7 @@ def resolve_offer_pricing(
     return OfferPricing(
         quantity=offer.quantity,
         unit_price=unit,
-        discount_percent=offer.discount_percent,
+        discount_percent=effective_percent,
         gross=gross,
         total=total,
         savings=(gross - total).quantize(_CENTS, rounding=ROUND_HALF_UP),
@@ -403,6 +451,31 @@ def _validate_compare_at_price(raw_price: Any, *, position: int, quantity: int) 
     return price.quantize(_CENTS, rounding=ROUND_HALF_UP)
 
 
+def _validate_discount_amount(raw_amount: Any, *, position: int, quantity: int) -> Decimal | None:
+    if raw_amount is None or raw_amount == "":
+        return None
+    if quantity < DISCOUNTABLE_MIN_QUANTITY:
+        raise LandingValidationError(
+            "offers",
+            f"Offer {position}: a discount needs at least {DISCOUNTABLE_MIN_QUANTITY} units.",
+        )
+    try:
+        amount = Decimal(str(raw_amount).strip())
+    except (ArithmeticError, TypeError, ValueError) as exc:
+        raise LandingValidationError(
+            "offers", f"Offer {position}: fixed discount must be a number."
+        ) from exc
+    if amount <= 0:
+        raise LandingValidationError(
+            "offers", f"Offer {position}: fixed discount must be greater than zero."
+        )
+    if amount.as_tuple().exponent < -2:  # type: ignore[operator]
+        raise LandingValidationError(
+            "offers", f"Offer {position}: fixed discount must have at most 2 decimal places."
+        )
+    return amount.quantize(_CENTS, rounding=ROUND_HALF_UP)
+
+
 # ---------------------------------------------------------------------------
 # Lenient readers used only by `parse_stored_offers`
 # ---------------------------------------------------------------------------
@@ -437,6 +510,12 @@ def _safe_price(value: Any) -> Decimal | None:
     if price <= 0:
         return None
     return price.quantize(_CENTS, rounding=ROUND_HALF_UP)
+
+
+def _safe_discount_amount(value: Any, *, quantity: int) -> Decimal | None:
+    if quantity < DISCOUNTABLE_MIN_QUANTITY:
+        return None
+    return _safe_price(value)
 
 
 def _as_decimal(value: Decimal | str | int | float) -> Decimal:

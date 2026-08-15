@@ -3,7 +3,7 @@
 import { apiClient } from "./client";
 // Declared once with the public payload it describes: admin and public must
 // agree on the vocabulary or the editor could save a value the page ignores.
-import type { ConversionBlockType, CtaBandStyle } from "./public";
+import type { ConversionBlockType, CtaBandStyle, ProductVariantOption } from "./public";
 
 // Product schemas
 export interface Product {
@@ -14,8 +14,10 @@ export interface Product {
   description: string;
   status: "active" | "paused" | "retired";
   retired_at?: string;
+  landing_id?: number | null;
   landing_slug?: string | null;
   landing_status?: string | null;
+  variant_options?: ProductVariantOption[];
 }
 
 export interface ProductCreateRequest {
@@ -24,6 +26,7 @@ export interface ProductCreateRequest {
   price: number;
   description?: string;
   status?: "active" | "paused";
+  variant_options?: ProductVariantOption[];
 }
 
 export type ProductUpdateRequest = Partial<ProductCreateRequest>;
@@ -72,10 +75,17 @@ export interface Order {
   landing_slug: string;
   customer_name: string;
   phone_e164: string;
+  phone_normalized_key?: string;
   department: string;
   city: string;
   address: string;
   quantity: number;
+  variant_selections?: Record<string, string>[];
+  unit_price: number;
+  discount_percent: number;
+  total_price: number;
+  product_name?: string;
+  product_sku?: string;
   status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled" | "flagged_fraud";
   ip_address: string;
   user_agent: string;
@@ -85,8 +95,10 @@ export interface Order {
 }
 
 export interface FraudFlag {
+  id?: number;
   flag_type: "duplicate" | "blacklist" | "rate_limit_phone" | "rate_limit_ip" | "geoip";
   detail: Record<string, unknown>;
+  created_at?: string;
 }
 
 export interface OrderListResponse {
@@ -147,6 +159,7 @@ export interface FraudConfig {
   duplicate_match_fields: string[];
   rate_limit_max: number;
   rate_limit_window_minutes: number;
+  banned_cities?: string[];
 }
 
 export interface FraudConfigUpdate {
@@ -154,6 +167,7 @@ export interface FraudConfigUpdate {
   duplicate_match_fields?: string[];
   rate_limit_max?: number;
   rate_limit_window_minutes?: number;
+  banned_cities?: string[];
 }
 
 export interface BlacklistEntry {
@@ -302,14 +316,16 @@ export interface LandingBanner {
  *
  * `sublabel` blank means the public tile renders no second line — that is the
  * documented way to turn the sub-text off, not an incomplete field.
- * `discount_percent` applies to multi-unit offers only; `compare_at_price` is an
- * informational reference price for the single-unit offer only.
+ * Multi-unit offers accept either `discount_percent` or `discount_amount`;
+ * `compare_at_price` is informational and only applies to one unit.
  */
 export interface LandingOffer {
   quantity: number;
   label: string;
   sublabel: string | null;
   discount_percent: number;
+  discount_amount?: number | null;
+  calculated_discount_percent?: number;
   compare_at_price: number | null;
 }
 
@@ -332,6 +348,7 @@ export interface LandingSummary {
   form_accent_color: string | null;
   /** How many quantity offers the COD form presents (1-3). */
   offer_count: number;
+  default_offer_quantity?: number;
   offers: LandingOffer[];
   banner_count: number;
   cta_text: string | null;
@@ -360,14 +377,15 @@ export interface BannerListResponse {
 
 /**
  * One offer as submitted by the dashboard. `sublabel` is sent as an empty string
- * to mean "no sub-text", and `discount_percent`/`compare_at_price` are sent as
- * `null` when the merchant cleared them.
+ * to mean "no sub-text", and discount/reference amounts are sent as `null`
+ * when the merchant cleared them.
  */
 export interface LandingOfferUpdate {
   quantity: number;
   label: string;
   sublabel: string | null;
   discount_percent: number | null;
+  discount_amount: number | null;
   compare_at_price: number | null;
 }
 
@@ -381,6 +399,7 @@ export interface LandingConfigUpdate {
   accent_color?: string;
   form_accent_color?: string | null;
   offer_count?: number;
+  default_offer_quantity?: number;
   offers?: LandingOfferUpdate[];
   cta_text?: string | null;
   cta_animation?: "slide" | "shake" | null;

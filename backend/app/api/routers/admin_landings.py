@@ -41,7 +41,7 @@ from app.domains.landings.errors import (
     LandingValidationError,
     PublicationValidationError,
 )
-from app.domains.landings.offers import parse_stored_offers
+from app.domains.landings.offers import parse_stored_offers, resolve_offer_pricing
 from app.services.banner_upload_service import BannerUploadService
 from app.services.landing_block_service import BlockNotFoundError, LandingBlockService
 from app.services.landing_management_service import LandingManagementService
@@ -83,14 +83,16 @@ class LandingOfferResponse(BaseModel):
 
     `sublabel` is `None` when the merchant left the sub-text blank, which is how
     a tile renders without a second line. `discount_percent` is only ever
-    non-zero for multi-unit offers and `compare_at_price` only ever set on the
-    single-unit offer (see app/domains/landings/offers.py).
+    non-zero for multi-unit offers; `discount_amount` is its mutually exclusive
+    COP alternative. `compare_at_price` only applies to the single-unit offer.
     """
 
     quantity: int
     label: str
     sublabel: str | None = None
     discount_percent: int = 0
+    discount_amount: float | None = None
+    calculated_discount_percent: int = 0
     compare_at_price: float | None = None
 
 
@@ -110,6 +112,7 @@ class LandingSummaryResponse(BaseModel):
     accent_color: str
     form_accent_color: str | None = None
     offer_count: int
+    default_offer_quantity: int
     offers: list[LandingOfferResponse]
     banner_count: int
     cta_text: str | None = None
@@ -144,6 +147,7 @@ class LandingOfferUpdate(BaseModel):
     label: str
     sublabel: str | None = None
     discount_percent: int | None = None
+    discount_amount: float | None = None
     compare_at_price: float | None = None
 
 
@@ -157,6 +161,7 @@ class LandingConfigUpdateRequest(BaseModel):
     accent_color: str | None = None
     form_accent_color: str | None = None
     offer_count: int | None = None
+    default_offer_quantity: int | None = None
     offers: list[LandingOfferUpdate] | None = None
     cta_text: str | None = None
     cta_animation: str | None = None
@@ -287,12 +292,19 @@ def _to_summary_response(landing) -> LandingSummaryResponse:  # type: ignore[no-
         accent_color=landing.accentColor or DEFAULT_ACCENT_COLOR,
         form_accent_color=landing.formAccentColor,
         offer_count=landing.offerCount,
+        default_offer_quantity=getattr(landing, "defaultOfferQuantity", 1),
         offers=[
             LandingOfferResponse(
                 quantity=offer.quantity,
                 label=offer.label,
                 sublabel=offer.sublabel,
                 discount_percent=offer.discount_percent,
+                discount_amount=(
+                    None if offer.discount_amount is None else float(offer.discount_amount)
+                ),
+                calculated_discount_percent=resolve_offer_pricing(
+                    product.price, offer
+                ).discount_percent,
                 compare_at_price=(
                     None if offer.compare_at_price is None else float(offer.compare_at_price)
                 ),
@@ -406,6 +418,7 @@ async def update_landing_config(
             accent_color=request.accent_color,
             form_accent_color=request.form_accent_color,
             offer_count=request.offer_count,
+            default_offer_quantity=request.default_offer_quantity,
             offers=(
                 None if request.offers is None else [offer.model_dump() for offer in request.offers]
             ),

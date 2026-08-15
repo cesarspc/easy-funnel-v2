@@ -30,6 +30,7 @@ const CONFIG: FraudConfig = {
   duplicate_match_fields: ["phone", "ip"],
   rate_limit_max: 5,
   rate_limit_window_minutes: 10,
+  banned_cities: ["SOACHA"],
 };
 
 const BLACKLIST_ENTRY: BlacklistEntry = {
@@ -108,6 +109,7 @@ describe("FraudPage", () => {
 
     await user.clear(screen.getByLabelText("Máximo de intentos"));
     await user.type(screen.getByLabelText("Máximo de intentos"), "8");
+    await user.type(screen.getByLabelText("Ciudades sin cobertura"), "\nCALI");
     await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
 
     await waitFor(() =>
@@ -116,6 +118,7 @@ describe("FraudPage", () => {
         duplicate_match_fields: ["phone", "ip"],
         rate_limit_max: 8,
         rate_limit_window_minutes: 10,
+        banned_cities: ["SOACHA", "CALI"],
       }),
     );
     expect(await screen.findByText("Configuración guardada.")).toBeInTheDocument();

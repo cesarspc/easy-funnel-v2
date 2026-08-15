@@ -209,6 +209,13 @@
   border-color: var(--gf-status-flagged);
 }
 
+.fraud-field__textarea {
+  min-height: 132px;
+  resize: vertical;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
 .fraud-field__error {
   margin: 0;
   font-size: 0.8125rem;

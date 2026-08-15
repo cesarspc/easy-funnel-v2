@@ -11,6 +11,7 @@ vi.mock("../../api", async () => {
     ...actual,
     ordersApi: {
       list: vi.fn(),
+      get: vi.fn(),
       export: vi.fn(),
     },
   };
@@ -27,6 +28,9 @@ const SAMPLE_ORDER: Order = {
   city: "Medellín",
   address: "Calle 10 #20-30",
   quantity: 2,
+  unit_price: 59900,
+  discount_percent: 10,
+  total_price: 107820,
   status: "pending",
   ip_address: "203.0.113.5",
   user_agent: "test-agent",
@@ -37,6 +41,13 @@ const SAMPLE_ORDER: Order = {
 describe("OrdersPage", () => {
   beforeEach(() => {
     vi.mocked(ordersApi.list).mockResolvedValue({ orders: [SAMPLE_ORDER], count: 1 });
+    vi.mocked(ordersApi.get).mockResolvedValue({
+      ...SAMPLE_ORDER,
+      product_name: "Producto ejemplo",
+      product_sku: "SKU-001",
+      variant_selections: [{ Color: "Gris" }, { Color: "Negro" }],
+      fraud_flags: [],
+    });
     vi.mocked(ordersApi.export).mockResolvedValue(new Blob(["csv"], { type: "text/csv" }));
   });
 
@@ -88,5 +99,21 @@ describe("OrdersPage", () => {
 
     await waitFor(() => expect(ordersApi.export).toHaveBeenCalled());
     expect(createObjectURL).toHaveBeenCalled();
+  });
+
+  it("opens every order detail from the eye action", async () => {
+    const user = userEvent.setup();
+    render(<OrdersPage />);
+    await screen.findByText("María Gómez");
+
+    await user.click(screen.getByRole("button", { name: /todos los detalles.*#101/i }));
+
+    expect(await screen.findByRole("dialog", { name: "Pedido #101" })).toBeInTheDocument();
+    expect(ordersApi.get).toHaveBeenCalledWith(101);
+    expect(screen.getByText(/107\.820/)).toBeInTheDocument();
+    expect(screen.getByText("Producto ejemplo")).toBeInTheDocument();
+    expect(screen.getByText("Color: Gris")).toBeInTheDocument();
+    expect(screen.getByText("Sin alertas de fraude.")).toBeInTheDocument();
+    expect(screen.getByText("203.0.113.5")).toBeInTheDocument();
   });
 });

@@ -46,6 +46,7 @@ class FraudConfigResponse(BaseModel):
     duplicate_match_fields: list[str]
     rate_limit_max: int
     rate_limit_window_minutes: int
+    banned_cities: list[str]
 
 
 class FraudConfigUpdateRequest(BaseModel):
@@ -53,6 +54,7 @@ class FraudConfigUpdateRequest(BaseModel):
     duplicate_match_fields: list[str] | None = None
     rate_limit_max: int | None = None
     rate_limit_window_minutes: int | None = None
+    banned_cities: list[str] | None = None
 
 
 class BlacklistEntryResponse(BaseModel):
@@ -112,6 +114,7 @@ def _config_response(config) -> FraudConfigResponse:  # type: ignore[no-untyped-
         duplicate_match_fields=list(config.duplicateMatchFields or []),
         rate_limit_max=config.rateLimitMax,
         rate_limit_window_minutes=config.rateLimitWindowMinutes,
+        banned_cities=list(getattr(config, "bannedCities", None) or []),
     )
 
 
@@ -172,9 +175,12 @@ async def update_fraud_config(
             duplicate_match_fields=request.duplicate_match_fields,
             rate_limit_max=request.rate_limit_max,
             rate_limit_window_minutes=request.rate_limit_window_minutes,
+            banned_cities=request.banned_cities,
             actor=admin_user.subject,
         )
     except FraudValidationError as exc:
+        raise _field_error(exc.field, exc.message) from exc
+    except OrderValidationError as exc:
         raise _field_error(exc.field, exc.message) from exc
     except ConfigNotFoundError as exc:
         raise _missing_config() from exc

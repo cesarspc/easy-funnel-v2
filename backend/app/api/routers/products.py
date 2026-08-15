@@ -1,15 +1,16 @@
-"""Admin Products API router: CRUD + lifecycle endpoints (Requirement 2.1, 2.8, 2.9, 2.13, 2.17, 2.19-2.20)."""
+"""Admin Products API router: CRUD and lifecycle endpoints."""
 
 from __future__ import annotations
 
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.auth_dependencies import require_admin
 from app.core.settings import Settings
 from app.db.client import get_prisma
+from app.domains.products.errors import DuplicateSkuError, ProductValidationError
 from app.services.product_lifecycle_service import (
     ProductLifecycleService,
 )
@@ -23,6 +24,7 @@ class ProductCreateRequest(BaseModel):
     price: float
     description: str = ""
     status: str | None = None
+    variant_options: list[dict] = Field(default_factory=list)
 
 
 class ProductResponse(BaseModel):
@@ -33,11 +35,13 @@ class ProductResponse(BaseModel):
     description: str
     status: str
     retired_at: str | None = None
+    landing_id: int | None = None
     landing_slug: str | None = None
     landing_status: str | None = None
+    variant_options: list[dict] = Field(default_factory=list)
 
 
-def _to_product_response(product, landing=None) -> "ProductResponse":  # type: ignore[no-untyped-def]
+def _to_product_response(product, landing=None) -> ProductResponse:  # type: ignore[no-untyped-def]
     """Build a ProductResponse, including the 1:1 Landing's slug/status.
 
     `landing` may be passed explicitly (e.g. from ProductCreationResult);
@@ -53,8 +57,14 @@ def _to_product_response(product, landing=None) -> "ProductResponse":  # type: i
         description=product.description,
         status=product.status,
         retired_at=product.retiredAt.isoformat() if product.retiredAt else None,
+        landing_id=resolved_landing.id if resolved_landing else None,
         landing_slug=resolved_landing.slug if resolved_landing else None,
         landing_status=resolved_landing.status if resolved_landing else None,
+        variant_options=(
+            product.variantOptions
+            if isinstance(getattr(product, "variantOptions", None), list)
+            else []
+        ),
     )
 
 
@@ -65,21 +75,33 @@ class ProductListResponse(BaseModel):
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(
     request: ProductCreateRequest,
-    admin_user=Depends(require_admin),  # type: ignore
-    settings: Settings = Depends(lambda: Settings()),  # type: ignore
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
+    settings: Settings = Depends(lambda: Settings()),  # type: ignore  # noqa: B008
 ):
     """Create a new product with an atomic draft landing."""
     db = get_prisma()
 
     service = ProductLifecycleService(db)
-    result = await service.create_product(
-        name=request.name,
-        sku=request.sku,
-        price=Decimal(str(request.price)),
-        description=request.description,
-        status=request.status,
-        actor=admin_user.subject,
-    )
+    try:
+        result = await service.create_product(
+            name=request.name,
+            sku=request.sku,
+            price=Decimal(str(request.price)),
+            description=request.description,
+            status=request.status,
+            variant_options=request.variant_options,
+            actor=admin_user.subject,
+        )
+    except ProductValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"field": exc.field, "message": exc.message},
+        ) from exc
+    except DuplicateSkuError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"field": "sku", "message": str(exc)},
+        ) from exc
 
     return _to_product_response(result.product, landing=result.landing)
 
@@ -87,7 +109,7 @@ async def create_product(
 @router.get("", response_model=ProductListResponse)
 async def list_products(
     include_retired: bool = False,
-    admin_user=Depends(require_admin),  # type: ignore
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ):
     """List products, excluding retired by default."""
     db = get_prisma()
@@ -105,7 +127,7 @@ async def list_products(
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(
     product_id: int,
-    admin_user=Depends(require_admin),  # type: ignore
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ):
     """Get a specific product."""
     db = get_prisma()
@@ -124,7 +146,7 @@ async def get_product(
 async def update_product(
     product_id: int,
     request: ProductCreateRequest,
-    admin_user=Depends(require_admin),  # type: ignore
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ):
     """Update a non-retired product."""
     db = get_prisma()
@@ -159,7 +181,7 @@ async def update_product(
 @router.post("/{product_id}/activate", response_model=ProductResponse)
 async def activate_product(
     product_id: int,
-    admin_user=Depends(require_admin),  # type: ignore
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ):
     """Activate a paused product."""
     db = get_prisma()
@@ -182,7 +204,7 @@ async def activate_product(
 @router.post("/{product_id}/pause", response_model=ProductResponse)
 async def pause_product(
     product_id: int,
-    admin_user=Depends(require_admin),  # type: ignore
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ):
     """Pause an active product."""
     db = get_prisma()
@@ -205,7 +227,7 @@ async def pause_product(
 @router.delete("/{product_id}")
 async def retire_product(
     product_id: int,
-    admin_user=Depends(require_admin),  # type: ignore
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ):
     """Soft-delete (retire) a product."""
     db = get_prisma()

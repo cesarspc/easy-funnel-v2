@@ -26,7 +26,7 @@ describe("App shell", () => {
       </BrowserRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: /COD Commerce Platform/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Bodega Premium/i })).toBeInTheDocument();
     await waitFor(() => expect(fetch).toHaveBeenCalled());
   });
 });

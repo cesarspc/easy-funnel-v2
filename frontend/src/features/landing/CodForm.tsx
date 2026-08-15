@@ -22,10 +22,15 @@
  * here is either product truth (COD, no card) or the buyer's own input.
  */
 
-import { useMemo, useRef, useState, type FormEvent, type JSX } from "react";
+import { Fragment, useMemo, useRef, useState, type FormEvent, type JSX } from "react";
 import { FormField } from "../../components/FormField";
 import { ApiError, publicApi } from "../../api";
-import type { OrderCreateResponse, PublicLandingOffer } from "../../api";
+import type {
+  ColombianDepartment,
+  OrderCreateResponse,
+  ProductVariantOption,
+  PublicLandingOffer,
+} from "../../api";
 import "./CodForm.css";
 
 export interface CodFormValues {
@@ -46,58 +51,23 @@ export interface CodFormValues {
   quantity: string;
 }
 
-const INITIAL_VALUES: CodFormValues = {
+function initialValues(defaultOfferQuantity?: number): CodFormValues {
+  return {
   full_name: "",
   phone: "",
   department: "",
   city: "",
   address: "",
   address2: "",
-  quantity: "1",
-};
+    quantity: String(defaultOfferQuantity ?? 1),
+  };
+}
 
 const MAX_QUANTITY = 99;
 
 /** Fixed multiplier choices exposed in the form; the backend/validation
  *  contract still allows 1 through MAX_QUANTITY (Requirement 5.5). */
 const QUANTITY_OPTIONS = [1, 2, 3] as const;
-
-/** Colombia's 32 departments plus the capital district, for the datalist. */
-const DEPARTMENTS = [
-  "Amazonas",
-  "Antioquia",
-  "Arauca",
-  "Atlántico",
-  "Bogotá D.C.",
-  "Bolívar",
-  "Boyacá",
-  "Caldas",
-  "Caquetá",
-  "Casanare",
-  "Cauca",
-  "Cesar",
-  "Chocó",
-  "Córdoba",
-  "Cundinamarca",
-  "Guainía",
-  "Guaviare",
-  "Huila",
-  "La Guajira",
-  "Magdalena",
-  "Meta",
-  "Nariño",
-  "Norte de Santander",
-  "Putumayo",
-  "Quindío",
-  "Risaralda",
-  "San Andrés y Providencia",
-  "Santander",
-  "Sucre",
-  "Tolima",
-  "Valle del Cauca",
-  "Vaupés",
-  "Vichada",
-] as const;
 
 const CURRENCY = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -130,7 +100,27 @@ export interface CodFormProps {
    * the order records the total of the tier the buyer picks.
    */
   offers?: PublicLandingOffer[];
+  defaultOfferQuantity?: number;
+  variantOptions?: ProductVariantOption[];
+  departments: ColombianDepartment[];
   onSuccess: (result: OrderCreateResponse) => void;
+}
+
+function fitVariantSelections(
+  options: ProductVariantOption[],
+  quantity: number,
+  existing: Record<string, string>[] = [],
+): Record<string, string>[] {
+  return Array.from({ length: quantity }, (_, index) =>
+    Object.fromEntries(
+      options.map((option) => [
+        option.name,
+        option.values.find((value) => value === existing[index]?.[option.name]) ??
+          option.values[0] ??
+          "",
+      ]),
+    ),
+  );
 }
 
 /**
@@ -187,9 +177,17 @@ export function CodForm({
   productName,
   unitPrice,
   offers,
+  defaultOfferQuantity,
+  variantOptions = [],
+  departments,
   onSuccess,
 }: CodFormProps): JSX.Element {
-  const [values, setValues] = useState<CodFormValues>(INITIAL_VALUES);
+  const [values, setValues] = useState<CodFormValues>(() => initialValues(defaultOfferQuantity));
+  const initialQuantity = Number(defaultOfferQuantity ?? 1);
+  const [variantSelections, setVariantSelections] = useState<Record<string, string>[]>(() =>
+    fitVariantSelections(variantOptions, initialQuantity),
+  );
+  const [variantError, setVariantError] = useState<string | undefined>();
   const [errors, setErrors] = useState<Partial<Record<keyof CodFormValues, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -231,6 +229,9 @@ export function CodForm({
     () => tiers.find((tier) => tier.quantity === safeQuantity),
     [tiers, safeQuantity],
   );
+  const selectedDepartment = departments.find(
+    (department) => department.name === values.department,
+  );
 
   // The discounted total when the landing priced this tier, the plain product
   // of price and quantity otherwise.
@@ -256,6 +257,17 @@ export function CodForm({
   function setQuantity(next: number) {
     const clamped = Math.min(Math.max(next, 1), MAX_QUANTITY);
     update("quantity", String(clamped));
+    setVariantSelections((current) => fitVariantSelections(variantOptions, clamped, current));
+    setVariantError(undefined);
+  }
+
+  function setVariant(unitIndex: number, optionName: string, value: string) {
+    setVariantSelections((current) =>
+      current.map((unit, index) =>
+        index === unitIndex ? { ...unit, [optionName]: value } : unit,
+      ),
+    );
+    setVariantError(undefined);
   }
 
   function focusField(field: keyof CodFormValues) {
@@ -296,11 +308,17 @@ export function CodForm({
         // reference detail.
         address: [values.address.trim(), values.address2.trim()].filter(Boolean).join(" "),
         quantity: safeQuantity,
+        variant_selections: fitVariantSelections(
+          variantOptions,
+          safeQuantity,
+          variantSelections,
+        ),
       });
       onSuccess(result);
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors) {
         setErrors(err.fieldErrors as Partial<Record<keyof CodFormValues, string>>);
+        setVariantError(err.fieldErrors.variant_selections);
         const firstInvalid = FIELD_ORDER.find((field) => err.fieldErrors?.[field]);
         if (firstInvalid) focusField(firstInvalid);
       } else if (err instanceof ApiError) {
@@ -330,8 +348,8 @@ export function CodForm({
             {tiers.map((tier) => {
               const discounted = tier.discount_percent > 0;
               return (
+                <Fragment key={tier.quantity}>
                 <label
-                  key={tier.quantity}
                   className={
                     "cod-form__tier" +
                     (discounted ? " cod-form__tier--best" : "") +
@@ -380,6 +398,37 @@ export function CodForm({
                     </strong>
                   </span>
                 </label>
+                {safeQuantity === tier.quantity && variantOptions.length > 0 && (
+                  <div className="cod-form__variants" aria-label="Opciones del producto">
+                    {variantSelections.slice(0, safeQuantity).map((selection, unitIndex) => (
+                      <fieldset className="cod-form__variant-unit" key={unitIndex}>
+                        <legend>
+                          {safeQuantity === 1 ? "Elige tus opciones" : `Unidad ${unitIndex + 1}`}
+                        </legend>
+                        <div className="cod-form__variant-fields">
+                          {variantOptions.map((option) => (
+                            <label key={option.name}>
+                              <span>{option.name}</span>
+                              <select
+                                aria-label={`${option.name}, unidad ${unitIndex + 1}`}
+                                value={selection[option.name] ?? option.values[0] ?? ""}
+                                onChange={(event) =>
+                                  setVariant(unitIndex, option.name, event.target.value)
+                                }
+                              >
+                                {option.values.map((value) => (
+                                  <option key={value} value={value}>{value}</option>
+                                ))}
+                              </select>
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    ))}
+                    {variantError && <p className="cod-form__quantity-error" role="alert">{variantError}</p>}
+                  </div>
+                )}
+                </Fragment>
               );
             })}
           </fieldset>
@@ -409,7 +458,7 @@ export function CodForm({
       <FormField
         name="phone"
         label="Número de celular"
-        description="Te llamamos o escribimos solo para coordinar la entrega."
+        description=""
         type="tel"
         inputMode="numeric"
         autoComplete="tel-national"
@@ -425,43 +474,60 @@ export function CodForm({
       />
 
       <div className="cod-form__row">
-        <FormField
-          name="department"
-          label="Departamento"
-          autoComplete="address-level1"
-          enterKeyHint="next"
-          suggestions={DEPARTMENTS}
-          placeholder="Antioquia"
-          required
-          minLength={2}
-          maxLength={100}
-          value={values.department}
-          onChange={(e) => update("department", e.target.value)}
-          onBlur={() => handleBlur("department")}
-          error={errors.department}
-        />
+        <div className="form-field" data-field-name="department">
+          <label htmlFor="department" className="form-field-label">Departamento</label>
+          <select
+            id="department"
+            name="department"
+            className={errors.department ? "form-field-input--error" : "form-field-input"}
+            autoComplete="address-level1"
+            required
+            value={values.department}
+            onChange={(event) => {
+              update("department", event.target.value);
+              update("city", "");
+            }}
+            onBlur={() => handleBlur("department")}
+            aria-invalid={Boolean(errors.department)}
+            aria-describedby={errors.department ? "department-error" : undefined}
+            disabled={departments.length === 0}
+          >
+            <option value="">{departments.length ? "Selecciona" : "Cargando…"}</option>
+            {departments.map((department) => (
+              <option key={department.code} value={department.name}>{department.name}</option>
+            ))}
+          </select>
+          {errors.department && <p className="form-field-error" id="department-error" role="alert">{errors.department}</p>}
+        </div>
 
-        <FormField
-          name="city"
-          label="Ciudad o municipio"
-          autoComplete="address-level2"
-          enterKeyHint="next"
-          autoCapitalize="words"
-          placeholder="Medellín"
-          required
-          minLength={2}
-          maxLength={100}
-          value={values.city}
-          onChange={(e) => update("city", e.target.value)}
-          onBlur={() => handleBlur("city")}
-          error={errors.city}
-        />
+        <div className="form-field" data-field-name="city">
+          <label htmlFor="city" className="form-field-label">Ciudad o municipio</label>
+          <select
+            id="city"
+            name="city"
+            className={errors.city ? "form-field-input--error" : "form-field-input"}
+            autoComplete="address-level2"
+            required
+            value={values.city}
+            onChange={(event) => update("city", event.target.value)}
+            onBlur={() => handleBlur("city")}
+            aria-invalid={Boolean(errors.city)}
+            aria-describedby={errors.city ? "city-error" : undefined}
+            disabled={!selectedDepartment}
+          >
+            <option value="">{selectedDepartment ? "Selecciona" : "Elige departamento"}</option>
+            {selectedDepartment?.cities.map((city) => (
+              <option key={city.code} value={city.name}>{city.name}</option>
+            ))}
+          </select>
+          {errors.city && <p className="form-field-error" id="city-error" role="alert">{errors.city}</p>}
+        </div>
       </div>
 
       <FormField
         name="address"
         label="Dirección de entrega"
-        description="Calle, número y barrio."
+        description=""
         autoComplete="address-line1"
         enterKeyHint="next"
         placeholder="Calle 10 # 43-25, barrio Poblado"
@@ -476,8 +542,9 @@ export function CodForm({
 
       <FormField
         name="address2"
-        label="Dirección 2 (opcional)"
-        description="Torre, apartamento, referencia u otro dato para el mensajero."
+        label=""
+        aria-label="Dirección 2 (opcional)"
+        description="Apto, interior o referencia para el mensajero"
         autoComplete="address-line2"
         enterKeyHint="done"
         placeholder="Torre 3, apto 302"

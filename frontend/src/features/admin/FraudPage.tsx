@@ -29,6 +29,7 @@ interface ConfigForm {
   duplicateMatchFields: Set<string>;
   rateLimitMax: string;
   rateLimitWindowMinutes: string;
+  bannedCities: string;
 }
 
 function toConfigForm(config: FraudConfig): ConfigForm {
@@ -37,6 +38,7 @@ function toConfigForm(config: FraudConfig): ConfigForm {
     duplicateMatchFields: new Set(config.duplicate_match_fields),
     rateLimitMax: String(config.rate_limit_max),
     rateLimitWindowMinutes: String(config.rate_limit_window_minutes),
+    bannedCities: (config.banned_cities ?? []).join("\n"),
   };
 }
 
@@ -161,6 +163,7 @@ export function FraudPage() {
         duplicate_match_fields: Array.from(config.duplicateMatchFields),
         rate_limit_max: Number(config.rateLimitMax),
         rate_limit_window_minutes: Number(config.rateLimitWindowMinutes),
+        banned_cities: config.bannedCities.split(/\r?\n/).map((city) => city.trim()).filter(Boolean),
       });
       setConfig(toConfigForm(updated));
       setConfigNotice("Configuración guardada.");
@@ -346,6 +349,38 @@ export function FraudPage() {
                   role="alert"
                 >
                   {configFieldErrors.duplicate_window_hours}
+                </p>
+              )}
+            </div>
+
+            <div className="fraud-field">
+              <label className="fraud-field__label" htmlFor="banned-cities">
+                Ciudades sin cobertura
+              </label>
+              <textarea
+                id="banned-cities"
+                className="fraud-field__input fraud-field__textarea"
+                value={config.bannedCities}
+                rows={7}
+                placeholder={"SOACHA\nCALI"}
+                aria-describedby={
+                  configFieldErrors.banned_cities
+                    ? "banned-cities-hint banned-cities-error"
+                    : "banned-cities-hint"
+                }
+                aria-invalid={configFieldErrors.banned_cities ? true : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, bannedCities: event.target.value } : current,
+                  )
+                }
+              />
+              <p className="fraud-page__muted" id="banned-cities-hint">
+                Una ciudad por línea. Se ocultará del formulario de pedido.
+              </p>
+              {configFieldErrors.banned_cities && (
+                <p className="fraud-field__error" id="banned-cities-error" role="alert">
+                  {configFieldErrors.banned_cities}
                 </p>
               )}
             </div>

@@ -30,6 +30,7 @@ import type {
   ConversionBlock,
   CtaBackground,
   CtaBandStyle,
+  LocationCatalog,
   OrderCreateResponse,
   PublicLanding,
 } from "../../api";
@@ -53,6 +54,7 @@ export function LandingPage(): JSX.Element {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [formState, setFormState] = useState<FormState>("closed");
   const [order, setOrder] = useState<OrderCreateResponse | null>(null);
+  const [locations, setLocations] = useState<LocationCatalog | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -84,6 +86,21 @@ export function LandingPage(): JSX.Element {
       cancelled = true;
     };
   }, [slug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void publicApi
+      .getLocations()
+      .then((catalog) => {
+        if (!cancelled) setLocations(catalog);
+      })
+      .catch(() => {
+        if (!cancelled) setLocations(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const ctaPositionSet = useMemo(
     () => new Set(landing?.cta_positions ?? []),
@@ -398,7 +415,7 @@ export function LandingPage(): JSX.Element {
         isOpen={formState === "open"}
         onClose={() => setFormState("closed")}
         title="Completa tu pedido"
-        subtitle="Paga cuando recibas."
+        subtitle="Paga cuando recibas"
         style={formAccentStyle}
       >
         <CodForm
@@ -406,6 +423,9 @@ export function LandingPage(): JSX.Element {
           productName={landing.product_name}
           unitPrice={landing.product_price}
           offers={landing.offers}
+          defaultOfferQuantity={landing.default_offer_quantity}
+          variantOptions={landing.variant_options}
+          departments={locations?.departments ?? []}
           onSuccess={handleOrderSuccess}
         />
       </Modal>

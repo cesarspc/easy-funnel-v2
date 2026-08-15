@@ -52,7 +52,11 @@ from app.domains.landings.cta_text_overrides import (
 )
 from app.domains.landings.errors import LandingValidationError
 from app.domains.landings.form_presentation import validate_form_presentation
-from app.domains.landings.offers import validate_offer_count, validate_offers
+from app.domains.landings.offers import (
+    validate_default_offer_quantity,
+    validate_offer_count,
+    validate_offers,
+)
 
 #: Upper bound on a template name. Long enough for "Suplementos — 5 banners,
 #: CTA agresivo", short enough to stay readable in the load dialog's list.
@@ -75,6 +79,7 @@ TEMPLATE_CONFIG_FIELDS = (
     "form_accent_color",
     "blocks_dark_mode",
     "offer_count",
+    "default_offer_quantity",
     "offers",
 )
 
@@ -157,6 +162,7 @@ def snapshot_config(landing: Any) -> dict[str, Any]:
         "form_accent_color": landing.formAccentColor,
         "blocks_dark_mode": bool(landing.blocksDarkMode),
         "offer_count": landing.offerCount,
+        "default_offer_quantity": getattr(landing, "defaultOfferQuantity", 1),
         "offers": [dict(offer) for offer in stored_offers if isinstance(offer, dict)],
     }
 
@@ -227,6 +233,9 @@ def parse_template_config(raw_config: Any, *, banner_count: int) -> dict[str, An
     )
 
     offer_count = validate_offer_count(raw_config.get("offer_count"))
+    default_offer_quantity = validate_default_offer_quantity(
+        raw_config.get("default_offer_quantity", 1), offer_count=offer_count
+    )
     offers = validate_offers(raw_config.get("offers"), offer_count=offer_count)
 
     raw_overrides = raw_config.get("cta_text_overrides")
@@ -243,6 +252,7 @@ def parse_template_config(raw_config: Any, *, banner_count: int) -> dict[str, An
         "accent_color": normalize_accent_color(raw_config.get("accent_color") or "#1a7a4c"),
         "blocks_dark_mode": bool(raw_config.get("blocks_dark_mode")),
         "offer_count": offer_count,
+        "default_offer_quantity": default_offer_quantity,
         "offers": [offer.to_json() for offer in offers],
         "cta_text_overrides": validate_cta_text_overrides(overrides),
     }

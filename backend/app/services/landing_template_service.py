@@ -186,6 +186,7 @@ class LandingTemplateService:
                 "formAccentColor": config["form_accent_color"],
                 "blocksDarkMode": config["blocks_dark_mode"],
                 "offerCount": config["offer_count"],
+                "defaultOfferQuantity": config["default_offer_quantity"],
                 "offers": Json(config["offers"]),
             }
             if await landings.update(landing_id, data) is None:

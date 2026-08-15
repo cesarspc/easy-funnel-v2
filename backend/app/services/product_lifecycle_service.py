@@ -37,6 +37,7 @@ from app.domains.products.validation import (
     validate_price,
     validate_sku,
 )
+from app.domains.products.variants import validate_variant_options
 
 _TransitionFn = Callable[[int, str], str]
 
@@ -72,6 +73,7 @@ class ProductLifecycleService:
         price: Decimal | str,
         description: str = "",
         status: str | None = None,
+        variant_options: list[dict] | None = None,
         actor: str,
     ) -> ProductCreationResult:
         """Validate, then atomically create a Product and its single draft
@@ -87,6 +89,7 @@ class ProductLifecycleService:
         validated_price = validate_price(price)
         validated_sku = validate_sku(sku)
         validated_status = validate_creation_status(status)
+        validated_variant_options = validate_variant_options(variant_options)
 
         async with self._db.tx() as tx:
             products = ProductRepository(tx)
@@ -105,6 +108,7 @@ class ProductLifecycleService:
                     "price": validated_price,
                     "sku": validated_sku,
                     "status": validated_status,
+                    "variantOptions": Json(validated_variant_options),
                 }
             )
             landing = await landings.create(

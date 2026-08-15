@@ -6,6 +6,7 @@ Requirements 5.19-5.22, 8.4-8.10, 8.16.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import PlainTextResponse
@@ -24,26 +25,45 @@ def _serialize_order(order, *, include_flags: bool = False) -> dict:
     db): the router returns plain snake_case payloads matching the admin API
     contract the SPA consumes (`frontend/src/api/admin.ts`).
     """
-    payload = {
+    payload: dict[str, Any] = {
         "id": order.id,
         "product_id": order.productId,
         "landing_id": order.landingId,
         "landing_slug": order.landingSlug,
         "customer_name": order.customerName,
         "phone_e164": order.phoneE164,
+        "phone_normalized_key": order.phoneNormalizedKey,
         "department": order.department,
         "city": order.city,
         "address": order.address,
         "quantity": order.quantity,
+        "variant_selections": (
+            order.variantSelections
+            if isinstance(getattr(order, "variantSelections", None), list)
+            else []
+        ),
+        "unit_price": float(order.unitPrice),
+        "discount_percent": order.discountPercent,
+        "total_price": float(order.totalPrice),
         "status": order.status,
         "ip_address": order.ipAddress,
         "user_agent": order.userAgent,
         "created_at": order.createdAt.isoformat(),
         "updated_at": order.updatedAt.isoformat(),
     }
+    product = getattr(order, "product", None)
+    if product is not None:
+        payload["product_name"] = product.name
+        payload["product_sku"] = product.sku
     if include_flags:
         payload["fraud_flags"] = [
-            {"flag_type": flag.flagType, "detail": flag.detail} for flag in (order.fraudFlags or [])
+            {
+                "id": flag.id,
+                "flag_type": flag.flagType,
+                "detail": flag.detail,
+                "created_at": flag.createdAt.isoformat(),
+            }
+            for flag in (order.fraudFlags or [])
         ]
     return payload
 
@@ -60,7 +80,7 @@ async def list_orders(
     """List orders with filters (ANDed together)."""
     db = get_prisma()
 
-    where = {}
+    where: dict[str, Any] = {}
 
     if status:
         where["status"] = status
@@ -79,7 +99,7 @@ async def list_orders(
             where["createdAt"]["lte"] = datetime.fromisoformat(date_to)
 
     orders = await db.order.find_many(
-        where=where,
+        where=cast(Any, where),
         order={"createdAt": "desc"},
     )
 
@@ -110,7 +130,7 @@ async def export_orders_csv(
 
     db = get_prisma()
 
-    where = {}
+    where: dict[str, Any] = {}
     if status:
         where["status"] = status
     if product_id:
@@ -125,7 +145,7 @@ async def export_orders_csv(
             where["createdAt"]["lte"] = datetime.fromisoformat(date_to)
 
     orders = await db.order.find_many(
-        where=where,
+        where=cast(Any, where),
         include={"fraudFlags": True},
         order={"createdAt": "desc"},
     )
@@ -159,7 +179,7 @@ async def get_order(
 
     order = await db.order.find_unique(
         where={"id": order_id},
-        include={"fraudFlags": True},
+        include={"fraudFlags": True, "product": True},
     )
 
     if order is None:
@@ -202,5 +222,10 @@ async def transition_order(
         where={"id": order_id},
         data={"status": request.to_status},
     )
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
 
     return {"order_id": updated.id, "status": updated.status}

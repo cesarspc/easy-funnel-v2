@@ -21,6 +21,7 @@ vi.mock("../../api", async () => {
     ...actual,
     publicApi: {
       getLanding: vi.fn(),
+      getLocations: vi.fn().mockResolvedValue({ departments: [] }),
       recordView: vi.fn().mockResolvedValue(undefined),
       recordCtaClick: vi.fn().mockResolvedValue(undefined),
       createOrder: vi.fn(),

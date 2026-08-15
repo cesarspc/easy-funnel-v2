@@ -41,6 +41,8 @@ interface OfferForm {
   label: string;
   sublabel: string;
   discountPercent: string;
+  discountAmount: string;
+  calculatedDiscountPercent: number;
   compareAtPrice: string;
 }
 
@@ -54,6 +56,7 @@ interface ConfigForm {
   accentColor: string;
   formAccentColor: string;
   offerCount: number;
+  defaultOfferQuantity: number;
   offers: OfferForm[];
   ctaText: string;
   ctaAnimation: string;
@@ -67,6 +70,12 @@ function toOfferForm(offer: LandingOffer): OfferForm {
     label: offer.label,
     sublabel: offer.sublabel ?? "",
     discountPercent: offer.discount_percent ? String(offer.discount_percent) : "",
+    discountAmount:
+      offer.discount_amount === null || offer.discount_amount === undefined
+        ? ""
+        : String(offer.discount_amount),
+    calculatedDiscountPercent:
+      offer.calculated_discount_percent ?? offer.discount_percent ?? 0,
     compareAtPrice: offer.compare_at_price === null ? "" : String(offer.compare_at_price),
   };
 }
@@ -78,6 +87,8 @@ function blankOfferForm(quantity: number): OfferForm {
     label: quantity === 1 ? "1 unidad" : `${quantity} unidades`,
     sublabel: "",
     discountPercent: "",
+    discountAmount: "",
+    calculatedDiscountPercent: 0,
     compareAtPrice: "",
   };
 }
@@ -106,6 +117,7 @@ function toConfigForm(landing: LandingDetail): ConfigForm {
     accentColor: landing.accent_color ?? "#1a7a4c",
     formAccentColor: landing.form_accent_color ?? "",
     offerCount: landing.offer_count,
+    defaultOfferQuantity: landing.default_offer_quantity ?? 1,
     offers: fitOffers((landing.offers ?? []).map(toOfferForm), landing.offer_count),
     ctaText: landing.cta_text ?? "",
     ctaAnimation: landing.cta_animation ?? "",
@@ -295,6 +307,7 @@ export function LandingEditorPage() {
         accent_color: config.accentColor,
         form_accent_color: config.formAccentColor.trim() || null,
         offer_count: config.offerCount,
+        default_offer_quantity: config.defaultOfferQuantity,
         cta_text: config.ctaText.trim() || null,
         cta_animation: (config.ctaAnimation as "slide" | "shake") || null,
         cta_text_overrides: config.ctaTextOverrides,
@@ -309,6 +322,8 @@ export function LandingEditorPage() {
           sublabel: offer.sublabel.trim() === "" ? "" : offer.sublabel,
           discount_percent:
             offer.discountPercent.trim() === "" ? null : Number(offer.discountPercent),
+          discount_amount:
+            offer.discountAmount.trim() === "" ? null : Number(offer.discountAmount),
           compare_at_price:
             offer.compareAtPrice.trim() === "" ? null : Number(offer.compareAtPrice),
         })),
@@ -1026,7 +1041,12 @@ export function LandingEditorPage() {
                 const count = Number(event.target.value);
                 setConfig((current) =>
                   current
-                    ? { ...current, offerCount: count, offers: fitOffers(current.offers, count) }
+                    ? {
+                        ...current,
+                        offerCount: count,
+                        defaultOfferQuantity: Math.min(current.defaultOfferQuantity, count),
+                        offers: fitOffers(current.offers, count),
+                      }
                     : current,
                 );
               }}
@@ -1043,6 +1063,41 @@ export function LandingEditorPage() {
             {fieldErrors.offer_count && (
               <p className="landings-field__error" id="landing-offer-count-error" role="alert">
                 {fieldErrors.offer_count}
+              </p>
+            )}
+          </div>
+
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-default-offer">
+              Oferta preseleccionada
+            </label>
+            <select
+              id="landing-default-offer"
+              className="landings-field__input"
+              value={config.defaultOfferQuantity}
+              aria-invalid={fieldErrors.default_offer_quantity ? true : undefined}
+              onChange={(event) =>
+                setConfig((current) =>
+                  current
+                    ? { ...current, defaultOfferQuantity: Number(event.target.value) }
+                    : current,
+                )
+              }
+            >
+              {Array.from({ length: config.offerCount }, (_, index) => index + 1).map(
+                (quantity) => (
+                  <option key={quantity} value={quantity}>
+                    {quantity === 1 ? "1 unidad" : `${quantity} unidades`}
+                  </option>
+                ),
+              )}
+            </select>
+            <p className="landings-field__hint">
+              Esta opción aparece elegida cuando se abre el formulario.
+            </p>
+            {fieldErrors.default_offer_quantity && (
+              <p className="landings-field__error" role="alert">
+                {fieldErrors.default_offer_quantity}
               </p>
             )}
           </div>
@@ -1174,6 +1229,7 @@ export function LandingEditorPage() {
                     </p>
                   </div>
                 ) : (
+                  <div className="landings-offer__discounts">
                   <div className="landings-field">
                     <label
                       className="landings-field__label"
@@ -1198,7 +1254,11 @@ export function LandingEditorPage() {
                                 ...current,
                                 offers: current.offers.map((item, itemIndex) =>
                                   itemIndex === index
-                                    ? { ...item, discountPercent: event.target.value }
+                                    ? {
+                                        ...item,
+                                        discountPercent: event.target.value,
+                                        discountAmount: event.target.value ? "" : item.discountAmount,
+                                      }
                                     : item,
                                 ),
                               }
@@ -1213,6 +1273,52 @@ export function LandingEditorPage() {
                       Reduce de verdad el total de esta oferta y queda registrado en el pedido.
                       Máximo 90%.
                     </p>
+                  </div>
+                  <div className="landings-field">
+                    <label
+                      className="landings-field__label"
+                      htmlFor={`landing-offer-discount-amount-${offer.quantity}`}
+                    >
+                      Descuento fijo (COP)
+                    </label>
+                    <input
+                      id={`landing-offer-discount-amount-${offer.quantity}`}
+                      className="landings-field__input"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      value={offer.discountAmount}
+                      aria-describedby={`landing-offer-discount-amount-hint-${offer.quantity}`}
+                      onChange={(event) =>
+                        setConfig((current) =>
+                          current
+                            ? {
+                                ...current,
+                                offers: current.offers.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        discountAmount: event.target.value,
+                                        discountPercent: event.target.value ? "" : item.discountPercent,
+                                        calculatedDiscountPercent: 0,
+                                      }
+                                    : item,
+                                ),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                    <p
+                      className="landings-field__hint"
+                      id={`landing-offer-discount-amount-hint-${offer.quantity}`}
+                    >
+                      {offer.discountAmount && offer.calculatedDiscountPercent > 0
+                        ? `Equivale a ${offer.calculatedDiscountPercent}% y ese porcentaje se muestra al comprador.`
+                        : "Valor exacto que se resta al total. Al guardarlo calculamos el porcentaje visible."}
+                    </p>
+                  </div>
                   </div>
                 )}
               </div>

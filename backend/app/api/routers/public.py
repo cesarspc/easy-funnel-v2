@@ -5,8 +5,10 @@ Requirements 3.21-3.24, 5.7-5.8, 5.13-5.17, 8.14-8.15.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from typing import Any, cast
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import BaseModel, Field
 from upstash_redis import AsyncRedis
 
 from app.core.request_context import RequestContext, get_request_context
@@ -27,6 +29,7 @@ from app.domains.landings.offers import (
     resolve_offer_pricing,
 )
 from app.domains.orders.errors import OrderValidationError
+from app.domains.orders.locations import public_location_catalog
 from app.redis.client import get_redis
 from app.services.geoip_resolver import GeoIpResolver, get_geoip_resolver
 from app.services.order_submission_service import OrderSubmissionService
@@ -116,6 +119,7 @@ class LandingOfferResponse(BaseModel):
     label: str
     sublabel: str | None = None
     discount_percent: int = 0
+    discount_amount: float | None = None
     unit_price: float
     gross: float
     total: float
@@ -160,6 +164,8 @@ class LandingResponse(BaseModel):
     form_accent_palette: AccentPaletteResponse
     # The quantity offers the COD form presents, already priced.
     offers: list[LandingOfferResponse]
+    default_offer_quantity: int
+    variant_options: list[dict] = Field(default_factory=list)
     blocks: list[ConversionBlockResponse]
     blocks_dark_mode: bool = False
 
@@ -170,7 +176,12 @@ def _to_offer_response(offer: LandingOffer, pricing: OfferPricing) -> LandingOff
         quantity=offer.quantity,
         label=offer.label,
         sublabel=offer.sublabel,
-        discount_percent=offer.discount_percent,
+        # Fixed-value discounts are converted to an honest percentage by the
+        # same pricing function that determines the amount the order stores.
+        discount_percent=pricing.discount_percent,
+        discount_amount=(
+            None if offer.discount_amount is None else float(offer.discount_amount)
+        ),
         unit_price=float(pricing.unit_price),
         gross=float(pricing.gross),
         total=float(pricing.total),
@@ -379,6 +390,12 @@ async def get_public_landing(
             ink=form_palette.ink,
         ),
         offers=offers,
+        default_offer_quantity=getattr(landing, "defaultOfferQuantity", 1),
+        variant_options=(
+            cast(list[dict[str, Any]], product.variantOptions)
+            if isinstance(getattr(product, "variantOptions", None), list)
+            else []
+        ),
         blocks=blocks,
         blocks_dark_mode=bool(landing.blocksDarkMode),
     )
@@ -433,6 +450,7 @@ class OrderCreateRequest(BaseModel):
     city: str
     address: str
     quantity: int
+    variant_selections: list[dict[str, str]] = Field(default_factory=list)
 
 
 class OrderCreateResponse(BaseModel):
@@ -472,6 +490,7 @@ async def create_order(
             city=request.city,
             address=request.address,
             quantity=request.quantity,
+            variant_selections=request.variant_selections,
             ip_address=context.ip_address,
             user_agent=context.user_agent,
             actor="system",
@@ -487,3 +506,31 @@ async def create_order(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Order submission failed",
         ) from exc
+
+
+class CityResponse(BaseModel):
+    code: str
+    name: str
+
+
+class DepartmentResponse(BaseModel):
+    code: str
+    name: str
+    cities: list[CityResponse]
+
+
+class LocationCatalogResponse(BaseModel):
+    departments: list[DepartmentResponse]
+
+
+@router.get("/locations", response_model=LocationCatalogResponse)
+async def get_public_locations(response: Response) -> LocationCatalogResponse:
+    """Return selectable Colombian locations with configured cities removed."""
+    config = await get_prisma().fraudconfig.find_unique(where={"id": 1})
+    banned_cities = (
+        list(getattr(config, "bannedCities", None) or []) if config is not None else []
+    )
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600"
+    return LocationCatalogResponse(
+        departments=[DepartmentResponse(**item) for item in public_location_catalog(banned_cities)]
+    )

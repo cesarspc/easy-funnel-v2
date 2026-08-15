@@ -20,6 +20,7 @@ vi.mock("../../api", async () => {
     ...actual,
     publicApi: {
       getLanding: vi.fn(),
+      getLocations: vi.fn().mockResolvedValue({ departments: [{ code: "05", name: "ANTIOQUIA", cities: [{ code: "05001", name: "MEDELLÍN" }] }] }),
       recordView: vi.fn().mockResolvedValue(undefined),
       recordCtaClick: vi.fn().mockResolvedValue(undefined),
       createOrder: vi.fn(),
@@ -70,8 +71,8 @@ async function openForm(landing: PublicLanding = makeLanding()) {
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Nombre completo"), "Ana Gómez");
   await user.type(screen.getByLabelText(/Número de celular/), "3001234567");
-  await user.type(screen.getByLabelText("Departamento"), "Antioquia");
-  await user.type(screen.getByLabelText("Ciudad o municipio"), "Medellín");
+  await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
+  await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
   await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 # 43-25");
 }
 
@@ -123,5 +124,30 @@ describe("Dirección 2 (frontend-only)", () => {
     await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
 
     await waitFor(() => expect(publicApi.createOrder).toHaveBeenCalledTimes(1));
+  });
+
+  it("uses the configured default offer and submits options for every unit", async () => {
+    const user = await openForm(
+      makeLanding({
+        default_offer_quantity: 2,
+        variant_options: [
+          { name: "Color", values: ["Gris", "Negro"] },
+          { name: "Talla", values: ["M", "L"] },
+        ],
+      }),
+    );
+
+    expect(screen.getByRole("radio", { name: /2 unidades/ })).toBeChecked();
+    expect(screen.getByLabelText("Color, unidad 1")).toHaveValue("Gris");
+    await user.selectOptions(screen.getByLabelText("Color, unidad 2"), "Negro");
+    await user.selectOptions(screen.getByLabelText("Talla, unidad 2"), "L");
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
+
+    await waitFor(() => expect(publicApi.createOrder).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(publicApi.createOrder).mock.calls[0][0].variant_selections).toEqual([
+      { Color: "Gris", Talla: "M" },
+      { Color: "Negro", Talla: "L" },
+    ]);
   });
 });

@@ -27,6 +27,7 @@ const PAUSED_PRODUCT: Product = {
   price: 89900,
   description: "",
   status: "paused",
+  landing_id: 11,
 };
 
 const ACTIVE_PRODUCT: Product = {
@@ -36,6 +37,7 @@ const ACTIVE_PRODUCT: Product = {
   price: 129900,
   description: "",
   status: "active",
+  landing_id: 12,
 };
 
 const ACTIVE_PUBLISHED_PRODUCT: Product = {
@@ -45,6 +47,7 @@ const ACTIVE_PUBLISHED_PRODUCT: Product = {
   price: 65000,
   description: "",
   status: "active",
+  landing_id: 13,
   landing_slug: "cargador-solar",
   landing_status: "published",
 };
@@ -74,6 +77,14 @@ describe("ProductsPage", () => {
     expect(await screen.findByText("Audífonos inalámbricos")).toBeInTheDocument();
     expect(screen.getByText("Pausado")).toBeInTheDocument();
     expect(screen.getByText("Activo")).toBeInTheDocument();
+  });
+
+  it("links each product directly to its own landing editor", async () => {
+    renderPage();
+
+    const links = await screen.findAllByRole("link", { name: "Editar landing" });
+    expect(links[0]).toHaveAttribute("href", "/admin/landings/11");
+    expect(links[1]).toHaveAttribute("href", "/admin/landings/12");
   });
 
   it("shows an Activar action for paused products and calls productsApi.activate", async () => {
@@ -169,6 +180,7 @@ describe("ProductsPage", () => {
       price: 45000,
       description: "",
       status: "paused",
+      landing_id: 14,
       landing_slug: "draft-4",
       landing_status: "draft",
     };
@@ -181,6 +193,10 @@ describe("ProductsPage", () => {
     await user.type(screen.getByLabelText("Nombre"), "Nuevo gadget");
     await user.type(screen.getByLabelText("SKU"), "GAD-004");
     await user.type(screen.getByLabelText("Precio (COP)"), "45000");
+    await user.type(screen.getByLabelText("Característica 1"), "Color");
+    await user.type(screen.getAllByLabelText("Valores")[0], "Gris, Negro");
+    await user.type(screen.getByLabelText("Característica 2"), "Talla");
+    await user.type(screen.getAllByLabelText("Valores")[1], "M, L");
     await user.click(screen.getByRole("button", { name: "Crear producto" }));
 
     await waitFor(() =>
@@ -189,6 +205,10 @@ describe("ProductsPage", () => {
         sku: "GAD-004",
         price: 45000,
         description: "",
+        variant_options: [
+          { name: "Color", values: ["Gris", "Negro"] },
+          { name: "Talla", values: ["M", "L"] },
+        ],
       }),
     );
 

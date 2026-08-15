@@ -65,6 +65,7 @@ const DETAIL: LandingDetail = {
   accent_color: "#1a7a4c",
   form_accent_color: null,
   offer_count: 3,
+  default_offer_quantity: 1,
   offers: [
     { quantity: 1, label: "1 unidad", sublabel: null, discount_percent: 0, compare_at_price: null },
     { quantity: 2, label: "2 unidades", sublabel: null, discount_percent: 0, compare_at_price: null },
@@ -204,6 +205,7 @@ describe("LandingEditorPage", () => {
     await user.type(screen.getByLabelText("Intervalo (1-15)"), "2");
     await user.selectOptions(screen.getByLabelText("Formulario COD"), "modal");
     await user.selectOptions(screen.getByLabelText("Fondo del botón CTA"), "solid");
+    await user.selectOptions(screen.getByLabelText("Oferta preseleccionada"), "2");
     await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
 
     await waitFor(() =>
@@ -217,6 +219,7 @@ describe("LandingEditorPage", () => {
         accent_color: "#1a7a4c",
         form_accent_color: null,
         offer_count: 3,
+        default_offer_quantity: 2,
         cta_text: null,
         cta_animation: null,
         cta_text_overrides: {},
@@ -227,6 +230,7 @@ describe("LandingEditorPage", () => {
             label: "1 unidad",
             sublabel: "",
             discount_percent: null,
+            discount_amount: null,
             compare_at_price: null,
           },
           {
@@ -234,6 +238,7 @@ describe("LandingEditorPage", () => {
             label: "2 unidades",
             sublabel: "",
             discount_percent: null,
+            discount_amount: null,
             compare_at_price: null,
           },
           {
@@ -241,6 +246,7 @@ describe("LandingEditorPage", () => {
             label: "3 unidades",
             sublabel: "",
             discount_percent: null,
+            discount_amount: null,
             compare_at_price: null,
           },
         ],
@@ -429,8 +435,24 @@ describe("LandingEditorPage offers and accent", () => {
       label: "Llévate dos",
       sublabel: "Ahorra 10%",
       discount_percent: 10,
+      discount_amount: null,
       compare_at_price: null,
     });
+  });
+
+  it("submits a fixed COP discount and clears the percentage", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.type(document.querySelector("#landing-offer-discount-2")!, "10");
+    await user.type(document.querySelector("#landing-offer-discount-amount-2")!, "20000");
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const offer = vi.mocked(landingsApi.updateConfig).mock.calls[0][1].offers?.[1];
+    expect(offer?.discount_percent).toBeNull();
+    expect(offer?.discount_amount).toBe(20000);
   });
 
   it("submits a blank sub-text as the value that turns the second line off", async () => {

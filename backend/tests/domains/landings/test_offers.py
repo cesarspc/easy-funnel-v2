@@ -31,6 +31,7 @@ from app.domains.landings.offers import (
     find_offer,
     parse_stored_offers,
     resolve_offer_pricing,
+    validate_default_offer_quantity,
     validate_offer_count,
     validate_offers,
 )
@@ -44,6 +45,7 @@ def _offer(quantity: int, **overrides: object) -> dict[str, object]:
         "label": f"{quantity} unidades",
         "sublabel": None,
         "discount_percent": 0,
+        "discount_amount": None,
         "compare_at_price": None,
     }
     base.update(overrides)
@@ -168,6 +170,20 @@ class TestValidateOffers:
     def test_a_zero_discount_on_a_single_unit_offer_is_fine(self) -> None:
         assert validate_offers(_offers(1, q1={"discount_percent": 0}), offer_count=1)
 
+    def test_accepts_a_fixed_discount_instead_of_a_percentage(self) -> None:
+        offer = validate_offers(
+            _offers(2, q2={"discount_amount": "20000"}), offer_count=2
+        )[1]
+        assert offer.discount_amount == Decimal("20000.00")
+        assert offer.discount_percent == 0
+
+    def test_rejects_percentage_and_fixed_discount_together(self) -> None:
+        with pytest.raises(LandingValidationError):
+            validate_offers(
+                _offers(2, q2={"discount_percent": 10, "discount_amount": 20000}),
+                offer_count=2,
+            )
+
     @pytest.mark.parametrize("percent", [-1, MAX_DISCOUNT_PERCENT + 1, 100, 1000, "abc"])
     def test_out_of_range_discount_is_rejected(self, percent: object) -> None:
         with pytest.raises(LandingValidationError):
@@ -253,6 +269,20 @@ class TestResolveOfferPricing:
         assert pricing.total == Decimal("161820.00")
         assert pricing.savings == Decimal("17980.00")
 
+    def test_a_fixed_discount_reduces_total_and_derives_visible_percentage(self) -> None:
+        offer = LandingOffer(
+            quantity=2,
+            label="2 unidades",
+            sublabel=None,
+            discount_percent=0,
+            discount_amount=Decimal("20000.00"),
+        )
+        pricing = resolve_offer_pricing(Decimal("89900"), offer)
+        assert pricing.gross == Decimal("179800.00")
+        assert pricing.total == Decimal("159800.00")
+        assert pricing.savings == Decimal("20000.00")
+        assert pricing.discount_percent == 11
+
     def test_rounding_is_half_up_to_cents(self) -> None:
         # 3 x 10.00 at 15% off is 25.50 exactly; a price that lands on a half
         # cent must round up, not to even.
@@ -317,3 +347,11 @@ class TestFindOffer:
         # price the merchant never configured.
         assert find_offer(default_offers(2), 3) is None
         assert find_offer(default_offers(2), 0) is None
+
+
+class TestDefaultOffer:
+    def test_accepts_a_visible_offer_and_rejects_a_hidden_one(self) -> None:
+        assert validate_default_offer_quantity(2, offer_count=3) == 2
+        with pytest.raises(LandingValidationError) as exc_info:
+            validate_default_offer_quantity(3, offer_count=2)
+        assert exc_info.value.field == "default_offer_quantity"

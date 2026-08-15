@@ -31,6 +31,7 @@ interface CreateFormValues {
   sku: string;
   price: string;
   description: string;
+  variantOptions: { name: string; values: string }[];
 }
 
 const EMPTY_CREATE_FORM: CreateFormValues = {
@@ -38,6 +39,10 @@ const EMPTY_CREATE_FORM: CreateFormValues = {
   sku: "",
   price: "",
   description: "",
+  variantOptions: [
+    { name: "", values: "" },
+    { name: "", values: "" },
+  ],
 };
 
 export function ProductsPage() {
@@ -101,6 +106,12 @@ export function ProductsPage() {
         sku: createForm.sku,
         price,
         description: createForm.description,
+        variant_options: createForm.variantOptions
+          .filter((option) => option.name.trim() || option.values.trim())
+          .map((option) => ({
+            name: option.name.trim(),
+            values: option.values.split(",").map((value) => value.trim()).filter(Boolean),
+          })),
       });
       setProducts((list) => [...list, created]);
       // The backend created a draft (unpublished) landing atomically; surface
@@ -250,6 +261,50 @@ export function ProductsPage() {
                 error={createFieldErrors.description}
               />
 
+              <fieldset className="products-page__variants">
+                <legend>Variantes (opcional, máximo 2)</legend>
+                <p>Define el nombre y sus valores separados por comas. No se podrán agregar después.</p>
+                {createForm.variantOptions.map((option, index) => (
+                  <div className="products-page__variant-row" key={index}>
+                    <FormField
+                      name={`variant-name-${index}`}
+                      label={`Característica ${index + 1}`}
+                      placeholder={index === 0 ? "Color" : "Talla"}
+                      value={option.name}
+                      onChange={(event) =>
+                        setCreateForm((form) => ({
+                          ...form,
+                          variantOptions: form.variantOptions.map((item, itemIndex) =>
+                            itemIndex === index ? { ...item, name: event.target.value } : item,
+                          ),
+                        }))
+                      }
+                      autoComplete="off"
+                    />
+                    <FormField
+                      name={`variant-values-${index}`}
+                      label="Valores"
+                      placeholder={index === 0 ? "Gris, Negro" : "S, M, L"}
+                      value={option.values}
+                      onChange={(event) =>
+                        setCreateForm((form) => ({
+                          ...form,
+                          variantOptions: form.variantOptions.map((item, itemIndex) =>
+                            itemIndex === index ? { ...item, values: event.target.value } : item,
+                          ),
+                        }))
+                      }
+                      autoComplete="off"
+                    />
+                  </div>
+                ))}
+                {createFieldErrors.variant_options && (
+                  <p className="products-page__error" role="alert">
+                    {createFieldErrors.variant_options}
+                  </p>
+                )}
+              </fieldset>
+
               <div className="products-page__create-form-actions">
                 <button
                   type="button"
@@ -333,6 +388,14 @@ export function ProductsPage() {
                       </span>
                     ) : (
                       <span className="products-table__actions-row">
+                        {product.landing_id && (
+                          <Link
+                            className="products-table__action products-table__action--primary"
+                            to={`/admin/landings/${product.landing_id}`}
+                          >
+                            Editar landing
+                          </Link>
+                        )}
                         {product.landing_slug &&
                           (product.status === "active" &&
                           product.landing_status === "published" ? (

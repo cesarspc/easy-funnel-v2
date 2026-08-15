@@ -36,8 +36,8 @@ def _order_payload(slug: str, phone: str) -> dict:
         "landing_slug": slug,
         "full_name": "Juana Perez",
         "phone": phone,
-        "department": "Cundinamarca",
-        "city": "Bogota",
+        "department": "CUNDINAMARCA",
+        "city": "SOACHA",
         "address": "Calle 123 #45-67",
         "quantity": 1,
     }
@@ -307,7 +307,18 @@ async def test_e2e_cod_flow_order_visible_in_admin_with_flags(
     assert detail_body["status"] == "flagged_fraud"
     assert detail_body["landing_slug"] == landing.slug
     assert detail_body["phone_e164"] == f"+57{phone}"
+    assert detail_body["product_name"]
+    assert detail_body["product_sku"]
+    assert detail_body["unit_price"] > 0
+    assert detail_body["discount_percent"] == 0
+    assert detail_body["total_price"] == detail_body["unit_price"]
+    assert detail_body["ip_address"]
+    assert detail_body["user_agent"]
+    assert detail_body["created_at"]
+    assert detail_body["updated_at"]
     assert [flag["flag_type"] for flag in detail_body["fraud_flags"]] == ["duplicate"]
+    assert detail_body["fraud_flags"][0]["id"]
+    assert detail_body["fraud_flags"][0]["created_at"]
 
 
 async def test_e2e_cod_flow_admin_endpoints_require_authentication(

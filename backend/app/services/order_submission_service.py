@@ -20,7 +20,7 @@ The order is persisted exactly once, never partially.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from prisma import Json, Prisma
 
@@ -55,12 +55,12 @@ from app.domains.orders import (
     normalize_colombian_phone,
     normalize_colombian_phone_key,
     validate_address,
-    validate_city,
-    validate_department,
     validate_name,
     validate_quantity,
 )
 from app.domains.orders.errors import OrderValidationError
+from app.domains.orders.locations import validate_delivery_location
+from app.domains.products.variants import validate_variant_selections
 from app.redis.rate_limit import check_rate_limit, ip_rate_limit_key, phone_rate_limit_key
 from app.services.geoip_resolver import GeoIpResolver
 
@@ -127,6 +127,7 @@ class OrderSubmissionService:
         ip_address: str,
         user_agent: str,
         actor: str,
+        variant_selections: list[dict[str, str]] | None = None,
     ) -> OrderSubmissionResult:
         """Submit a COD order with fraud evaluation.
 
@@ -138,6 +139,7 @@ class OrderSubmissionService:
             city: Customer's city
             address: Customer's delivery address
             quantity: Order quantity
+            variant_selections: One option mapping per ordered unit, when configured
             ip_address: Client IP address
             user_agent: Client user agent
             actor: Administrator or system actor
@@ -152,189 +154,155 @@ class OrderSubmissionService:
         validated_name = validate_name(full_name)
         validated_phone = normalize_colombian_phone(phone)
         validated_phone_key = normalize_colombian_phone_key(phone)
-        validated_department = validate_department(department)
-        validated_city = validate_city(city)
         validated_address = validate_address(address)
         validated_quantity = validate_quantity(quantity)
 
         # Truncate user agent to 512 chars (Requirement 5.11)
         validated_user_agent = user_agent[:512] if user_agent else ""
 
-        # 2. Resolve active product + published landing and capture attribution
-        async with self._db.tx() as tx:
-            # Get landing by slug
-            landing = await tx.landing.find_unique(
-                where={"slug": landing_slug},
-                include={"product": True},
+        # 2. Resolve the landing and fraud configuration without holding an
+        # interactive transaction open across the external Redis calls below.
+        # Prisma interactive transactions have a short timeout; keeping one
+        # open here previously allowed the final order transaction to commit,
+        # then made this stale outer transaction fail and return a false 503.
+        landing = await self._db.landing.find_unique(
+            where={"slug": landing_slug},
+            include={"product": True},
+        )
+        if landing is None or landing.product is None:
+            raise OrderValidationError("landing_slug", "Landing not found")
+
+        product = landing.product
+        if product.status != "active":
+            raise OrderValidationError("landing_slug", "Product is not active")
+        if landing.status != "published":
+            raise OrderValidationError("landing_slug", "Landing is not published")
+
+        config_record = await FraudConfigRepository(self._db).get()
+        banned_cities = (
+            list(getattr(config_record, "bannedCities", None) or []) if config_record else []
+        )
+        validated_department, validated_city = validate_delivery_location(
+            department, city, banned_cities=banned_cities
+        )
+        product_options = (
+            cast(list[dict[str, Any]], product.variantOptions)
+            if isinstance(getattr(product, "variantOptions", None), list)
+            else []
+        )
+        validated_variant_selections = validate_variant_selections(
+            variant_selections,
+            options=product_options,
+            quantity=validated_quantity,
+        )
+
+        offers = parse_stored_offers(landing.offers, offer_count=landing.offerCount)
+        selected_offer = find_offer(offers, validated_quantity)
+        if selected_offer is None:
+            available = ", ".join(str(offer.quantity) for offer in offers)
+            raise OrderValidationError(
+                "quantity",
+                f"This landing only offers the following quantities: {available}.",
+            )
+        pricing = resolve_offer_pricing(product.price, selected_offer)
+        config = _to_domain_fraud_config(config_record)
+
+        # 3. External rate-limit work must finish before the database
+        # transaction begins.
+        phone_result = await check_rate_limit(
+            self._redis,
+            phone_rate_limit_key(validated_phone_key),
+            max_attempts=config.rate_limit_max,
+            window_seconds=config.rate_limit_window_minutes * 60,
+        )
+        ip_result = await check_rate_limit(
+            self._redis,
+            ip_rate_limit_key(ip_address),
+            max_attempts=config.rate_limit_max,
+            window_seconds=config.rate_limit_window_minutes * 60,
+        )
+        country, region, geoip_status = self._geoip.resolve(ip_address)
+        geoip_result = GeoIpResult(
+            country=country,
+            region=region,
+            available=(geoip_status in ("resolved", "unresolved")),
+        )
+
+        # 4-5. Fraud database reads, the order, flags, and audit are one atomic
+        # transaction. Any exception rolls all of them back and reaches the API
+        # as a real 503; a committed order always reaches the client as 201.
+        async with self._db.tx() as persist_tx:
+            duplicate_flags = await check_duplicate(
+                persist_tx,
+                phone_normalized_key=validated_phone_key,
+                ip_address=ip_address,
+                config=config,
+            )
+            blacklist_flags = await check_blacklist(
+                persist_tx,
+                phone_normalized_key=validated_phone_key,
+                ip_address=ip_address,
+            )
+            geoip_rules = await persist_tx.geoiprule.find_many(where={"enabled": True})
+            geoip_flags = check_geoip(geoip_result, geoip_rules)
+            rate_limit_phone_flags = check_rate_limit_phone(
+                phone_result,
+                window_minutes=config.rate_limit_window_minutes,
+            )
+            rate_limit_ip_flags = check_rate_limit_ip(
+                ip_result,
+                window_minutes=config.rate_limit_window_minutes,
+            )
+            all_flags = aggregate_flags(
+                duplicate_flags
+                + blacklist_flags
+                + rate_limit_phone_flags
+                + rate_limit_ip_flags
+                + geoip_flags
+            )
+            order_status = FLAGGED_FRAUD_STATUS if all_flags else DEFAULT_ORDER_STATUS
+
+            order = await persist_tx.order.create(
+                {
+                    "productId": product.id,
+                    "landingId": landing.id,
+                    "landingSlug": landing_slug,
+                    "customerName": validated_name,
+                    "phoneE164": validated_phone,
+                    "phoneNormalizedKey": validated_phone_key,
+                    "department": validated_department,
+                    "city": validated_city,
+                    "address": validated_address,
+                    "quantity": validated_quantity,
+                    "variantSelections": Json(validated_variant_selections),
+                    "unitPrice": pricing.unit_price,
+                    "discountPercent": pricing.discount_percent,
+                    "totalPrice": pricing.total,
+                    "status": order_status,
+                    "ipAddress": ip_address,
+                    "userAgent": validated_user_agent,
+                }
+            )
+            for flag in all_flags:
+                await persist_tx.fraudflag.create(
+                    {
+                        "orderId": order.id,
+                        "flagType": flag.flag_type,
+                        "detail": Json(flag.detail),
+                    }
+                )
+            await AuditLogRepository(persist_tx).record(
+                actor=actor,
+                action="order.submitted",
+                target_type="order",
+                target_id=str(order.id),
+                result="success",
             )
 
-            if landing is None:
-                raise OrderValidationError("landing_slug", "Landing not found")
-
-            # The product relation is included by the query above. Binding it
-            # once keeps the checks below reading from a single non-optional
-            # value instead of re-deriving it through the relation each time.
-            product = landing.product
-            if product is None:
-                raise OrderValidationError("landing_slug", "Landing not found")
-
-            # Check product is active and landing is published
-            if product.status != "active":
-                raise OrderValidationError("landing_slug", "Product is not active")
-            if landing.status != "published":
-                raise OrderValidationError("landing_slug", "Landing is not published")
-
-            product_id = product.id
-            landing_id = landing.id
-
-            # 2b. Resolve the offer tier the buyer actually selected and price it.
-            #
-            # The quantity has to match a tier this landing offers, not merely be
-            # a plausible number: `validate_quantity` accepts 1-99, but a landing
-            # showing two offers has no price for 7 units. Rejecting here keeps a
-            # crafted request from ordering a quantity at a price the merchant
-            # never configured.
-            offers = parse_stored_offers(landing.offers, offer_count=landing.offerCount)
-            selected_offer = find_offer(offers, validated_quantity)
-            if selected_offer is None:
-                available = ", ".join(str(offer.quantity) for offer in offers)
-                raise OrderValidationError(
-                    "quantity",
-                    f"This landing only offers the following quantities: {available}.",
-                )
-
-            # The amount owed is fixed here and stored on the order. Re-deriving
-            # it later from the landing would let a discount edit rewrite what a
-            # courier is supposed to collect for an order already placed.
-            pricing = resolve_offer_pricing(product.price, selected_offer)
-
-            # 3. Atomically increment Redis rate-limit counters
-            config = _to_domain_fraud_config(await FraudConfigRepository(self._db).get())
-
-            # Rate limit for phone
-            phone_key = phone_rate_limit_key(validated_phone_key)
-            phone_result = await check_rate_limit(
-                self._redis,
-                phone_key,
-                max_attempts=config.rate_limit_max,
-                window_seconds=config.rate_limit_window_minutes * 60,
-            )
-
-            # Rate limit for IP
-            ip_key = ip_rate_limit_key(ip_address)
-            ip_result = await check_rate_limit(
-                self._redis,
-                ip_key,
-                max_attempts=config.rate_limit_max,
-                window_seconds=config.rate_limit_window_minutes * 60,
-            )
-
-            # 4. Run all fraud checks synchronously within one transaction
-            # Use a new transaction for fraud checks to ensure consistency
-            async with self._db.tx() as fraud_tx:
-                # Duplicate check
-                duplicate_flags = await check_duplicate(
-                    fraud_tx,
-                    phone_normalized_key=validated_phone_key,
-                    ip_address=ip_address,
-                    config=config,
-                )
-
-                # Blacklist check
-                blacklist_flags = await check_blacklist(
-                    fraud_tx,
-                    phone_normalized_key=validated_phone_key,
-                    ip_address=ip_address,
-                )
-
-                # GeoIP check
-                country, region, geoip_status = self._geoip.resolve(ip_address)
-                geoip_result = GeoIpResult(
-                    country=country,
-                    region=region,
-                    available=(geoip_status in ("resolved", "unresolved")),
-                )
-
-                geoip_rules = await fraud_tx.geoiprule.find_many(where={"enabled": True})
-                geoip_flags = check_geoip(geoip_result, geoip_rules)
-
-                # Rate limit flags from Redis results
-                rate_limit_phone_flags = check_rate_limit_phone(
-                    phone_result,
-                    window_minutes=config.rate_limit_window_minutes,
-                )
-                rate_limit_ip_flags = check_rate_limit_ip(
-                    ip_result,
-                    window_minutes=config.rate_limit_window_minutes,
-                )
-
-                # Aggregate all flags
-                all_flags = aggregate_flags(
-                    duplicate_flags
-                    + blacklist_flags
-                    + rate_limit_phone_flags
-                    + rate_limit_ip_flags
-                    + geoip_flags
-                )
-
-            # Determine status based on flags
-            status = FLAGGED_FRAUD_STATUS if all_flags else DEFAULT_ORDER_STATUS
-
-            # 5. Persist exactly one order (pending or flagged_fraud)
-            try:
-                async with self._db.tx() as persist_tx:
-                    # Create order
-                    order = await persist_tx.order.create(
-                        {
-                            "productId": product_id,
-                            "landingId": landing_id,
-                            "landingSlug": landing_slug,
-                            "customerName": validated_name,
-                            "phoneE164": validated_phone,
-                            "phoneNormalizedKey": validated_phone_key,
-                            "department": validated_department,
-                            "city": validated_city,
-                            "address": validated_address,
-                            "quantity": validated_quantity,
-                            "unitPrice": pricing.unit_price,
-                            "discountPercent": pricing.discount_percent,
-                            "totalPrice": pricing.total,
-                            "status": status,
-                            "ipAddress": ip_address,
-                            "userAgent": validated_user_agent,
-                        }
-                    )
-
-                    # Create fraud flags if any
-                    if all_flags:
-                        for flag in all_flags:
-                            await persist_tx.fraudflag.create(
-                                {
-                                    "orderId": order.id,
-                                    "flagType": flag.flag_type,
-                                    # `detail` is a jsonb column: Prisma needs
-                                    # the explicit Json wrapper, not a bare dict.
-                                    "detail": Json(flag.detail),
-                                }
-                            )
-
-                    # Record audit log
-                    audit = AuditLogRepository(persist_tx)
-                    await audit.record(
-                        actor=actor,
-                        action="order.submitted",
-                        target_type="order",
-                        target_id=str(order.id),
-                        result="success",
-                    )
-
-            except Exception as exc:
-                # Roll back on persistence error - no partial order
-                raise OrderValidationError("system", f"Order persistence failed: {exc}") from exc
-
-            # 6. Return result
-            return OrderSubmissionResult(
-                order_id=order.id,
-                status=status,
-                fraud_flags=all_flags,
-            )
+        # 6. Exiting the only transaction above successfully means the exact
+        # order returned here is committed and visible to the admin.
+        return OrderSubmissionResult(
+            order_id=order.id,
+            status=order_status,
+            fraud_flags=all_flags,
+        )

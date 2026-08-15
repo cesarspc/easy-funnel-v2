@@ -36,6 +36,9 @@ model Product {
   sku         String
   price       Decimal   @db.Decimal(12, 2)
   description String    @default("")
+  /// Zero to two fulfillment option groups configured only when the product
+  /// is created. Shape: `[{name, values}]`; existing products keep `[]`.
+  variantOptions Json @default("[]") @map("variant_options")
   status      String    @default("paused")
   retiredAt   DateTime? @map("retired_at") @db.Timestamptz
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -94,6 +97,9 @@ model Landing {
 
   /// How many quantity offers the COD form presents (1, 2, or 3).
   offerCount Int @default(3) @map("offer_count")
+
+  /// Quantity tier initially selected when the COD form opens.
+  defaultOfferQuantity Int @default(1) @map("default_offer_quantity")
 
   /// Per-offer copy and pricing, one entry per quantity from 1 to
   /// `offer_count`: `{quantity, label, sublabel, discount_percent,
@@ -255,6 +261,8 @@ model Order {
   city               String
   address            String
   quantity           Int
+  /// One immutable fulfillment selection per ordered unit.
+  variantSelections  Json @default("[]") @map("variant_selections")
 
   /// Money as charged, snapshotted at submission. The Landing's offer
   /// discounts are merchant-editable at any time, so re-deriving an order's
@@ -302,6 +310,9 @@ model FraudConfig {
   duplicateMatchFields   String[] @default(["phone", "ip"]) @map("duplicate_match_fields")
   rateLimitMax           Int      @default(5) @map("rate_limit_max")
   rateLimitWindowMinutes Int      @default(10) @map("rate_limit_window_minutes")
+  /// Canonical uppercase municipality names hidden from checkout and rejected
+  /// by the order service. A name bans every municipality with that name.
+  bannedCities             String[] @default([]) @map("banned_cities")
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("fraud_config")

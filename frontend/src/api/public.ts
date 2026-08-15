@@ -121,11 +121,32 @@ export interface PublicLandingOffer {
   label: string;
   sublabel: string | null;
   discount_percent: number;
+  discount_amount?: number | null;
   unit_price: number;
   gross: number;
   total: number;
   savings: number;
   compare_at_price: number | null;
+}
+
+export interface ProductVariantOption {
+  name: string;
+  values: string[];
+}
+
+export interface ColombianCity {
+  code: string;
+  name: string;
+}
+
+export interface ColombianDepartment {
+  code: string;
+  name: string;
+  cities: ColombianCity[];
+}
+
+export interface LocationCatalog {
+  departments: ColombianDepartment[];
 }
 
 export interface PublicLanding {
@@ -156,6 +177,8 @@ export interface PublicLanding {
   form_accent_palette?: AccentPalette;
   /** Absent on payloads cached before configurable offers existed. */
   offers?: PublicLandingOffer[];
+  default_offer_quantity?: number;
+  variant_options?: ProductVariantOption[];
   /** Custom CTA button text. Null means use default label. */
   cta_text?: string | null;
   /** CTA animation: "slide" (left-to-right) or "shake". Null means no animation. */
@@ -177,6 +200,7 @@ export interface OrderCreateRequest {
   city: string;
   address: string;
   quantity: number;
+  variant_selections?: Record<string, string>[];
 }
 
 export interface OrderCreateResponse {
@@ -191,6 +215,10 @@ export const publicApi = {
    */
   getLanding: async (slug: string): Promise<PublicLanding> => {
     return apiClient.get<PublicLanding>(`/public/landings/${encodeURIComponent(slug)}`);
+  },
+
+  getLocations: async (): Promise<LocationCatalog> => {
+    return apiClient.get<LocationCatalog>("/public/locations");
   },
 
   /**
