@@ -3,7 +3,7 @@ elements (Requirements 3.27-3.31).
 
 Two ideas own this module:
 
-**A fixed vocabulary, not a page builder.** Eight component types exist,
+**A fixed vocabulary, not a page builder.** Thirteen component types exist,
 each one a device that measurably moves cold cash-on-delivery traffic in this
 market: a top-of-page announcement bar, the COD assurance strip, benefit
 bullets, the price/saving statement, the included benefits list,
@@ -50,6 +50,11 @@ BLOCK_REVIEWS = "reviews"
 BLOCK_FAQ = "faq"
 BLOCK_GUARANTEE = "guarantee"
 BLOCK_ANNOUNCEMENT_BAR = "announcement_bar"
+BLOCK_MAIN_PROBLEM = "main_problem"
+BLOCK_SOLUTION_PRESENTATION = "solution_presentation"
+BLOCK_HOW_IT_WORKS = "how_it_works"
+BLOCK_AUDIENCE = "audience"
+BLOCK_MOMENT = "moment"
 
 # Mirrors the `landing_blocks_type_allowed` database check.
 ALLOWED_BLOCK_TYPES = (
@@ -61,13 +66,18 @@ ALLOWED_BLOCK_TYPES = (
     BLOCK_FAQ,
     BLOCK_GUARANTEE,
     BLOCK_ANNOUNCEMENT_BAR,
+    BLOCK_MAIN_PROBLEM,
+    BLOCK_SOLUTION_PRESENTATION,
+    BLOCK_HOW_IT_WORKS,
+    BLOCK_AUDIENCE,
+    BLOCK_MOMENT,
 )
 
 # 15 banners + one CTA band each is the longest sequence the page can render,
 # and one slot past the end is a legal placement ("after everything").
 MAX_SLOT_INDEX = 30
 MAX_ORDER_INDEX = 9
-MAX_BLOCKS_PER_LANDING = 12
+MAX_BLOCKS_PER_LANDING = 20
 
 _NOTE_MAX = 140
 _ITEM_MAX = 90
@@ -89,6 +99,13 @@ _BENEFIT_TAG_MAX = 20
 MAX_REVIEWS = 4
 MAX_FAQ_ITEMS = 6
 MAX_GUARANTEE_DAYS = 365
+MAX_STORY_CARDS = 6
+MAX_STEPS = 10
+MAX_AUDIENCE_ITEMS = 10
+MAX_GUARANTEE_BENEFITS = 4
+_LONG_TITLE_MAX = 160
+_CARD_TEXT_MAX = 280
+_KICKER_MAX = 60
 
 
 def validate_block_type(raw_type: str) -> str:
@@ -218,10 +235,22 @@ def _optional_accent_color(config: dict[str, Any]) -> str | None:
     return normalize_accent_color(raw, field="accent_color")
 
 
-def _optional_dark_mode(config: dict[str, Any]) -> bool:
-    """Return True when the merchant explicitly enabled dark mode for this block."""
+def _optional_dark_mode(config: dict[str, Any]) -> bool | None:
+    """Return an explicit block override, or ``None`` to inherit the Landing.
+
+    This must remain tri-state. Normalizing an absent value to ``False`` would
+    make every untouched block force light mode and bypass ``blocksDarkMode``.
+    """
     raw = config.get("dark_mode")
-    return raw is True or raw == "true" or raw == "1"
+    if raw is None or raw == "":
+        return None
+    if raw is True or raw in ("true", "1", "dark"):
+        return True
+    if raw is False or raw in ("false", "0", "light"):
+        return False
+    raise LandingValidationError(
+        "dark_mode", "Dark mode must inherit the landing, always light, or always dark."
+    )
 
 
 def _validate_announcement_bar(config: dict[str, Any]) -> dict[str, Any]:
@@ -460,14 +489,279 @@ def _validate_guarantee(config: dict[str, Any]) -> dict[str, Any]:
             raise LandingValidationError(
                 "days", f"Days must be between 1 and {MAX_GUARANTEE_DAYS}."
             )
+    raw_benefits = config.get("benefits")
+    benefits = (
+        []
+        if raw_benefits in (None, [])
+        else _validate_card_items(
+            raw_benefits,
+            field="benefits",
+            label="Guarantee benefit",
+            minimum=1,
+            maximum=MAX_GUARANTEE_BENEFITS,
+            text_required=False,
+        )
+    )
     return {
         "title": _require_text(
             config.get("title"), field="title", label="Title", maximum=_TITLE_MAX
         ),
         "text": _require_text(config.get("text"), field="text", label="Text", maximum=_TEXT_MAX),
         "days": days,
+        "eyebrow": _optional_text(
+            config.get("eyebrow"), field="eyebrow", label="Eyebrow", maximum=_KICKER_MAX
+        ),
+        "benefits": benefits,
         "accent_color": _optional_accent_color(config),
         "dark_mode": _optional_dark_mode(config),
+    }
+
+
+def _validate_card_items(
+    raw_items: Any,
+    *,
+    field: str,
+    label: str,
+    minimum: int,
+    maximum: int,
+    text_required: bool = True,
+    include_kicker: bool = False,
+) -> list[dict[str, str | None]]:
+    items = _require_list(raw_items, field=field, label=label)
+    if len(items) < minimum or len(items) > maximum:
+        raise LandingValidationError(
+            field, f"Add between {minimum} and {maximum} {label.lower()}s."
+        )
+    result: list[dict[str, str | None]] = []
+    for index, raw_item in enumerate(items):
+        if not isinstance(raw_item, dict):
+            raise LandingValidationError(field, f"{label} {index + 1} is incomplete.")
+        item: dict[str, str | None] = {
+            "title": _require_text(
+                raw_item.get("title"),
+                field=field,
+                label=f"{label} {index + 1}: title",
+                maximum=_TITLE_MAX,
+            ),
+            "text": (
+                _require_text(
+                    raw_item.get("text"),
+                    field=field,
+                    label=f"{label} {index + 1}: text",
+                    maximum=_CARD_TEXT_MAX,
+                )
+                if text_required
+                else _optional_text(
+                    raw_item.get("text"),
+                    field=field,
+                    label=f"{label} {index + 1}: text",
+                    maximum=_CARD_TEXT_MAX,
+                )
+            ),
+        }
+        if include_kicker:
+            item["kicker"] = _optional_text(
+                raw_item.get("kicker"),
+                field=field,
+                label=f"{label} {index + 1}: label",
+                maximum=_KICKER_MAX,
+            )
+        result.append(item)
+    return result
+
+
+def _validate_string_items(
+    raw_items: Any, *, field: str, label: str, minimum: int, maximum: int
+) -> list[str]:
+    items = _require_list(raw_items, field=field, label=label)
+    if len(items) < minimum or len(items) > maximum:
+        raise LandingValidationError(
+            field, f"Add between {minimum} and {maximum} {label.lower()}s."
+        )
+    return [
+        _require_text(item, field=field, label=f"{label} {index + 1}", maximum=_ITEM_MAX)
+        for index, item in enumerate(items)
+    ]
+
+
+def _shared_story_config(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
+    }
+
+
+def _validate_main_problem(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "eyebrow": _optional_text(
+            config.get("eyebrow"), field="eyebrow", label="Eyebrow", maximum=_KICKER_MAX
+        ),
+        "title": _require_text(
+            config.get("title"), field="title", label="Title", maximum=_LONG_TITLE_MAX
+        ),
+        "highlight": _optional_text(
+            config.get("highlight"),
+            field="highlight",
+            label="Highlighted title",
+            maximum=_LONG_TITLE_MAX,
+        ),
+        "subtitle": _optional_text(
+            config.get("subtitle"), field="subtitle", label="Subtitle", maximum=_TEXT_MAX
+        ),
+        "items": _validate_card_items(
+            config.get("items"),
+            field="items",
+            label="Problem",
+            minimum=1,
+            maximum=MAX_STORY_CARDS,
+        ),
+        **_shared_story_config(config),
+    }
+
+
+def _validate_solution_presentation(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "bridge_text": _optional_text(
+            config.get("bridge_text"),
+            field="bridge_text",
+            label="Bridge text",
+            maximum=_TEXT_MAX,
+        ),
+        "eyebrow": _optional_text(
+            config.get("eyebrow"), field="eyebrow", label="Eyebrow", maximum=_KICKER_MAX
+        ),
+        "title": _require_text(
+            config.get("title"), field="title", label="Title", maximum=_LONG_TITLE_MAX
+        ),
+        "highlight": _optional_text(
+            config.get("highlight"),
+            field="highlight",
+            label="Highlighted title",
+            maximum=_LONG_TITLE_MAX,
+        ),
+        "text": _require_text(config.get("text"), field="text", label="Description", maximum=500),
+        "supporting_text": _optional_text(
+            config.get("supporting_text"),
+            field="supporting_text",
+            label="Supporting text",
+            maximum=500,
+        ),
+        "items": _validate_card_items(
+            config.get("items"),
+            field="items",
+            label="Solution card",
+            minimum=1,
+            maximum=MAX_STORY_CARDS,
+            include_kicker=True,
+        ),
+        "final_title": _optional_text(
+            config.get("final_title"),
+            field="final_title",
+            label="Final title",
+            maximum=_LONG_TITLE_MAX,
+        ),
+        "final_highlight": _optional_text(
+            config.get("final_highlight"),
+            field="final_highlight",
+            label="Final highlight",
+            maximum=_LONG_TITLE_MAX,
+        ),
+        **_shared_story_config(config),
+    }
+
+
+def _validate_how_it_works(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "title": _require_text(
+            config.get("title"), field="title", label="Title", maximum=_LONG_TITLE_MAX
+        ),
+        "highlight": _optional_text(
+            config.get("highlight"), field="highlight", label="Highlight", maximum=_LONG_TITLE_MAX
+        ),
+        "subtitle": _optional_text(
+            config.get("subtitle"), field="subtitle", label="Subtitle", maximum=_TEXT_MAX
+        ),
+        "steps": _validate_card_items(
+            config.get("steps"),
+            field="steps",
+            label="Step",
+            minimum=1,
+            maximum=MAX_STEPS,
+            include_kicker=True,
+        ),
+        **_shared_story_config(config),
+    }
+
+
+def _validate_audience(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "title": _require_text(
+            config.get("title"), field="title", label="Title", maximum=_LONG_TITLE_MAX
+        ),
+        "highlight": _optional_text(
+            config.get("highlight"), field="highlight", label="Highlight", maximum=_LONG_TITLE_MAX
+        ),
+        "positive_title": _require_text(
+            config.get("positive_title"),
+            field="positive_title",
+            label="Positive column title",
+            maximum=_TITLE_MAX,
+        ),
+        "positive_subtitle": _optional_text(
+            config.get("positive_subtitle"),
+            field="positive_subtitle",
+            label="Positive column subtitle",
+            maximum=_NOTE_MAX,
+        ),
+        "positive_items": _validate_string_items(
+            config.get("positive_items"),
+            field="positive_items",
+            label="Positive item",
+            minimum=1,
+            maximum=MAX_AUDIENCE_ITEMS,
+        ),
+        "negative_title": _require_text(
+            config.get("negative_title"),
+            field="negative_title",
+            label="Negative column title",
+            maximum=_TITLE_MAX,
+        ),
+        "negative_subtitle": _optional_text(
+            config.get("negative_subtitle"),
+            field="negative_subtitle",
+            label="Negative column subtitle",
+            maximum=_NOTE_MAX,
+        ),
+        "negative_items": _validate_string_items(
+            config.get("negative_items"),
+            field="negative_items",
+            label="Negative item",
+            minimum=1,
+            maximum=MAX_AUDIENCE_ITEMS,
+        ),
+        "footer": _optional_text(
+            config.get("footer"), field="footer", label="Footer", maximum=_TEXT_MAX
+        ),
+        **_shared_story_config(config),
+    }
+
+
+def _validate_moment(config: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "title": _require_text(
+            config.get("title"), field="title", label="Title", maximum=_LONG_TITLE_MAX
+        ),
+        "highlight": _require_text(
+            config.get("highlight"), field="highlight", label="Highlight", maximum=_LONG_TITLE_MAX
+        ),
+        "text": _require_text(config.get("text"), field="text", label="Text", maximum=_TEXT_MAX),
+        "emphasis": _optional_text(
+            config.get("emphasis"), field="emphasis", label="Emphasis", maximum=_TEXT_MAX
+        ),
+        "footer": _optional_text(
+            config.get("footer"), field="footer", label="Footer", maximum=_TEXT_MAX
+        ),
+        **_shared_story_config(config),
     }
 
 
@@ -480,6 +774,11 @@ _VALIDATORS = {
     BLOCK_FAQ: _validate_faq,
     BLOCK_GUARANTEE: _validate_guarantee,
     BLOCK_ANNOUNCEMENT_BAR: _validate_announcement_bar,
+    BLOCK_MAIN_PROBLEM: _validate_main_problem,
+    BLOCK_SOLUTION_PRESENTATION: _validate_solution_presentation,
+    BLOCK_HOW_IT_WORKS: _validate_how_it_works,
+    BLOCK_AUDIENCE: _validate_audience,
+    BLOCK_MOMENT: _validate_moment,
 }
 
 

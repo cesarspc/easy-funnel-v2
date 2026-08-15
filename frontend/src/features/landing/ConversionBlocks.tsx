@@ -1,5 +1,5 @@
 /**
- * The eight pre-defined conversion components a landing can place, including
+ * Fixed conversion components a landing can place between page elements or
  * above its first banner (Requirements 3.27-3.31).
  *
  * Every component's presentation lives here and nowhere else: the merchant
@@ -49,9 +49,10 @@
  *   with order-number / phone-tail / date proof lines per review.
  * - `faq` — native `<details>` accordion: answers objections without
  *   pushing the CTA off the screen.
- * - `guarantee` — risk reversal, stated once, plainly, or — when the
- *   merchant supplies `stats` — the richer store-trust badge (checkmark,
- *   confidence meter, proof stats) from the reference screenshots.
+ * - `guarantee` — risk reversal, stated once, plainly, or as a richer
+ *   shield-and-benefits card when the merchant supplies benefit cards.
+ * - The five story components turn the problem, solution, process, audience,
+ *   and decision moment into a coherent long-form sales sequence.
  */
 
 import type { CSSProperties, JSX } from "react";
@@ -252,6 +253,26 @@ interface TrustStat {
   label: string;
 }
 
+interface StoryCard {
+  title: string;
+  text: string | null;
+  kicker: string | null;
+}
+
+function asStoryCards(value: unknown): StoryCard[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const candidate = item as Record<string, unknown>;
+    if (typeof candidate.title !== "string") return [];
+    return [{
+      title: candidate.title,
+      text: typeof candidate.text === "string" ? candidate.text : null,
+      kicker: typeof candidate.kicker === "string" ? candidate.kicker : null,
+    }];
+  });
+}
+
 function asTrustStats(value: unknown): TrustStat[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
@@ -265,6 +286,15 @@ function asTrustStats(value: unknown): TrustStat[] {
 function BlockHeading({ title }: { title?: string | null }): JSX.Element | null {
   if (!title) return null;
   return <h2 className="cblock__title">{title}</h2>;
+}
+
+function StoryTitle({ title, highlight }: { title: string; highlight?: string | null }): JSX.Element {
+  return (
+    <h2 className="cblock__story-title">
+      <span>{title}</span>
+      {highlight && <strong>{highlight}</strong>}
+    </h2>
+  );
 }
 
 const URGENCY_ICONS = ["⏰", "📦", "🚚", "🔥", "🎁"];
@@ -858,6 +888,157 @@ function Faq({
   );
 }
 
+const STORY_ICONS = ["◷", "◎", "$", "◆", "↗", "✓"];
+
+function MainProblem({ config, palette }: { config: ConversionBlockConfig; palette: AccentPalette | null }): JSX.Element | null {
+  const loose = config as LooseConfig;
+  const title = asOptionalString(loose.title);
+  const items = asStoryCards(loose.items);
+  if (!title || items.length === 0) return null;
+  return (
+    <section className="cblock cblock--story cblock--problem" style={accentStyle(palette)}>
+      <div className="cblock__story-head">
+        {asOptionalString(loose.eyebrow) && <p className="cblock__story-eyebrow">△ {String(loose.eyebrow)}</p>}
+        <StoryTitle title={title} highlight={asOptionalString(loose.highlight)} />
+        {asOptionalString(loose.subtitle) && <p className="cblock__story-subtitle">{String(loose.subtitle)}</p>}
+      </div>
+      <ul className="cblock__story-grid cblock__problem-grid">
+        {items.map((item, index) => (
+          <li className="cblock__story-card" key={`${item.title}-${index}`}>
+            <span className="cblock__story-icon" aria-hidden="true">{STORY_ICONS[index % STORY_ICONS.length]}</span>
+            <h3>{item.title}</h3>
+            {item.text && <p>{item.text}</p>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SolutionPresentation({ config, palette }: { config: ConversionBlockConfig; palette: AccentPalette | null }): JSX.Element | null {
+  const loose = config as LooseConfig;
+  const title = asOptionalString(loose.title);
+  const text = asOptionalString(loose.text);
+  const items = asStoryCards(loose.items);
+  if (!title || !text || items.length === 0) return null;
+  const finalTitle = asOptionalString(loose.final_title);
+  const finalHighlight = asOptionalString(loose.final_highlight);
+  return (
+    <section className="cblock cblock--story cblock--solution" style={accentStyle(palette)}>
+      {asOptionalString(loose.bridge_text) && (
+        <p className="cblock__solution-bridge">{String(loose.bridge_text)}</p>
+      )}
+      <div className="cblock__solution-layout">
+        <div className="cblock__solution-copy">
+          {asOptionalString(loose.eyebrow) && <p className="cblock__story-eyebrow">{String(loose.eyebrow)}</p>}
+          <StoryTitle title={title} highlight={asOptionalString(loose.highlight)} />
+          <p className="cblock__story-subtitle">{text}</p>
+          {asOptionalString(loose.supporting_text) && <p className="cblock__solution-support">{String(loose.supporting_text)}</p>}
+        </div>
+        <ul className="cblock__solution-grid">
+          {items.map((item, index) => (
+            <li className="cblock__story-card" key={`${item.title}-${index}`}>
+              <span className="cblock__story-icon" aria-hidden="true">{STORY_ICONS[(index + 2) % STORY_ICONS.length]}</span>
+              <h3>{item.title}</h3>
+              {item.text && <p>{item.text}</p>}
+              {item.kicker && <small>{item.kicker}</small>}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {(finalTitle || finalHighlight) && (
+        <div className="cblock__solution-final">
+          {finalTitle && <span>{finalTitle}</span>}
+          {finalHighlight && <strong>{finalHighlight}</strong>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function HowItWorks({ config, palette }: { config: ConversionBlockConfig; palette: AccentPalette | null }): JSX.Element | null {
+  const loose = config as LooseConfig;
+  const title = asOptionalString(loose.title);
+  const steps = asStoryCards(loose.steps);
+  if (!title || steps.length === 0) return null;
+  return (
+    <section className="cblock cblock--story cblock--story-steps" style={accentStyle(palette)}>
+      <div className="cblock__story-head">
+        <StoryTitle title={title} highlight={asOptionalString(loose.highlight)} />
+        {asOptionalString(loose.subtitle) && <p className="cblock__story-subtitle">{String(loose.subtitle)}</p>}
+      </div>
+      <ol className="cblock__story-timeline">
+        {steps.map((step, index) => (
+          <li key={`${step.title}-${index}`}>
+            <span className="cblock__timeline-number">{String(index + 1).padStart(2, "0")}</span>
+            <div>
+              {step.kicker && <small>{step.kicker}</small>}
+              <h3>{step.title}</h3>
+              {step.text && <p>{step.text}</p>}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function Audience({ config, palette }: { config: ConversionBlockConfig; palette: AccentPalette | null }): JSX.Element | null {
+  const loose = config as LooseConfig;
+  const title = asOptionalString(loose.title);
+  const positiveItems = asStrings(loose.positive_items);
+  const negativeItems = asStrings(loose.negative_items);
+  if (!title || positiveItems.length === 0 || negativeItems.length === 0) return null;
+  const columns = [
+    {
+      kind: "yes",
+      title: asOptionalString(loose.positive_title) ?? "ES PARA TI",
+      subtitle: asOptionalString(loose.positive_subtitle),
+      items: positiveItems,
+    },
+    {
+      kind: "no",
+      title: asOptionalString(loose.negative_title) ?? "NO ES PARA TI",
+      subtitle: asOptionalString(loose.negative_subtitle),
+      items: negativeItems,
+    },
+  ];
+  return (
+    <section className="cblock cblock--story cblock--audience" style={accentStyle(palette)}>
+      <div className="cblock__story-head"><StoryTitle title={title} highlight={asOptionalString(loose.highlight)} /></div>
+      <div className="cblock__audience-grid">
+        {columns.map((column) => (
+          <article className={`cblock__audience-card cblock__audience-card--${column.kind}`} key={column.kind}>
+            <header>
+              <span aria-hidden="true">{column.kind === "yes" ? "✓" : "×"}</span>
+              <div><h3>{column.title}</h3>{column.subtitle && <p>{column.subtitle}</p>}</div>
+            </header>
+            <ul>{column.items.map((item) => <li key={item}>{item}</li>)}</ul>
+          </article>
+        ))}
+      </div>
+      {asOptionalString(loose.footer) && <p className="cblock__audience-footer">{String(loose.footer)}</p>}
+    </section>
+  );
+}
+
+function Moment({ config, palette }: { config: ConversionBlockConfig; palette: AccentPalette | null }): JSX.Element | null {
+  const loose = config as LooseConfig;
+  const title = asOptionalString(loose.title);
+  const highlight = asOptionalString(loose.highlight);
+  const text = asOptionalString(loose.text);
+  if (!title || !highlight || !text) return null;
+  return (
+    <section className="cblock cblock--story cblock--moment" style={accentStyle(palette)}>
+      <span className="cblock__moment-rule" aria-hidden="true" />
+      <StoryTitle title={title} highlight={highlight} />
+      <p>{text}</p>
+      {asOptionalString(loose.emphasis) && <strong className="cblock__moment-emphasis">{String(loose.emphasis)}</strong>}
+      {asOptionalString(loose.footer) && <small>{String(loose.footer)}</small>}
+    </section>
+  );
+}
+
 /**
  * Risk reversal. With `stats`, renders as the richer store-trust badge from
  * the reference screenshots (checkmark, confidence meter, proof stats).
@@ -873,6 +1054,36 @@ function Guarantee({
   if (!config.title || !config.text) return null;
   const loose = config as LooseConfig;
   const stats = asTrustStats(loose.stats);
+  const benefits = asStoryCards(loose.benefits);
+
+  if (benefits.length > 0) {
+    return (
+      <section className="cblock cblock--story cblock--guarantee-rich" style={accentStyle(palette)}>
+        {asOptionalString(loose.eyebrow) && <p className="cblock__story-eyebrow">{String(loose.eyebrow)}</p>}
+        <div className="cblock__guarantee-shield" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+            <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+            <path d="M8.5 12.5l2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {typeof config.days === "number" && <span>{config.days}</span>}
+        </div>
+        <h2 className="cblock__guarantee-rich-title">
+          <span>{config.title}</span>
+          {typeof config.days === "number" && <strong>Total de {config.days} días</strong>}
+        </h2>
+        <p className="cblock__guarantee-rich-text">{config.text}</p>
+        <ul className="cblock__guarantee-benefits">
+          {benefits.map((benefit, index) => (
+            <li key={`${benefit.title}-${index}`}>
+              <span aria-hidden="true">{STORY_ICONS[(index + 3) % STORY_ICONS.length]}</span>
+              <h3>{benefit.title}</h3>
+              {benefit.text && <p>{benefit.text}</p>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
 
   if (stats.length === 0) {
     return (
@@ -951,6 +1162,21 @@ export function ConversionBlockView({
       break;
     case "guarantee":
       content = <Guarantee config={config} palette={palette} />;
+      break;
+    case "main_problem":
+      content = <MainProblem config={config} palette={palette} />;
+      break;
+    case "solution_presentation":
+      content = <SolutionPresentation config={config} palette={palette} />;
+      break;
+    case "how_it_works":
+      content = <HowItWorks config={config} palette={palette} />;
+      break;
+    case "audience":
+      content = <Audience config={config} palette={palette} />;
+      break;
+    case "moment":
+      content = <Moment config={config} palette={palette} />;
       break;
     default:
       content = null;

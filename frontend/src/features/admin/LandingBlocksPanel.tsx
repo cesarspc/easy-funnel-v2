@@ -1,7 +1,7 @@
 /**
  * Conversion components panel of the landing editor (Requirements 3.27-3.31).
  *
- * The Administrator does exactly two things here: choose one of the seven
+ * The Administrator does exactly two things here: choose one of the fixed
  * pre-defined components and the position it occupies, and write its content.
  * There is no control for spacing, color, type, or width — those are fixed in
  * the public landing chrome and tuned for conversion, so this panel cannot
@@ -68,6 +68,26 @@ const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
     label: "Garantía",
     purpose: "Reduce el riesgo percibido con una promesa clara que puedas cumplir.",
   },
+  main_problem: {
+    label: "Problema principal",
+    purpose: "Presenta el problema central y sus síntomas en tarjetas editables.",
+  },
+  solution_presentation: {
+    label: "Presentación de solución",
+    purpose: "Conecta el problema con tu solución, sus pilares y un cierre opcional.",
+  },
+  how_it_works: {
+    label: "Cómo funciona",
+    purpose: "Explica el proceso como una secuencia de pasos clara y móvil.",
+  },
+  audience: {
+    label: "Para quién es",
+    purpose: "Aclara para quién sí y para quién no es el producto.",
+  },
+  moment: {
+    label: "Momento",
+    purpose: "Crea una pausa breve con un mensaje de decisión y acción.",
+  },
 };
 
 const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
@@ -78,6 +98,11 @@ const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
   "included_benefits",
   "reviews",
   "faq",
+  "main_problem",
+  "solution_presentation",
+  "how_it_works",
+  "audience",
+  "moment",
   "guarantee",
 ];
 
@@ -105,7 +130,72 @@ function defaultDraft(type: ConversionBlockType): Draft {
     case "faq":
       return { title: "", items: [{ question: "", answer: "" }], accent_color: "" };
     case "guarantee":
-      return { title: "", text: "", days: "", accent_color: "" };
+      return {
+        eyebrow: "Compra protegida",
+        title: "Garantía total",
+        text: "Pruébalo con tranquilidad. Si no es para ti, solicita la devolución dentro del plazo.",
+        days: "7",
+        benefits: [
+          { title: "Riesgo cero", text: "Tu compra está protegida." },
+          { title: "Devolución rápida", text: "Proceso simple y claro." },
+          { title: "Sin preguntas", text: "Sin trámites innecesarios." },
+        ],
+        accent_color: "",
+      };
+    case "main_problem":
+      return {
+        eyebrow: "Si esto te suena familiar, sigue leyendo",
+        title: "La razón por la que",
+        highlight: "todavía tienes este problema",
+        subtitle: "No es falta de esfuerzo. Necesitas una solución creada para esta situación.",
+        items: [
+          { title: "Problema principal", text: "Describe cómo se siente este problema." },
+        ],
+        accent_color: "",
+      };
+    case "solution_presentation":
+      return {
+        bridge_text: "Si te identificaste con estos puntos, esta solución fue creada para ti.",
+        eyebrow: "La solución",
+        title: "Presentamos",
+        highlight: "TU SOLUCIÓN",
+        text: "Explica en una frase clara qué es y qué resultado ayuda a conseguir.",
+        supporting_text: "Agrega aquí una prueba o diferenciador importante.",
+        items: [{ title: "Pilar principal", text: "Describe esta parte de la solución.", kicker: "" }],
+        final_title: "",
+        final_highlight: "",
+        accent_color: "",
+      };
+    case "how_it_works":
+      return {
+        title: "Cómo funciona",
+        highlight: "PASO A PASO",
+        subtitle: "Un proceso claro, sin complicaciones.",
+        steps: [{ kicker: "Paso 1", title: "Primer paso", text: "Explica qué debe hacer." }],
+        accent_color: "",
+      };
+    case "audience":
+      return {
+        title: "Para quién es",
+        highlight: "este producto",
+        positive_title: "ES PARA TI",
+        positive_subtitle: "Si te identificas con esto",
+        positive_items: ["Persona que busca una solución práctica"],
+        negative_title: "NO ES PARA TI",
+        negative_subtitle: "Si buscas esto, no es la opción indicada",
+        negative_items: ["Persona que espera resultados sin seguir las indicaciones"],
+        footer: "",
+        accent_color: "",
+      };
+    case "moment":
+      return {
+        title: "¿Sigues esperando el",
+        highlight: "momento perfecto?",
+        text: "El momento perfecto no existe. Los resultados empiezan cuando decides actuar.",
+        emphasis: "Actúa aunque no esté todo listo.",
+        footer: "",
+        accent_color: "",
+      };
     default:
       return {};
   }
@@ -154,6 +244,148 @@ function FieldError({ id, message }: { id: string; message?: string }): JSX.Elem
   );
 }
 
+interface RepeatField {
+  key: string;
+  label: string;
+  placeholder: string;
+  maxLength: number;
+  textarea?: boolean;
+}
+
+function RecordItemsEditor({
+  legend,
+  value,
+  onChange,
+  fields,
+  minimum = 1,
+  maximum,
+  addLabel,
+  removeLabel,
+  error,
+  idPrefix,
+}: {
+  legend: string;
+  value: unknown;
+  onChange: (items: Record<string, unknown>[]) => void;
+  fields: RepeatField[];
+  minimum?: number;
+  maximum: number;
+  addLabel: string;
+  removeLabel: string;
+  error?: string;
+  idPrefix: string;
+}): JSX.Element {
+  const items = asRecordList(value);
+  return (
+    <fieldset className="lblocks__fieldset">
+      <legend className="landings-field__label">{legend}</legend>
+      {items.map((item, index) => (
+        <div className="lblocks__group" key={index}>
+          {fields.map((field) => {
+            const shared = {
+              className: "landings-field__input",
+              "aria-label": `${field.label} ${index + 1}`,
+              placeholder: field.placeholder,
+              maxLength: field.maxLength,
+              value: textValue(item, field.key),
+              onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                const next = [...items];
+                next[index] = { ...item, [field.key]: event.target.value };
+                onChange(next);
+              },
+            };
+            return field.textarea ? (
+              <textarea key={field.key} {...shared} rows={3} />
+            ) : (
+              <input key={field.key} {...shared} />
+            );
+          })}
+          {items.length > minimum && (
+            <button
+              type="button"
+              className="landings-table__action"
+              onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}
+            >
+              {removeLabel}
+            </button>
+          )}
+        </div>
+      ))}
+      {items.length < maximum && (
+        <button
+          type="button"
+          className="landings-table__action"
+          onClick={() =>
+            onChange([...items, Object.fromEntries(fields.map((field) => [field.key, ""]))])
+          }
+        >
+          {addLabel}
+        </button>
+      )}
+      <FieldError id={`${idPrefix}-error`} message={error} />
+    </fieldset>
+  );
+}
+
+function StringItemsEditor({
+  legend,
+  value,
+  onChange,
+  maximum,
+  addLabel,
+  error,
+  idPrefix,
+}: {
+  legend: string;
+  value: unknown;
+  onChange: (items: string[]) => void;
+  maximum: number;
+  addLabel: string;
+  error?: string;
+  idPrefix: string;
+}): JSX.Element {
+  const items = asStringList(value, 1);
+  return (
+    <fieldset className="lblocks__fieldset">
+      <legend className="landings-field__label">{legend}</legend>
+      {items.map((item, index) => (
+        <div className="lblocks__row" key={index}>
+          <input
+            className="landings-field__input"
+            aria-label={`${legend} ${index + 1}`}
+            value={item}
+            maxLength={90}
+            onChange={(event) => {
+              const next = [...items];
+              next[index] = event.target.value;
+              onChange(next);
+            }}
+          />
+          {items.length > 1 && (
+            <button
+              type="button"
+              className="landings-table__action"
+              onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}
+            >
+              Quitar
+            </button>
+          )}
+        </div>
+      ))}
+      {items.length < maximum && (
+        <button
+          type="button"
+          className="landings-table__action"
+          onClick={() => onChange([...items, ""])}
+        >
+          {addLabel}
+        </button>
+      )}
+      <FieldError id={`${idPrefix}-error`} message={error} />
+    </fieldset>
+  );
+}
+
 function ContentEditor({
   type,
   draft,
@@ -164,6 +396,33 @@ function ContentEditor({
 }: EditorProps): JSX.Element {
   function set(key: string, value: unknown) {
     onChange({ ...draft, [key]: value });
+  }
+
+  function storyTextField(
+    key: string,
+    label: string,
+    placeholder: string,
+    maximum: number,
+    textarea = false,
+  ): JSX.Element {
+    const inputProps = {
+      id: `${idPrefix}-${key}`,
+      className: "landings-field__input",
+      value: textValue(draft, key),
+      maxLength: maximum,
+      placeholder,
+      onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        set(key, event.target.value),
+    };
+    return (
+      <div className="landings-field">
+        <label className="landings-field__label" htmlFor={`${idPrefix}-${key}`}>
+          {label}
+        </label>
+        {textarea ? <textarea {...inputProps} rows={3} /> : <input {...inputProps} />}
+        <FieldError id={`${idPrefix}-${key}-error`} message={fieldErrors[key]} />
+      </div>
+    );
   }
 
   const titleField = (
@@ -184,7 +443,7 @@ function ContentEditor({
 
   // Every component type accepts this same optional override: a color for its
   // own buttons/lines/background, in place of the landing's form accent. One
-  // field, shared across all eight editors, so adding it here cannot drift
+  // field, shared across every editor, so adding it here cannot drift
   // per type the way a copy-pasted field eventually would.
   const accentColorField = (
     <div className="landings-field">
@@ -615,6 +874,7 @@ function ContentEditor({
     case "guarantee":
       return (
         <div className="lblocks__editor">
+          {storyTextField("eyebrow", "Etiqueta superior (opcional)", "Compra protegida", 60)}
           <div className="landings-field">
             <label className="landings-field__label" htmlFor={`${idPrefix}-title`}>
               Título
@@ -658,6 +918,149 @@ function ContentEditor({
             />
             <FieldError id={`${idPrefix}-days-error`} message={fieldErrors.days} />
           </div>
+          <RecordItemsEditor
+            legend="Beneficios de la garantía (hasta 4)"
+            value={draft.benefits}
+            onChange={(items) => set("benefits", items)}
+            fields={[
+              { key: "title", label: "Título de beneficio", placeholder: "Riesgo cero", maxLength: 80 },
+              { key: "text", label: "Texto de beneficio", placeholder: "Tu compra está protegida", maxLength: 280, textarea: true },
+            ]}
+            maximum={4}
+            addLabel="Agregar beneficio"
+            removeLabel="Quitar beneficio"
+            error={fieldErrors.benefits}
+            idPrefix={`${idPrefix}-benefits`}
+          />
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "main_problem":
+      return (
+        <div className="lblocks__editor">
+          {storyTextField("eyebrow", "Etiqueta superior (opcional)", "Si esto te suena familiar", 60)}
+          {storyTextField("title", "Título", "La razón por la que", 160)}
+          {storyTextField("highlight", "Línea destacada (opcional)", "todavía tienes este problema", 160)}
+          {storyTextField("subtitle", "Subtítulo (opcional)", "Explica por qué sucede", 320, true)}
+          <RecordItemsEditor
+            legend="Problemas (hasta 6)"
+            value={draft.items}
+            onChange={(items) => set("items", items)}
+            fields={[
+              { key: "title", label: "Título del problema", placeholder: "Problema", maxLength: 80 },
+              { key: "text", label: "Descripción del problema", placeholder: "Describe la situación", maxLength: 280, textarea: true },
+            ]}
+            maximum={6}
+            addLabel="Agregar problema"
+            removeLabel="Quitar problema"
+            error={fieldErrors.items}
+            idPrefix={`${idPrefix}-problems`}
+          />
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "solution_presentation":
+      return (
+        <div className="lblocks__editor">
+          {storyTextField("bridge_text", "Texto puente (opcional)", "Si te identificaste, esto es para ti", 320, true)}
+          {storyTextField("eyebrow", "Etiqueta superior (opcional)", "La solución", 60)}
+          {storyTextField("title", "Título", "Presentamos", 160)}
+          {storyTextField("highlight", "Línea destacada (opcional)", "TU SOLUCIÓN", 160)}
+          {storyTextField("text", "Descripción", "Explica qué es y qué resultado entrega", 500, true)}
+          {storyTextField("supporting_text", "Texto de respaldo (opcional)", "Prueba o diferenciador", 500, true)}
+          <RecordItemsEditor
+            legend="Pilares de la solución (hasta 6)"
+            value={draft.items}
+            onChange={(items) => set("items", items)}
+            fields={[
+              { key: "title", label: "Título del pilar", placeholder: "Pilar", maxLength: 80 },
+              { key: "text", label: "Descripción del pilar", placeholder: "Qué incluye", maxLength: 280, textarea: true },
+              { key: "kicker", label: "Etiqueta del pilar", placeholder: "Módulos 1-3 (opcional)", maxLength: 60 },
+            ]}
+            maximum={6}
+            addLabel="Agregar pilar"
+            removeLabel="Quitar pilar"
+            error={fieldErrors.items}
+            idPrefix={`${idPrefix}-solution-items`}
+          />
+          {storyTextField("final_title", "Título final (opcional)", "Un solo sistema", 160)}
+          {storyTextField("final_highlight", "Línea final destacada (opcional)", "Resultados reales", 160)}
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "how_it_works":
+      return (
+        <div className="lblocks__editor">
+          {storyTextField("title", "Título", "Cómo funciona", 160)}
+          {storyTextField("highlight", "Línea destacada (opcional)", "PASO A PASO", 160)}
+          {storyTextField("subtitle", "Subtítulo (opcional)", "Un proceso claro", 320)}
+          <RecordItemsEditor
+            legend="Pasos (hasta 10)"
+            value={draft.steps}
+            onChange={(items) => set("steps", items)}
+            fields={[
+              { key: "kicker", label: "Momento del paso", placeholder: "Día 1 / Paso 1", maxLength: 60 },
+              { key: "title", label: "Título del paso", placeholder: "Primer paso", maxLength: 80 },
+              { key: "text", label: "Descripción del paso", placeholder: "Qué sucede aquí", maxLength: 280, textarea: true },
+            ]}
+            maximum={10}
+            addLabel="Agregar paso"
+            removeLabel="Quitar paso"
+            error={fieldErrors.steps}
+            idPrefix={`${idPrefix}-steps`}
+          />
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "audience":
+      return (
+        <div className="lblocks__editor">
+          {storyTextField("title", "Título", "Para quién es", 160)}
+          {storyTextField("highlight", "Línea destacada (opcional)", "este producto", 160)}
+          {storyTextField("positive_title", "Título positivo", "ES PARA TI", 80)}
+          {storyTextField("positive_subtitle", "Subtítulo positivo (opcional)", "Si te identificas", 140)}
+          <StringItemsEditor
+            legend="Sí es para"
+            value={draft.positive_items}
+            onChange={(items) => set("positive_items", items)}
+            maximum={10}
+            addLabel="Agregar perfil positivo"
+            error={fieldErrors.positive_items}
+            idPrefix={`${idPrefix}-positive`}
+          />
+          {storyTextField("negative_title", "Título negativo", "NO ES PARA TI", 80)}
+          {storyTextField("negative_subtitle", "Subtítulo negativo (opcional)", "Si buscas esto", 140)}
+          <StringItemsEditor
+            legend="No es para"
+            value={draft.negative_items}
+            onChange={(items) => set("negative_items", items)}
+            maximum={10}
+            addLabel="Agregar perfil negativo"
+            error={fieldErrors.negative_items}
+            idPrefix={`${idPrefix}-negative`}
+          />
+          {storyTextField("footer", "Cierre (opcional)", "Aclara aquí una condición importante", 320, true)}
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "moment":
+      return (
+        <div className="lblocks__editor">
+          {storyTextField("title", "Título", "¿Sigues esperando el", 160)}
+          {storyTextField("highlight", "Línea destacada", "momento perfecto?", 160)}
+          {storyTextField("text", "Texto", "El momento perfecto no existe", 320, true)}
+          {storyTextField("emphasis", "Frase enfatizada (opcional)", "Actúa aunque no esté todo listo", 320)}
+          {storyTextField("footer", "Texto final (opcional)", "Mientras lees esto, otros ya empezaron", 320)}
           {accentColorField}
           {darkModeField}
         </div>

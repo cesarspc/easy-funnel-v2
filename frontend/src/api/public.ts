@@ -51,13 +51,18 @@ export type ConversionBlockType =
   | "included_benefits"
   | "reviews"
   | "faq"
-  | "guarantee";
+  | "guarantee"
+  | "main_problem"
+  | "solution_presentation"
+  | "how_it_works"
+  | "audience"
+  | "moment";
 
 export interface ConversionBlockConfig {
   title?: string | null;
   note?: string | null;
   items?: unknown[];
-  steps?: string[];
+  steps?: unknown[];
   text?: string | null;
   days?: number | null;
   compare_at_price?: number | null;

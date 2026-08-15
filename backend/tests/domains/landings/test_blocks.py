@@ -14,13 +14,18 @@ import pytest
 from app.domains.landings.blocks import (
     ALLOWED_BLOCK_TYPES,
     BLOCK_ANNOUNCEMENT_BAR,
+    BLOCK_AUDIENCE,
     BLOCK_BENEFITS,
     BLOCK_COD_ASSURANCE,
     BLOCK_FAQ,
     BLOCK_GUARANTEE,
+    BLOCK_HOW_IT_WORKS,
     BLOCK_INCLUDED_BENEFITS,
+    BLOCK_MAIN_PROBLEM,
+    BLOCK_MOMENT,
     BLOCK_OFFER_PRICE,
     BLOCK_REVIEWS,
+    BLOCK_SOLUTION_PRESENTATION,
     MAX_BLOCKS_PER_LANDING,
     MAX_SLOT_INDEX,
     slot_labels,
@@ -42,7 +47,44 @@ SUPPORTED_KEYS = {
     BLOCK_INCLUDED_BENEFITS: {"title", "items", "accent_color", "dark_mode"},
     BLOCK_REVIEWS: {"title", "items", "accent_color", "dark_mode"},
     BLOCK_FAQ: {"title", "items", "accent_color", "dark_mode"},
-    BLOCK_GUARANTEE: {"title", "text", "days", "accent_color", "dark_mode"},
+    BLOCK_GUARANTEE: {"title", "text", "days", "eyebrow", "benefits", "accent_color", "dark_mode"},
+    BLOCK_MAIN_PROBLEM: {
+        "eyebrow",
+        "title",
+        "highlight",
+        "subtitle",
+        "items",
+        "accent_color",
+        "dark_mode",
+    },
+    BLOCK_SOLUTION_PRESENTATION: {
+        "bridge_text",
+        "eyebrow",
+        "title",
+        "highlight",
+        "text",
+        "supporting_text",
+        "items",
+        "final_title",
+        "final_highlight",
+        "accent_color",
+        "dark_mode",
+    },
+    BLOCK_HOW_IT_WORKS: {"title", "highlight", "subtitle", "steps", "accent_color", "dark_mode"},
+    BLOCK_AUDIENCE: {
+        "title",
+        "highlight",
+        "positive_title",
+        "positive_subtitle",
+        "positive_items",
+        "negative_title",
+        "negative_subtitle",
+        "negative_items",
+        "footer",
+        "accent_color",
+        "dark_mode",
+    },
+    BLOCK_MOMENT: {"title", "highlight", "text", "emphasis", "footer", "accent_color", "dark_mode"},
 }
 
 
@@ -50,8 +92,8 @@ class TestVocabulary:
     def test_every_type_has_a_validator_and_key_set(self) -> None:
         assert set(SUPPORTED_KEYS) == set(ALLOWED_BLOCK_TYPES)
 
-    def test_eight_types_exist(self) -> None:
-        assert len(ALLOWED_BLOCK_TYPES) == 8
+    def test_thirteen_types_exist(self) -> None:
+        assert len(ALLOWED_BLOCK_TYPES) == 13
 
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_known_type_is_accepted(self, block_type: str) -> None:
@@ -143,20 +185,20 @@ class TestContentValidation:
         assert excinfo.value.field == "text"
 
         result = validate_block_config(BLOCK_ANNOUNCEMENT_BAR, {"text": "  Envío gratis  "})
-        assert result == {"text": "Envío gratis", "accent_color": None, "dark_mode": False}
+        assert result == {"text": "Envío gratis", "accent_color": None, "dark_mode": None}
 
     def test_cod_assurance_needs_no_content(self) -> None:
         assert validate_block_config(BLOCK_COD_ASSURANCE, {}) == {
             "note": None,
             "accent_color": None,
-            "dark_mode": False,
+            "dark_mode": None,
         }
 
     def test_cod_assurance_keeps_only_its_note(self) -> None:
         result = validate_block_config(
             BLOCK_COD_ASSURANCE, {"note": "  Envío a todo el país  ", "padding": "40px"}
         )
-        assert result == {"note": "Envío a todo el país", "accent_color": None, "dark_mode": False}
+        assert result == {"note": "Envío a todo el país", "accent_color": None, "dark_mode": None}
 
     @pytest.mark.parametrize(
         ("block_type", "config"),
@@ -193,10 +235,37 @@ class TestContentValidation:
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
             BLOCK_GUARANTEE: {"title": "G", "text": "T"},
+            BLOCK_MAIN_PROBLEM: {"title": "Problema", "items": [{"title": "Uno", "text": "Texto"}]},
+            BLOCK_SOLUTION_PRESENTATION: {
+                "title": "Solución",
+                "text": "Texto",
+                "items": [{"title": "Pilar", "text": "Texto"}],
+            },
+            BLOCK_HOW_IT_WORKS: {"title": "Cómo", "steps": [{"title": "Paso", "text": "Texto"}]},
+            BLOCK_AUDIENCE: {
+                "title": "Para quién",
+                "positive_title": "Sí",
+                "positive_items": ["Uno"],
+                "negative_title": "No",
+                "negative_items": ["Dos"],
+            },
+            BLOCK_MOMENT: {"title": "Ahora", "highlight": "Empieza", "text": "Texto"},
         }
         for block_type, config in minimal_config.items():
             result = validate_block_config(block_type, config)
             assert result["accent_color"] is None
+
+    def test_dark_mode_is_tri_state_so_blocks_inherit_by_default(self) -> None:
+        assert validate_block_config(BLOCK_COD_ASSURANCE, {})["dark_mode"] is None
+        assert validate_block_config(BLOCK_COD_ASSURANCE, {"dark_mode": ""})["dark_mode"] is None
+        assert validate_block_config(BLOCK_COD_ASSURANCE, {"dark_mode": True})["dark_mode"] is True
+        assert (
+            validate_block_config(BLOCK_COD_ASSURANCE, {"dark_mode": False})["dark_mode"] is False
+        )
+
+        with pytest.raises(LandingValidationError) as excinfo:
+            validate_block_config(BLOCK_COD_ASSURANCE, {"dark_mode": "sometimes"})
+        assert excinfo.value.field == "dark_mode"
 
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_accent_color_is_normalized_like_any_other_accent(self, block_type: str) -> None:
@@ -209,6 +278,21 @@ class TestContentValidation:
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
             BLOCK_GUARANTEE: {"title": "G", "text": "T"},
+            BLOCK_MAIN_PROBLEM: {"title": "Problema", "items": [{"title": "Uno", "text": "Texto"}]},
+            BLOCK_SOLUTION_PRESENTATION: {
+                "title": "Solución",
+                "text": "Texto",
+                "items": [{"title": "Pilar", "text": "Texto"}],
+            },
+            BLOCK_HOW_IT_WORKS: {"title": "Cómo", "steps": [{"title": "Paso", "text": "Texto"}]},
+            BLOCK_AUDIENCE: {
+                "title": "Para quién",
+                "positive_title": "Sí",
+                "positive_items": ["Uno"],
+                "negative_title": "No",
+                "negative_items": ["Dos"],
+            },
+            BLOCK_MOMENT: {"title": "Ahora", "highlight": "Empieza", "text": "Texto"},
         }[block_type]
         result = validate_block_config(block_type, {**base_config, "accent_color": "#ABC"})
         assert result["accent_color"] == "#aabbcc"
@@ -224,6 +308,21 @@ class TestContentValidation:
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
             BLOCK_GUARANTEE: {"title": "G", "text": "T"},
+            BLOCK_MAIN_PROBLEM: {"title": "Problema", "items": [{"title": "Uno", "text": "Texto"}]},
+            BLOCK_SOLUTION_PRESENTATION: {
+                "title": "Solución",
+                "text": "Texto",
+                "items": [{"title": "Pilar", "text": "Texto"}],
+            },
+            BLOCK_HOW_IT_WORKS: {"title": "Cómo", "steps": [{"title": "Paso", "text": "Texto"}]},
+            BLOCK_AUDIENCE: {
+                "title": "Para quién",
+                "positive_title": "Sí",
+                "positive_items": ["Uno"],
+                "negative_title": "No",
+                "negative_items": ["Dos"],
+            },
+            BLOCK_MOMENT: {"title": "Ahora", "highlight": "Empieza", "text": "Texto"},
         }[block_type]
         with pytest.raises(LandingValidationError) as excinfo:
             validate_block_config(block_type, {**base_config, "accent_color": "not-a-color"})
@@ -256,7 +355,7 @@ class TestContentValidation:
             "compare_at_price": None,
             "note": None,
             "accent_color": None,
-            "dark_mode": False,
+            "dark_mode": None,
         }
 
     def test_included_benefits_requires_between_2_and_8_items(self) -> None:
@@ -337,6 +436,58 @@ class TestContentValidation:
         with pytest.raises(LandingValidationError) as excinfo:
             validate_block_config(BLOCK_GUARANTEE, {"title": "G", "text": "T", "days": 4000})
         assert excinfo.value.field == "days"
+
+    def test_story_blocks_normalize_repeated_content(self) -> None:
+        problem = validate_block_config(
+            BLOCK_MAIN_PROBLEM,
+            {"title": " Problema ", "items": [{"title": " Uno ", "text": " Texto "}]},
+        )
+        assert problem["title"] == "Problema"
+        assert problem["items"][0] == {"title": "Uno", "text": "Texto"}
+
+        steps = validate_block_config(
+            BLOCK_HOW_IT_WORKS,
+            {"title": "Cómo", "steps": [{"kicker": "Día 1", "title": "Uno", "text": "Hazlo"}]},
+        )
+        assert steps["steps"][0]["kicker"] == "Día 1"
+
+    def test_audience_requires_both_lists(self) -> None:
+        with pytest.raises(LandingValidationError) as excinfo:
+            validate_block_config(
+                BLOCK_AUDIENCE,
+                {
+                    "title": "Para quién",
+                    "positive_title": "Sí",
+                    "positive_items": ["Uno"],
+                    "negative_title": "No",
+                    "negative_items": [],
+                },
+            )
+        assert excinfo.value.field == "negative_items"
+
+    def test_solution_final_title_is_optional(self) -> None:
+        result = validate_block_config(
+            BLOCK_SOLUTION_PRESENTATION,
+            {
+                "title": "Solución",
+                "text": "Descripción",
+                "items": [{"title": "Pilar", "text": "Contenido"}],
+            },
+        )
+        assert result["final_title"] is None
+        assert result["final_highlight"] is None
+
+    def test_rich_guarantee_accepts_benefit_cards(self) -> None:
+        result = validate_block_config(
+            BLOCK_GUARANTEE,
+            {
+                "title": "Garantía",
+                "text": "Compra protegida",
+                "days": 7,
+                "benefits": [{"title": "Riesgo cero", "text": "Protegida"}],
+            },
+        )
+        assert result["benefits"][0]["title"] == "Riesgo cero"
 
     def test_non_object_config_is_rejected(self) -> None:
         with pytest.raises(LandingValidationError) as excinfo:

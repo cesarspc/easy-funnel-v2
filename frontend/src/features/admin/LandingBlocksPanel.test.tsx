@@ -51,6 +51,11 @@ function response(blocks: LandingBlock[]): LandingBlockListResponse {
       "reviews",
       "faq",
       "guarantee",
+      "main_problem",
+      "solution_presentation",
+      "how_it_works",
+      "audience",
+      "moment",
     ],
   };
 }
@@ -89,12 +94,14 @@ describe("LandingBlocksPanel", () => {
     expect(options[2]).toBe("2-3 · entre CTA 1 y banner 2");
   });
 
-  it("lists the eight pre-defined components with what each one is for", async () => {
+  it("lists all fixed components with what each one is for", async () => {
     renderPanel();
 
     const typeSelect = await screen.findByLabelText("Componente");
-    expect(typeSelect.querySelectorAll("option")).toHaveLength(8);
+    expect(typeSelect.querySelectorAll("option")).toHaveLength(13);
     expect(screen.getByText(/Quita el miedo a pagar por adelantado/)).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Problema principal" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Presentación de solución" })).toBeInTheDocument();
   });
 
   it("exposes only the accent color as presentation, nothing else", async () => {
@@ -148,6 +155,23 @@ describe("LandingBlocksPanel", () => {
     await waitFor(() => expect(landingsApi.createBlock).toHaveBeenCalled());
     const payload = vi.mocked(landingsApi.createBlock).mock.calls[0][1];
     expect((payload.config.items as unknown[]).length).toBe(1);
+  });
+
+  it("lets the administrator add problem cards before creating the block", async () => {
+    vi.mocked(landingsApi.createBlock).mockResolvedValue(response([]));
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.selectOptions(await screen.findByLabelText("Componente"), "main_problem");
+    expect(screen.getAllByLabelText(/Título del problema \d+/)).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Agregar problema" }));
+    expect(screen.getAllByLabelText(/Título del problema \d+/)).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Agregar componente" }));
+
+    await waitFor(() => expect(landingsApi.createBlock).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.createBlock).mock.calls[0][1];
+    expect(payload.block_type).toBe("main_problem");
+    expect((payload.config.items as unknown[]).length).toBe(2);
   });
 
   it("binds a field-specific rejection to the control that produced it", async () => {

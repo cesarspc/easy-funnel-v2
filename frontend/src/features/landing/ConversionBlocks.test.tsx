@@ -155,6 +155,20 @@ describe("conversion components on the landing", () => {
     expect(classes[2]).toContain("cblock--guarantee");
   });
 
+  it("inherits the landing dark mode unless a component explicitly overrides it", async () => {
+    const landing = makeLanding([
+      block({ id: 31, order_index: 0, config: {} }),
+      block({ id: 32, order_index: 1, config: { dark_mode: false } }),
+    ]);
+    landing.blocks_dark_mode = true;
+    vi.mocked(publicApi.getLanding).mockResolvedValue(landing);
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+    expect(document.querySelectorAll(".cblock-dark-wrap")).toHaveLength(1);
+    expect(document.querySelectorAll(".cblock--assurance")).toHaveLength(2);
+  });
+
   it("renders a component placed past the sequence at the end instead of dropping it", async () => {
     vi.mocked(publicApi.getLanding).mockResolvedValue(
       makeLanding([block({ slot_index: 25 })]),
@@ -238,6 +252,88 @@ describe("conversion components on the landing", () => {
     await screen.findByAltText("Banner 1");
     expect(screen.getByLabelText("5 de 5 estrellas")).toBeInTheDocument();
     expect(screen.getByText("Cliente de ejemplo · Cali")).toBeInTheDocument();
+  });
+
+  it("renders the complete mobile-first story sequence and rich guarantee", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([
+        block({
+          id: 21,
+          block_type: "main_problem",
+          slot_index: 1,
+          config: {
+            title: "La razón principal",
+            highlight: "todavía no lo logras",
+            items: [{ title: "Te falta tiempo", text: "El día no alcanza." }],
+          },
+        }),
+        block({
+          id: 22,
+          block_type: "solution_presentation",
+          slot_index: 2,
+          config: {
+            bridge_text: "Esta solución fue creada para ti",
+            title: "Presentamos el método",
+            text: "Un sistema simple.",
+            items: [{ title: "Primer pilar", text: "Todo lo esencial." }],
+            final_title: "Un solo sistema",
+            final_highlight: "Resultados reales",
+          },
+        }),
+        block({
+          id: 23,
+          block_type: "how_it_works",
+          slot_index: 3,
+          config: {
+            title: "Cómo funciona",
+            steps: [{ kicker: "Día 1", title: "Empieza aquí", text: "Primer paso." }],
+          },
+        }),
+        block({
+          id: 24,
+          block_type: "audience",
+          slot_index: 4,
+          config: {
+            title: "Para quién es",
+            positive_title: "ES PARA TI",
+            positive_items: ["Quieres una solución clara"],
+            negative_title: "NO ES PARA TI",
+            negative_items: ["Buscas resultados sin esfuerzo"],
+          },
+        }),
+        block({
+          id: 25,
+          block_type: "moment",
+          slot_index: 5,
+          config: {
+            title: "Sigues esperando el",
+            highlight: "momento perfecto",
+            text: "El momento perfecto no existe.",
+          },
+        }),
+        block({
+          id: 26,
+          block_type: "guarantee",
+          slot_index: 6,
+          config: {
+            title: "Garantía",
+            text: "Tu compra está protegida.",
+            days: 7,
+            benefits: [{ title: "Riesgo cero", text: "Sin preguntas." }],
+          },
+        }),
+      ]),
+    );
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+    expect(screen.getByText("La razón principal")).toBeInTheDocument();
+    expect(screen.getByText("Esta solución fue creada para ti")).toBeInTheDocument();
+    expect(screen.getByText("Empieza aquí")).toBeInTheDocument();
+    expect(screen.getByText("Quieres una solución clara")).toBeInTheDocument();
+    expect(screen.getByText("momento perfecto")).toBeInTheDocument();
+    expect(screen.getByText("Total de 7 días")).toBeInTheDocument();
+    expect(document.querySelectorAll(".cblock--story")).toHaveLength(6);
   });
 
   it("skips a component whose content is unusable instead of failing the page", async () => {

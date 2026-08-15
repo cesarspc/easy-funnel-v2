@@ -48,7 +48,7 @@ class TestPlacement:
         assert len(body["slots"]) == 7
         assert body["slots"][1].startswith("1-2")
         assert body["slots"][2].startswith("2-3")
-        assert len(body["allowed_block_types"]) == 8
+        assert len(body["allowed_block_types"]) == 13
 
     async def test_places_components_in_two_slots_and_reports_them_in_render_order(
         self, cod_flow: CodFlowHarness
@@ -195,12 +195,14 @@ class TestPlacement:
             "title": "Garantía de 30 días",
             "text": "Si no te sirve, lo devuelves.",
             "days": 30,
+            "eyebrow": None,
+            "benefits": [],
             "accent_color": None,
             # Presentation is fixed in the chrome, with two bounded exceptions
             # every type accepts: `accent_color` and `dark_mode`. An unset
-            # accent means "inherit the form accent"; an unset dark mode means
-            # "follow the landing default", which normalizes to False.
-            "dark_mode": False,
+            # accent means "inherit the form accent"; an unset dark mode stays
+            # null so the public component follows the landing-level default.
+            "dark_mode": None,
         }
 
     async def test_anonymous_callers_cannot_place_components(
