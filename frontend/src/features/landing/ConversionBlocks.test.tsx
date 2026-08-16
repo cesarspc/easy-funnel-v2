@@ -95,6 +95,22 @@ describe("conversion components on the landing", () => {
     expect(document.querySelectorAll(".cblock")).toHaveLength(0);
   });
 
+  it("renders an inserted CTA, records its click, and opens the shared COD form", async () => {
+    const user = userEvent.setup();
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([
+        block({ block_type: "cta", slot_index: 1, config: { text: "Comprar ahora" } }),
+      ]),
+    );
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Comprar ahora" }));
+
+    expect(publicApi.recordCtaClick).toHaveBeenCalledWith("set-sartenes");
+    expect(screen.getByRole("dialog", { name: "Completa tu pedido" })).toBeInTheDocument();
+    expect(document.querySelector(".cblock--purchase-cta")).toBeInTheDocument();
+  });
+
   it("places a component in slot 1, between the first banner and the first CTA", async () => {
     vi.mocked(publicApi.getLanding).mockResolvedValue(
       makeLanding([block({ slot_index: 1, config: { note: "Cobertura nacional" } })]),

@@ -57,6 +57,7 @@
 
 import type { CSSProperties, JSX } from "react";
 import type { AccentPalette, ConversionBlock, ConversionBlockConfig } from "../../api";
+import { Cta } from "../../components/Cta";
 import { safeColor } from "../../utils";
 import "./ConversionBlocks.css";
 
@@ -74,6 +75,10 @@ export interface ConversionBlockViewProps {
   blocksDarkMode?: boolean;
   /** Landing-level block accent. A block's own palette overrides it. */
   blocksAccentPalette?: AccentPalette | null;
+  /** Existing landing CTA behavior reused by an inserted CTA component. */
+  ctaLabel: string;
+  ctaAnimation?: "slide" | "shake" | null;
+  onActivateCta: () => void;
 }
 
 /**
@@ -124,6 +129,40 @@ function accentStyle(palette: AccentPalette | null | undefined): CSSProperties |
     "--lp-form-action-ink": ink,
   };
   return style as CSSProperties;
+}
+
+/** The shared CTA reads page-action tokens; mirror the component palette into
+ * those tokens so a CTA block can use the same bounded accent override. */
+function ctaAccentStyle(palette: AccentPalette | null | undefined): CSSProperties | undefined {
+  const style = accentStyle(palette) as Record<string, string> | undefined;
+  if (!style) return undefined;
+  return {
+    ...style,
+    "--lp-action": style["--lp-form-action"],
+    "--lp-action-deep": style["--lp-form-action-deep"],
+    "--lp-action-ink": style["--lp-form-action-ink"],
+  } as CSSProperties;
+}
+
+function PurchaseCta({
+  config,
+  palette,
+  fallbackLabel,
+  animation,
+  onActivate,
+}: {
+  config: ConversionBlockConfig;
+  palette: AccentPalette | null;
+  fallbackLabel: string;
+  animation?: "slide" | "shake" | null;
+  onActivate: () => void;
+}): JSX.Element {
+  const label = asOptionalString((config as LooseConfig).text) ?? fallbackLabel;
+  return (
+    <section className="cblock cblock--purchase-cta" style={ctaAccentStyle(palette)}>
+      <Cta label={label} animation={animation} onClick={onActivate} />
+    </section>
+  );
 }
 
 /** Deterministic avatar palette so the same reviewer name always draws the same color. */
@@ -1133,6 +1172,9 @@ export function ConversionBlockView({
   productPrice,
   blocksDarkMode = false,
   blocksAccentPalette = null,
+  ctaLabel,
+  ctaAnimation = null,
+  onActivateCta,
 }: ConversionBlockViewProps): JSX.Element | null {
   const { config, accent_palette: blockPalette } = block;
   const palette = blockPalette ?? blocksAccentPalette;
@@ -1143,6 +1185,17 @@ export function ConversionBlockView({
 
   let content: JSX.Element | null;
   switch (block.block_type) {
+    case "cta":
+      content = (
+        <PurchaseCta
+          config={config}
+          palette={palette}
+          fallbackLabel={ctaLabel}
+          animation={ctaAnimation}
+          onActivate={onActivateCta}
+        />
+      );
+      break;
     case "announcement_bar":
       content = <AnnouncementBar config={config} palette={palette} />;
       break;

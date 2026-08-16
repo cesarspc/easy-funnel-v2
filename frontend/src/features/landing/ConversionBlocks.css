@@ -622,6 +622,10 @@
   color: var(--lp-ink-quiet);
 }
 
+.cblock--purchase-cta {
+  background: var(--lp-bg);
+}
+
 /* --- Story blocks ---------------------------------------------------------
    These long-form blocks use the Price component's visual grammar: decisive
    type hierarchy, one raised surface, quiet hairlines, restrained accent and

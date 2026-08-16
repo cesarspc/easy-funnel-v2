@@ -43,6 +43,7 @@ function response(blocks: LandingBlock[]): LandingBlockListResponse {
     blocks,
     slots: SLOTS,
     allowed_block_types: [
+      "cta",
       "announcement_bar",
       "cod_assurance",
       "benefits",
@@ -104,7 +105,8 @@ describe("LandingBlocksPanel", () => {
     renderPanel();
 
     const typeSelect = await screen.findByLabelText("Componente");
-    expect(typeSelect.querySelectorAll("option")).toHaveLength(13);
+    expect(typeSelect.querySelectorAll("option")).toHaveLength(14);
+    expect(screen.getByRole("option", { name: "Botón CTA" })).toBeInTheDocument();
     expect(screen.getByText(/Quita el miedo a pagar por adelantado/)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Problema principal" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Presentación de solución" })).toBeInTheDocument();

@@ -46,6 +46,7 @@ export interface CtaBackground {
  * conversion.
  */
 export type ConversionBlockType =
+  | "cta"
   | "announcement_bar"
   | "cod_assurance"
   | "benefits"

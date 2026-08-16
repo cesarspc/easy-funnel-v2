@@ -17,6 +17,7 @@ from app.domains.landings.blocks import (
     BLOCK_AUDIENCE,
     BLOCK_BENEFITS,
     BLOCK_COD_ASSURANCE,
+    BLOCK_CTA,
     BLOCK_FAQ,
     BLOCK_GUARANTEE,
     BLOCK_HOW_IT_WORKS,
@@ -40,6 +41,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 SUPPORTED_KEYS = {
+    BLOCK_CTA: {"text", "accent_color", "dark_mode"},
     BLOCK_ANNOUNCEMENT_BAR: {"text", "accent_color", "dark_mode"},
     BLOCK_COD_ASSURANCE: {"note", "accent_color", "dark_mode"},
     BLOCK_BENEFITS: {"title", "items", "accent_color", "dark_mode"},
@@ -92,8 +94,8 @@ class TestVocabulary:
     def test_every_type_has_a_validator_and_key_set(self) -> None:
         assert set(SUPPORTED_KEYS) == set(ALLOWED_BLOCK_TYPES)
 
-    def test_thirteen_types_exist(self) -> None:
-        assert len(ALLOWED_BLOCK_TYPES) == 13
+    def test_fourteen_types_exist(self) -> None:
+        assert len(ALLOWED_BLOCK_TYPES) == 14
 
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_known_type_is_accepted(self, block_type: str) -> None:
@@ -179,6 +181,19 @@ class TestSlotLabels:
 
 
 class TestContentValidation:
+    def test_cta_text_is_optional_and_bounded(self) -> None:
+        assert validate_block_config(BLOCK_CTA, {}) == {
+            "text": None,
+            "accent_color": None,
+            "dark_mode": None,
+        }
+        assert validate_block_config(BLOCK_CTA, {"text": "  Comprar ahora  "})["text"] == (
+            "Comprar ahora"
+        )
+        with pytest.raises(LandingValidationError) as excinfo:
+            validate_block_config(BLOCK_CTA, {"text": "x" * 61})
+        assert excinfo.value.field == "text"
+
     def test_announcement_bar_requires_text(self) -> None:
         with pytest.raises(LandingValidationError) as excinfo:
             validate_block_config(BLOCK_ANNOUNCEMENT_BAR, {})
@@ -227,6 +242,7 @@ class TestContentValidation:
         """Absent `accent_color` means "inherit the form accent" — every type
         accepts the key, and every type is valid without it."""
         minimal_config = {
+            BLOCK_CTA: {},
             BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
@@ -270,6 +286,7 @@ class TestContentValidation:
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_accent_color_is_normalized_like_any_other_accent(self, block_type: str) -> None:
         base_config = {
+            BLOCK_CTA: {},
             BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
@@ -300,6 +317,7 @@ class TestContentValidation:
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_malformed_accent_color_is_rejected_with_its_field(self, block_type: str) -> None:
         base_config = {
+            BLOCK_CTA: {},
             BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},

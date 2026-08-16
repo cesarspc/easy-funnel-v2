@@ -348,6 +348,9 @@ export function LandingPage(): JSX.Element {
         key={block.id}
         block={block}
         productPrice={productPrice}
+        ctaLabel={ctaLabel}
+        ctaAnimation={ctaAnimation}
+        onActivateCta={handleActivateCta}
         blocksDarkMode={blocksDarkMode}
         blocksAccentPalette={blocksAccentPalette}
       />
@@ -417,6 +420,9 @@ export function LandingPage(): JSX.Element {
             key={block.id}
             block={block}
             productPrice={productPrice}
+            ctaLabel={ctaLabel}
+            ctaAnimation={ctaAnimation}
+            onActivateCta={handleActivateCta}
             blocksDarkMode={landing.blocks_dark_mode}
             blocksAccentPalette={blocksAccentPalette}
           />

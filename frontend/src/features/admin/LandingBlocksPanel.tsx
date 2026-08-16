@@ -36,6 +36,10 @@ interface BlockTypeMeta {
 
 /** Merchant-facing name and the objection each component removes. */
 const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
+  cta: {
+    label: "Botón CTA",
+    purpose: "Añade otra llamada a la acción entre componentes y abre el mismo formulario COD.",
+  },
   announcement_bar: {
     label: "Barra superior",
     purpose: "Un mensaje corto arriba de todo (envío gratis, promo). Es su propia franja de color.",
@@ -94,6 +98,7 @@ const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
   "announcement_bar",
   "cod_assurance",
   "offer_price",
+  "cta",
   "benefits",
   "included_benefits",
   "reviews",
@@ -111,6 +116,8 @@ type Draft = Record<string, unknown>;
 /** Starting content per type. `included_benefits` ships a blank item list. */
 function defaultDraft(type: ConversionBlockType): Draft {
   switch (type) {
+    case "cta":
+      return { text: "", accent_color: "" };
     case "announcement_bar":
       return { text: "Envío gratis + Paga al recibir", accent_color: "" };
     case "cod_assurance":
@@ -504,6 +511,31 @@ function ContentEditor({
   );
 
   switch (type) {
+    case "cta":
+      return (
+        <div className="lblocks__editor">
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor={`${idPrefix}-text`}>
+              Texto del botón (opcional)
+            </label>
+            <input
+              id={`${idPrefix}-text`}
+              className="landings-field__input"
+              value={textValue(draft, "text")}
+              maxLength={60}
+              placeholder="Usar el texto general del CTA"
+              onChange={(event) => set("text", event.target.value)}
+            />
+            <p className="landings-page__muted">
+              Vacío reutiliza el texto configurado para los CTA de esta landing.
+            </p>
+            <FieldError id={`${idPrefix}-text-error`} message={fieldErrors.text} />
+          </div>
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
     case "announcement_bar":
       return (
         <div className="lblocks__editor">

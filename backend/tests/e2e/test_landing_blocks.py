@@ -48,7 +48,25 @@ class TestPlacement:
         assert len(body["slots"]) == 7
         assert body["slots"][1].startswith("1-2")
         assert body["slots"][2].startswith("2-3")
-        assert len(body["allowed_block_types"]) == 13
+        assert len(body["allowed_block_types"]) == 14
+        assert "cta" in body["allowed_block_types"]
+
+    async def test_creates_an_additional_cta_with_optional_text(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _seed_three_banner_landing(cod_flow)
+
+        response = await cod_flow.client.post(
+            f"/api/admin/landings/{landing.landing_id}/blocks",
+            json={"block_type": "cta", "slot_index": 3, "config": {"text": "Comprar ahora"}},
+            headers=cod_flow.admin_headers(),
+        )
+
+        assert response.status_code == 201
+        stored = response.json()["blocks"][0]
+        assert stored["block_type"] == "cta"
+        assert stored["slot_index"] == 3
+        assert stored["config"]["text"] == "Comprar ahora"
 
     async def test_places_components_in_two_slots_and_reports_them_in_render_order(
         self, cod_flow: CodFlowHarness
