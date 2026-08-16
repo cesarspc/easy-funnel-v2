@@ -46,6 +46,7 @@ async def configure_source_landing(cod_flow: CodFlowHarness, landing_id: int) ->
             "cta_band_style": "solid",
             "accent_color": "#2563eb",
             "form_accent_color": "#e11d48",
+            "blocks_accent_color": "#7c3aed",
             "cta_text": "Lo quiero ahora",
             "cta_animation": "shake",
             "cta_text_overrides": {"2": "Pídelo hoy"},
@@ -213,6 +214,7 @@ class TestLoadTemplate:
         assert body["cta_band_style"] == "solid"
         assert body["accent_color"] == "#2563eb"
         assert body["form_accent_color"] == "#e11d48"
+        assert body["blocks_accent_color"] == "#7c3aed"
         assert body["cta_text"] == "Lo quiero ahora"
         assert body["cta_animation"] == "shake"
         assert body["cta_text_overrides"] == {"2": "Pídelo hoy"}

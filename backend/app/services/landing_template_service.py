@@ -184,6 +184,7 @@ class LandingTemplateService:
                 "formPresentation": config["form_presentation"],
                 "accentColor": config["accent_color"],
                 "formAccentColor": config["form_accent_color"],
+                "blocksAccentColor": config["blocks_accent_color"],
                 "blocksDarkMode": config["blocks_dark_mode"],
                 "offerCount": config["offer_count"],
                 "defaultOfferQuantity": config["default_offer_quantity"],

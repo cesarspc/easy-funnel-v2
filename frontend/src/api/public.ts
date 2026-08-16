@@ -180,6 +180,9 @@ export interface PublicLanding {
    */
   form_accent_color?: string;
   form_accent_palette?: AccentPalette;
+  /** Default block accent; absent cached payloads fall back to the form accent. */
+  blocks_accent_color?: string;
+  blocks_accent_palette?: AccentPalette;
   /** Absent on payloads cached before configurable offers existed. */
   offers?: PublicLandingOffer[];
   default_offer_quantity?: number;

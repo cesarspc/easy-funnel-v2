@@ -111,6 +111,7 @@ class LandingSummaryResponse(BaseModel):
     cta_band_style: str
     accent_color: str
     form_accent_color: str | None = None
+    blocks_accent_color: str | None = None
     offer_count: int
     default_offer_quantity: int
     offers: list[LandingOfferResponse]
@@ -160,6 +161,7 @@ class LandingConfigUpdateRequest(BaseModel):
     cta_band_style: str | None = None
     accent_color: str | None = None
     form_accent_color: str | None = None
+    blocks_accent_color: str | None = None
     offer_count: int | None = None
     default_offer_quantity: int | None = None
     offers: list[LandingOfferUpdate] | None = None
@@ -291,6 +293,7 @@ def _to_summary_response(landing) -> LandingSummaryResponse:  # type: ignore[no-
         cta_band_style=landing.ctaBandStyle,
         accent_color=landing.accentColor or DEFAULT_ACCENT_COLOR,
         form_accent_color=landing.formAccentColor,
+        blocks_accent_color=getattr(landing, "blocksAccentColor", None),
         offer_count=landing.offerCount,
         default_offer_quantity=getattr(landing, "defaultOfferQuantity", 1),
         offers=[
@@ -406,6 +409,16 @@ async def update_landing_config(
     db = get_prisma()
     service = LandingManagementService(db)
 
+    # PATCH distinguishes an omitted field (leave unchanged) from an explicit
+    # null (clear the override). The service represents an explicit clear with
+    # an empty string.
+    form_accent_color = request.form_accent_color
+    if "form_accent_color" in request.model_fields_set and form_accent_color is None:
+        form_accent_color = ""
+    blocks_accent_color = request.blocks_accent_color
+    if "blocks_accent_color" in request.model_fields_set and blocks_accent_color is None:
+        blocks_accent_color = ""
+
     try:
         await service.update_config(
             landing_id,
@@ -416,7 +429,8 @@ async def update_landing_config(
             form_presentation=request.form_presentation,
             cta_band_style=request.cta_band_style,
             accent_color=request.accent_color,
-            form_accent_color=request.form_accent_color,
+            form_accent_color=form_accent_color,
+            blocks_accent_color=blocks_accent_color,
             offer_count=request.offer_count,
             default_offer_quantity=request.default_offer_quantity,
             offers=(
@@ -624,9 +638,7 @@ async def load_landing_template(
     """
     service = LandingTemplateService(get_prisma())
     try:
-        await service.load_template(
-            landing_id, request.template_id, actor=admin_user.subject
-        )
+        await service.load_template(landing_id, request.template_id, actor=admin_user.subject)
     except LandingNotFoundError as exc:
         raise _not_found("Landing not found") from exc
     except TemplateNotFoundError as exc:

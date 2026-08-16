@@ -83,6 +83,11 @@ model Landing {
   /// what every landing created before this column keeps rendering.
   formAccentColor String? @map("form_accent_color") @db.VarChar(7)
 
+  /// Default accent for conversion blocks. Null means "use
+  /// form_accent_color" (which itself falls back to accent_color). An
+  /// individual block can still override this through config.accent_color.
+  blocksAccentColor String? @map("blocks_accent_color") @db.VarChar(7)
+
   /// Per-CTA-position text override, keyed by the 1-based CTA position (as a
   /// JSON string key) to the custom label for that CTA alone, e.g.
   /// `{"2": "Lo quiero ahora"}`. A position absent from this map falls back

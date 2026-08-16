@@ -76,6 +76,7 @@ class LandingManagementService:
         cta_band_style: str | None = None,
         accent_color: str | None = None,
         form_accent_color: str | None = None,
+        blocks_accent_color: str | None = None,
         offer_count: int | None = None,
         offers: list[dict[str, object]] | None = None,
         default_offer_quantity: int | None = None,
@@ -104,6 +105,10 @@ class LandingManagementService:
         label that replaces `cta_text` for that position alone (e.g. only the
         second CTA saying "Lo quiero ahora"), leaving every other position on
         the landing's default label.
+
+        `blocks_accent_color` themes conversion components as a group. Empty
+        string clears it back to the effective form accent; a component's own
+        `accent_color` remains the final override.
         """
         async with self._db.tx() as tx:
             landings = LandingRepository(tx)
@@ -164,6 +169,14 @@ class LandingManagementService:
                 else:
                     data["formAccentColor"] = normalize_accent_color(
                         form_accent_color, field="form_accent_color"
+                    )
+
+            if blocks_accent_color is not None:
+                if blocks_accent_color == "":
+                    data["blocksAccentColor"] = None
+                else:
+                    data["blocksAccentColor"] = normalize_accent_color(
+                        blocks_accent_color, field="blocks_accent_color"
                     )
 
             if cta_text is not None:

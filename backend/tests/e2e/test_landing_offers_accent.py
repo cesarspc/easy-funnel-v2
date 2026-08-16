@@ -292,11 +292,52 @@ class TestAccentColor:
             assert body["form_accent_palette"][key].startswith("#")
             assert len(body["form_accent_palette"][key]) == 7
 
-
-class TestCtaTextOverrides:
-    async def test_default_public_payload_has_no_overrides(
+    async def test_blocks_follow_the_form_accent_until_configured_independently(
         self, cod_flow: CodFlowHarness
     ) -> None:
+        landing = await _published_landing(cod_flow)
+        await _configure(cod_flow, landing, {"form_accent_color": "#e11d48"})
+
+        inherited = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+        assert inherited.status_code == 200
+        assert inherited.json()["blocks_accent_color"] == "#e11d48"
+        assert inherited.json()["blocks_accent_palette"]["accent"] == "#e11d48"
+
+        await _configure(cod_flow, landing, {"blocks_accent_color": "#7c3aed"})
+        configured = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+        assert configured.status_code == 200
+        assert configured.json()["form_accent_color"] == "#e11d48"
+        assert configured.json()["blocks_accent_color"] == "#7c3aed"
+        assert configured.json()["blocks_accent_palette"]["accent"] == "#7c3aed"
+
+    async def test_cleared_accent_overrides_are_immediately_inherited_publicly(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _published_landing(cod_flow)
+        await _configure(
+            cod_flow,
+            landing,
+            {
+                "accent_color": "#2563eb",
+                "form_accent_color": "#e11d48",
+                "blocks_accent_color": "#7c3aed",
+            },
+        )
+
+        await _configure(cod_flow, landing, {"blocks_accent_color": None})
+        follows_form = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+        assert follows_form.status_code == 200
+        assert follows_form.json()["blocks_accent_color"] == "#e11d48"
+
+        await _configure(cod_flow, landing, {"form_accent_color": None})
+        follows_landing = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+        assert follows_landing.status_code == 200
+        assert follows_landing.json()["form_accent_color"] == "#2563eb"
+        assert follows_landing.json()["blocks_accent_color"] == "#2563eb"
+
+
+class TestCtaTextOverrides:
+    async def test_default_public_payload_has_no_overrides(self, cod_flow: CodFlowHarness) -> None:
         landing = await _published_landing(cod_flow)
 
         response = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
@@ -304,9 +345,7 @@ class TestCtaTextOverrides:
         assert response.status_code == 200
         assert response.json()["cta_text_overrides"] == {}
 
-    async def test_a_configured_override_is_served_publicly(
-        self, cod_flow: CodFlowHarness
-    ) -> None:
+    async def test_a_configured_override_is_served_publicly(self, cod_flow: CodFlowHarness) -> None:
         landing = await _published_landing(cod_flow)
         await _configure(cod_flow, landing, {"cta_text_overrides": {"1": "Lo quiero ahora"}})
 
@@ -315,9 +354,7 @@ class TestCtaTextOverrides:
         assert response.status_code == 200
         assert response.json()["cta_text_overrides"] == {"1": "Lo quiero ahora"}
 
-    async def test_a_blank_override_value_is_a_field_error(
-        self, cod_flow: CodFlowHarness
-    ) -> None:
+    async def test_a_blank_override_value_is_a_field_error(self, cod_flow: CodFlowHarness) -> None:
         landing = await _published_landing(cod_flow)
 
         response = await _configure(cod_flow, landing, {"cta_text_overrides": {"1": ""}})
@@ -342,9 +379,9 @@ class TestOfferPricing:
         assert configured.status_code == 200
         assert configured.json()["offers"][1]["calculated_discount_percent"] == 17
 
-        public_offer = (
-            await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
-        ).json()["offers"][1]
+        public_offer = (await cod_flow.client.get(f"/api/public/landings/{landing.slug}")).json()[
+            "offers"
+        ][1]
         assert public_offer["discount_percent"] == 17
         assert public_offer["savings"] == pytest.approx(20000.0)
         assert public_offer["total"] == pytest.approx(99800.0)

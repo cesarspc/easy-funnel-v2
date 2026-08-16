@@ -169,6 +169,96 @@ describe("conversion components on the landing", () => {
     expect(document.querySelectorAll(".cblock--assurance")).toHaveLength(2);
   });
 
+  it("keeps story labels and icon badges inside the dark-mode scope", async () => {
+    const landing = makeLanding([
+      block({
+        id: 51,
+        block_type: "main_problem",
+        config: {
+          eyebrow: "Si esto te suena familiar",
+          title: "Problema principal",
+          items: [{ title: "Falta tiempo" }],
+        },
+      }),
+      block({
+        id: 52,
+        block_type: "solution_presentation",
+        config: {
+          eyebrow: "La solución",
+          title: "Presentamos",
+          text: "Un sistema claro",
+          items: [{ title: "Sistema de ventas" }],
+        },
+      }),
+      block({
+        id: 53,
+        block_type: "audience",
+        config: {
+          title: "Para quién es",
+          positive_title: "ES PARA TI",
+          positive_items: ["Quieres avanzar"],
+          negative_title: "NO ES PARA TI",
+          negative_items: ["No quieres actuar"],
+        },
+      }),
+      block({
+        id: 54,
+        block_type: "guarantee",
+        config: {
+          eyebrow: "Compra protegida",
+          title: "Garantía",
+          text: "Compra sin riesgo",
+          days: 7,
+          benefits: [{ title: "Riesgo cero" }],
+        },
+      }),
+    ]);
+    landing.blocks_dark_mode = true;
+    vi.mocked(publicApi.getLanding).mockResolvedValue(landing);
+    renderPage();
+
+    await screen.findByText("Problema principal");
+    expect(document.querySelectorAll(".cblock-dark-wrap .cblock__story-eyebrow")).toHaveLength(3);
+    expect(document.querySelectorAll(".cblock-dark-wrap .cblock__story-icon")).toHaveLength(2);
+    expect(
+      document.querySelector(".cblock-dark-wrap .cblock__audience-card--yes header > span"),
+    ).not.toBeNull();
+  });
+
+  it("uses the landing block accent until the component supplies its own override", async () => {
+    const landing = makeLanding([
+      block({
+        block_type: "benefits",
+        config: { items: ["Acento general", "Segundo beneficio"] },
+      }),
+      block({
+        id: 42,
+        block_type: "benefits",
+        slot_index: 2,
+        config: { items: ["Acento propio", "Otro beneficio"] },
+        accent_palette: {
+          accent: "#dc2626",
+          deep: "#991b1b",
+          tint: "#fee2e2",
+          ink: "#ffffff",
+        },
+      }),
+    ]);
+    landing.blocks_accent_palette = {
+      accent: "#7c3aed",
+      deep: "#5b21b6",
+      tint: "#ede9fe",
+      ink: "#ffffff",
+    };
+    vi.mocked(publicApi.getLanding).mockResolvedValue(landing);
+    renderPage();
+
+    const inherited = (await screen.findByText("Acento general")).closest(".cblock");
+    const overridden = screen.getByText("Acento propio").closest(".cblock");
+    expect(inherited).toHaveStyle({ "--lp-form-action": "#7c3aed" });
+    expect(overridden).toHaveStyle({ "--lp-form-action": "#dc2626" });
+  });
+
   it("renders a component placed past the sequence at the end instead of dropping it", async () => {
     vi.mocked(publicApi.getLanding).mockResolvedValue(
       makeLanding([block({ slot_index: 25 })]),

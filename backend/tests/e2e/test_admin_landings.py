@@ -311,6 +311,51 @@ async def test_landing_defaults_to_no_form_accent_color(cod_flow: CodFlowHarness
     assert response.json()["form_accent_color"] is None
 
 
+async def test_landing_patch_sets_and_clears_the_blocks_accent_color(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing(landing_status="draft")
+
+    set_response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"blocks_accent_color": "#7C3AED"},
+        headers=cod_flow.admin_headers(),
+    )
+    assert set_response.status_code == 200
+    assert set_response.json()["blocks_accent_color"] == "#7c3aed"
+    assert set_response.json()["form_accent_color"] is None
+
+    clear_response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"blocks_accent_color": ""},
+        headers=cod_flow.admin_headers(),
+    )
+    assert clear_response.status_code == 200
+    assert clear_response.json()["blocks_accent_color"] is None
+
+    # JSON null is an explicit clear too; omission remains a no-op PATCH.
+    await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"blocks_accent_color": "#7C3AED"},
+        headers=cod_flow.admin_headers(),
+    )
+    null_clear_response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"blocks_accent_color": None},
+        headers=cod_flow.admin_headers(),
+    )
+    assert null_clear_response.status_code == 200
+    assert null_clear_response.json()["blocks_accent_color"] is None
+
+    rejected = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"blocks_accent_color": "purple"},
+        headers=cod_flow.admin_headers(),
+    )
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"]["field"] == "blocks_accent_color"
+
+
 async def test_landing_patch_sets_and_clears_the_form_accent_color(
     cod_flow: CodFlowHarness,
 ) -> None:
@@ -333,6 +378,19 @@ async def test_landing_patch_sets_and_clears_the_form_accent_color(
     )
     assert clear_response.status_code == 200
     assert clear_response.json()["form_accent_color"] is None
+
+    await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"form_accent_color": "#E11D48"},
+        headers=cod_flow.admin_headers(),
+    )
+    null_clear_response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"form_accent_color": None},
+        headers=cod_flow.admin_headers(),
+    )
+    assert null_clear_response.status_code == 200
+    assert null_clear_response.json()["form_accent_color"] is None
 
 
 async def test_landing_patch_rejects_a_malformed_form_accent_color_without_mutating(

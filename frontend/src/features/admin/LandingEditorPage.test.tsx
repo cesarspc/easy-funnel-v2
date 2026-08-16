@@ -217,7 +217,8 @@ describe("LandingEditorPage", () => {
         form_presentation: "modal",
         cta_band_style: "solid",
         accent_color: "#1a7a4c",
-        form_accent_color: null,
+        form_accent_color: "",
+        blocks_accent_color: "",
         offer_count: 3,
         default_offer_quantity: 2,
         cta_text: null,
@@ -532,7 +533,7 @@ describe("LandingEditorPage form accent and per-CTA text override", () => {
     vi.clearAllMocks();
   });
 
-  it("submits a blank form accent color as null (follow the landing accent)", async () => {
+  it("submits a blank form accent color as an explicit reset", async () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByText("Banners (2/15)");
@@ -541,7 +542,7 @@ describe("LandingEditorPage form accent and per-CTA text override", () => {
 
     await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
     const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
-    expect(payload.form_accent_color).toBeNull();
+    expect(payload.form_accent_color).toBe("");
   });
 
   it("submits a custom form accent color independently of the CTA accent", async () => {
@@ -559,6 +560,42 @@ describe("LandingEditorPage form accent and per-CTA text override", () => {
     const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
     expect(payload.form_accent_color).toBe("#e11d48");
     expect(payload.accent_color).toBe("#1a7a4c");
+  });
+
+  it("uses the form accent by default and submits an independent block color", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    const input = screen.getByLabelText("Color de componentes en hexadecimal");
+    expect(input).toHaveValue("");
+    await user.type(input, "#7c3aed");
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.blocks_accent_color).toBe("#7c3aed");
+    expect(payload.form_accent_color).toBe("");
+  });
+
+  it("clears saved form and component colors through their inheritance buttons", async () => {
+    const user = userEvent.setup();
+    vi.mocked(landingsApi.get).mockResolvedValue({
+      ...DETAIL,
+      form_accent_color: "#e11d48",
+      blocks_accent_color: "#7c3aed",
+    });
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.click(screen.getByRole("button", { name: "Usar el color de la landing" }));
+    await user.click(screen.getByRole("button", { name: "Usar el color del formulario" }));
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.form_accent_color).toBe("");
+    expect(payload.blocks_accent_color).toBe("");
   });
 
   it("binds a backend form accent error to its own control", async () => {

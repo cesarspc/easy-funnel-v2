@@ -178,6 +178,7 @@ class TestConfigSnapshot:
                 formPresentation="modal",
                 accentColor="#2563eb",
                 formAccentColor="#e11d48",
+                blocksAccentColor="#7c3aed",
                 blocksDarkMode=True,
                 offerCount=2,
             )
@@ -190,6 +191,7 @@ class TestConfigSnapshot:
         assert config["form_presentation"] == "modal"
         assert config["accent_color"] == "#2563eb"
         assert config["form_accent_color"] == "#e11d48"
+        assert config["blocks_accent_color"] == "#7c3aed"
         assert config["blocks_dark_mode"] is True
         assert config["offer_count"] == 2
 

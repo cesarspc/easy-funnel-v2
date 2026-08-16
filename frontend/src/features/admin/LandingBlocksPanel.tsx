@@ -25,8 +25,8 @@ export interface LandingBlocksPanelProps {
    * placement slots are re-read instead of going stale.
    */
   sequenceSignature: string;
-  /** Current form accent color (hex), used as the visible default for blocks without a custom accent. */
-  formAccentColor: string;
+  /** Resolved landing-level block accent, used when a block has no override. */
+  defaultAccentColor: string;
 }
 
 interface BlockTypeMeta {
@@ -232,7 +232,7 @@ interface EditorProps {
   idPrefix: string;
   fieldErrors: Record<string, string>;
   /** Current form accent color for the color picker default. */
-  formAccentColor: string;
+  defaultAccentColor: string;
 }
 
 function FieldError({ id, message }: { id: string; message?: string }): JSX.Element | null {
@@ -392,7 +392,7 @@ function ContentEditor({
   onChange,
   idPrefix,
   fieldErrors,
-  formAccentColor,
+  defaultAccentColor,
 }: EditorProps): JSX.Element {
   function set(key: string, value: unknown) {
     onChange({ ...draft, [key]: value });
@@ -456,7 +456,7 @@ function ContentEditor({
           className="landings-field__input"
           type="color"
           style={{ maxWidth: 56, padding: 2 }}
-          value={/^#[0-9a-fA-F]{6}$/.test(textValue(draft, "accent_color")) ? textValue(draft, "accent_color") : formAccentColor}
+          value={/^#[0-9a-fA-F]{6}$/.test(textValue(draft, "accent_color")) ? textValue(draft, "accent_color") : defaultAccentColor}
           onChange={(event) => set("accent_color", event.target.value)}
           aria-label="Elegir color de acento"
         />
@@ -478,7 +478,7 @@ function ContentEditor({
         )}
       </div>
       <p className="landings-page__muted">
-        Sin color propio, este componente usa el acento configurado en el formulario.
+        Sin color propio, este componente usa el color general de componentes.
       </p>
       <FieldError id={`${idPrefix}-accent-error`} message={fieldErrors.accent_color} />
     </div>
@@ -1074,7 +1074,7 @@ function ContentEditor({
 export function LandingBlocksPanel({
   landingId,
   sequenceSignature,
-  formAccentColor,
+  defaultAccentColor,
 }: LandingBlocksPanelProps): JSX.Element {
   const [blocks, setBlocks] = useState<LandingBlock[]>([]);
   const [slots, setSlots] = useState<string[]>([]);
@@ -1333,7 +1333,7 @@ export function LandingBlocksPanel({
                     // in both this panel and the add form below would announce
                     // the same problem twice.
                     fieldErrors={editingId === block.id ? fieldErrors : {}}
-                    formAccentColor={formAccentColor}
+                    defaultAccentColor={defaultAccentColor}
                   />
                   <button
                     type="button"
@@ -1403,7 +1403,7 @@ export function LandingBlocksPanel({
           onChange={setNewDraft}
           idPrefix="new-block"
           fieldErrors={editingId === null ? fieldErrors : {}}
-          formAccentColor={formAccentColor}
+          defaultAccentColor={defaultAccentColor}
         />
 
         <button

@@ -70,7 +70,13 @@ const ASSURANCE: LandingBlock = {
 };
 
 function renderPanel() {
-  return render(<LandingBlocksPanel landingId={7} sequenceSignature="3:1,2,3" formAccentColor="#1a7a4c" />);
+  return render(
+    <LandingBlocksPanel
+      landingId={7}
+      sequenceSignature="3:1,2,3"
+      defaultAccentColor="#1a7a4c"
+    />,
+  );
 }
 
 describe("LandingBlocksPanel", () => {

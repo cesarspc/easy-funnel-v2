@@ -944,6 +944,30 @@
   content: "×";
 }
 
+/* Accent tints are intentionally very pale on the normal landing. In dark
+   mode those same derived tint values can become white-looking discs and
+   pills. Build the small badge surfaces from the accent plus the dark surface
+   instead: this covers the story eyebrow labels, problem/solution icons and
+   the positive audience check without changing their light-mode appearance. */
+.cblock-dark-wrap .cblock__story-eyebrow,
+.cblock-dark-wrap .cblock__story-icon,
+.cblock-dark-wrap .cblock__audience-card--yes header > span {
+  border-color: var(--lp-form-action, var(--lp-action));
+  border-color: color-mix(
+    in srgb,
+    var(--lp-form-action, var(--lp-action)) 38%,
+    var(--lp-hairline)
+  );
+  background: var(--lp-surface);
+  background: color-mix(
+    in srgb,
+    var(--lp-form-action, var(--lp-action)) 18%,
+    var(--lp-surface)
+  );
+  color: var(--lp-form-action, var(--lp-action));
+  color: color-mix(in srgb, var(--lp-form-action, var(--lp-action)) 72%, #ffffff);
+}
+
 .cblock__audience-footer {
   margin: 0;
   padding: 14px;

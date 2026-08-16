@@ -346,6 +346,8 @@ export interface LandingSummary {
   accent_color: string;
   /** The COD form's own accent. Null means it follows `accent_color`. */
   form_accent_color: string | null;
+  /** Default conversion-block accent. Null means it follows the form accent. */
+  blocks_accent_color?: string | null;
   /** How many quantity offers the COD form presents (1-3). */
   offer_count: number;
   default_offer_quantity?: number;
@@ -398,6 +400,7 @@ export interface LandingConfigUpdate {
   cta_band_style?: CtaBandStyle;
   accent_color?: string;
   form_accent_color?: string | null;
+  blocks_accent_color?: string | null;
   offer_count?: number;
   default_offer_quantity?: number;
   offers?: LandingOfferUpdate[];

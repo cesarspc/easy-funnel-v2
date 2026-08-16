@@ -72,6 +72,8 @@ export interface ConversionBlockViewProps {
   productPrice: number;
   /** Landing-level dark mode default. Individual blocks override via config.dark_mode. */
   blocksDarkMode?: boolean;
+  /** Landing-level block accent. A block's own palette overrides it. */
+  blocksAccentPalette?: AccentPalette | null;
 }
 
 /**
@@ -1130,8 +1132,10 @@ export function ConversionBlockView({
   block,
   productPrice,
   blocksDarkMode = false,
+  blocksAccentPalette = null,
 }: ConversionBlockViewProps): JSX.Element | null {
-  const { config, accent_palette: palette } = block;
+  const { config, accent_palette: blockPalette } = block;
+  const palette = blockPalette ?? blocksAccentPalette;
   const configDark = (config as Record<string, unknown>).dark_mode;
   // Per-block dark_mode overrides the landing-level default.
   // true/false in config = explicit override; undefined/null = use landing default.

@@ -334,6 +334,8 @@ export function LandingPage(): JSX.Element {
   // already narrowed `landing` away from null, and reading it in a closure
   // asks the compiler to re-prove that at every call site.
   const blocksDarkMode = landing.blocks_dark_mode;
+  const blocksAccentPalette =
+    landing.blocks_accent_palette ?? landing.form_accent_palette ?? null;
 
   function renderBlocks(slot: number) {
     const group = blocksBySlot.get(slot);
@@ -344,6 +346,7 @@ export function LandingPage(): JSX.Element {
         block={block}
         productPrice={productPrice}
         blocksDarkMode={blocksDarkMode}
+        blocksAccentPalette={blocksAccentPalette}
       />
     ));
   }
@@ -378,9 +381,9 @@ export function LandingPage(): JSX.Element {
    * The COD form's own accent (tier tiles, focus rings, submit button),
    * independent of the CTA/page accent above. Falls back to the CTA's palette
    * when the landing never set one, so payloads cached before this field
-   * existed keep rendering identically. Written onto BOTH `accentStyle` (the
-   * page root, so ConversionBlocks inherit it) and `formAccentStyle` (the
-   * modal, which sits outside `.lp-page`'s DOM subtree).
+   * existed keep rendering identically. Written onto both `accentStyle` and
+   * `formAccentStyle`; conversion blocks receive their independently resolved
+   * palette through `ConversionBlockView`.
    */
   const formPalette = landing.form_accent_palette ?? palette;
   const formAccent = safeColor(formPalette?.accent ?? landing.form_accent_color ?? accent);
@@ -407,7 +410,13 @@ export function LandingPage(): JSX.Element {
           </Fragment>
         ))}
         {trailingBlocks.map((block) => (
-          <ConversionBlockView key={block.id} block={block} productPrice={productPrice} blocksDarkMode={landing.blocks_dark_mode} />
+          <ConversionBlockView
+            key={block.id}
+            block={block}
+            productPrice={productPrice}
+            blocksDarkMode={landing.blocks_dark_mode}
+            blocksAccentPalette={blocksAccentPalette}
+          />
         ))}
       </div>
 

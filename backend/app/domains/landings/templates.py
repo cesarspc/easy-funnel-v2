@@ -77,6 +77,7 @@ TEMPLATE_CONFIG_FIELDS = (
     "form_presentation",
     "accent_color",
     "form_accent_color",
+    "blocks_accent_color",
     "blocks_dark_mode",
     "offer_count",
     "default_offer_quantity",
@@ -160,6 +161,7 @@ def snapshot_config(landing: Any) -> dict[str, Any]:
         "form_presentation": landing.formPresentation,
         "accent_color": landing.accentColor,
         "form_accent_color": landing.formAccentColor,
+        "blocks_accent_color": getattr(landing, "blocksAccentColor", None),
         "blocks_dark_mode": bool(landing.blocksDarkMode),
         "offer_count": landing.offerCount,
         "default_offer_quantity": getattr(landing, "defaultOfferQuantity", 1),
@@ -264,6 +266,13 @@ def parse_template_config(raw_config: Any, *, banner_count: int) -> dict[str, An
     parsed["form_accent_color"] = (
         normalize_accent_color(form_accent, field="form_accent_color")
         if isinstance(form_accent, str) and form_accent.strip()
+        else None
+    )
+
+    blocks_accent = raw_config.get("blocks_accent_color")
+    parsed["blocks_accent_color"] = (
+        normalize_accent_color(blocks_accent, field="blocks_accent_color")
+        if isinstance(blocks_accent, str) and blocks_accent.strip()
         else None
     )
 

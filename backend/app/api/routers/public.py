@@ -162,6 +162,10 @@ class LandingResponse(BaseModel):
     # landing created before this field keeps rendering identically.
     form_accent_color: str
     form_accent_palette: AccentPaletteResponse
+    # Default for conversion blocks. Falls back to the effective form accent;
+    # an individual block's accent_palette still takes precedence.
+    blocks_accent_color: str
+    blocks_accent_palette: AccentPaletteResponse
     # The quantity offers the COD form presents, already priced.
     offers: list[LandingOfferResponse]
     default_offer_quantity: int
@@ -179,9 +183,7 @@ def _to_offer_response(offer: LandingOffer, pricing: OfferPricing) -> LandingOff
         # Fixed-value discounts are converted to an honest percentage by the
         # same pricing function that determines the amount the order stores.
         discount_percent=pricing.discount_percent,
-        discount_amount=(
-            None if offer.discount_amount is None else float(offer.discount_amount)
-        ),
+        discount_amount=(None if offer.discount_amount is None else float(offer.discount_amount)),
         unit_price=float(pricing.unit_price),
         gross=float(pricing.gross),
         total=float(pricing.total),
@@ -349,6 +351,8 @@ async def get_public_landing(
     palette = derive_accent_palette(landing.accentColor or DEFAULT_ACCENT_COLOR)
     form_accent_color = landing.formAccentColor or landing.accentColor or DEFAULT_ACCENT_COLOR
     form_palette = derive_accent_palette(form_accent_color)
+    blocks_accent_color = getattr(landing, "blocksAccentColor", None) or form_palette.accent
+    blocks_palette = derive_accent_palette(blocks_accent_color)
 
     # Priced here, once, from the product's current price. The COD form shows
     # these totals and the order records the one the buyer picks, so the number
@@ -388,6 +392,13 @@ async def get_public_landing(
             deep=form_palette.deep,
             tint=form_palette.tint,
             ink=form_palette.ink,
+        ),
+        blocks_accent_color=blocks_palette.accent,
+        blocks_accent_palette=AccentPaletteResponse(
+            accent=blocks_palette.accent,
+            deep=blocks_palette.deep,
+            tint=blocks_palette.tint,
+            ink=blocks_palette.ink,
         ),
         offers=offers,
         default_offer_quantity=getattr(landing, "defaultOfferQuantity", 1),
@@ -527,9 +538,7 @@ class LocationCatalogResponse(BaseModel):
 async def get_public_locations(response: Response) -> LocationCatalogResponse:
     """Return selectable Colombian locations with configured cities removed."""
     config = await get_prisma().fraudconfig.find_unique(where={"id": 1})
-    banned_cities = (
-        list(getattr(config, "bannedCities", None) or []) if config is not None else []
-    )
+    banned_cities = list(getattr(config, "bannedCities", None) or []) if config is not None else []
     response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600"
     return LocationCatalogResponse(
         departments=[DepartmentResponse(**item) for item in public_location_catalog(banned_cities)]

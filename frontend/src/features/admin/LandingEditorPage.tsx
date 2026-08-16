@@ -55,6 +55,7 @@ interface ConfigForm {
   ctaBandStyle: CtaBandStyle;
   accentColor: string;
   formAccentColor: string;
+  blocksAccentColor: string;
   offerCount: number;
   defaultOfferQuantity: number;
   offers: OfferForm[];
@@ -116,6 +117,7 @@ function toConfigForm(landing: LandingDetail): ConfigForm {
     ctaBandStyle: landing.cta_band_style ?? "gradient",
     accentColor: landing.accent_color ?? "#1a7a4c",
     formAccentColor: landing.form_accent_color ?? "",
+    blocksAccentColor: landing.blocks_accent_color ?? "",
     offerCount: landing.offer_count,
     defaultOfferQuantity: landing.default_offer_quantity ?? 1,
     offers: fitOffers((landing.offers ?? []).map(toOfferForm), landing.offer_count),
@@ -305,7 +307,10 @@ export function LandingEditorPage() {
         form_presentation: config.formPresentation,
         cta_band_style: config.ctaBandStyle,
         accent_color: config.accentColor,
-        form_accent_color: config.formAccentColor.trim() || null,
+        // Empty is an explicit reset, not an omitted update. This prevents a
+        // previously saved override from returning after refresh.
+        form_accent_color: config.formAccentColor.trim(),
+        blocks_accent_color: config.blocksAccentColor.trim(),
         offer_count: config.offerCount,
         default_offer_quantity: config.defaultOfferQuantity,
         cta_text: config.ctaText.trim() || null,
@@ -869,6 +874,65 @@ export function LandingEditorPage() {
             )}
           </div>
 
+          {/* Conversion-block default accent. */}
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor="landing-blocks-accent-color">
+              Color de componentes
+            </label>
+            <div className="landings-field__color">
+              <input
+                id="landing-blocks-accent-color"
+                className="landings-field__swatch"
+                type="color"
+                value={config.blocksAccentColor || config.formAccentColor || config.accentColor}
+                aria-describedby="landing-blocks-accent-color-hint"
+                aria-invalid={fieldErrors.blocks_accent_color ? true : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, blocksAccentColor: event.target.value } : current,
+                  )
+                }
+              />
+              <input
+                className="landings-field__input landings-field__input--hex"
+                type="text"
+                placeholder="Igual al color del formulario"
+                value={config.blocksAccentColor}
+                aria-label="Color de componentes en hexadecimal"
+                spellCheck={false}
+                maxLength={7}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, blocksAccentColor: event.target.value } : current,
+                  )
+                }
+              />
+              {config.blocksAccentColor && (
+                <button
+                  type="button"
+                  className="landings-field__clear"
+                  onClick={() =>
+                    setConfig((current) =>
+                      current ? { ...current, blocksAccentColor: "" } : current,
+                    )
+                  }
+                >
+                  Usar el color del formulario
+                </button>
+              )}
+            </div>
+            <p className="landings-field__hint" id="landing-blocks-accent-color-hint">
+              Es el color predeterminado de todos los componentes de conversión. Déjalo
+              vacío para seguir el color del formulario; cada componente todavía puede
+              sobrescribirlo individualmente.
+            </p>
+            {fieldErrors.blocks_accent_color && (
+              <p className="landings-field__error" role="alert">
+                {fieldErrors.blocks_accent_color}
+              </p>
+            )}
+          </div>
+
           {/* Blocks dark mode global toggle */}
           <div className="landings-field">
             <label className="lblocks__checkbox-label">
@@ -1386,7 +1450,9 @@ export function LandingEditorPage() {
       <LandingBlocksPanel
         landingId={landing.id}
         sequenceSignature={`${banners.length}:${landing.resolved_cta_positions.join(",")}:${templateReloadToken}`}
-        formAccentColor={config.formAccentColor || config.accentColor}
+        defaultAccentColor={
+          config.blocksAccentColor || config.formAccentColor || config.accentColor
+        }
       />
     </div>
   );
