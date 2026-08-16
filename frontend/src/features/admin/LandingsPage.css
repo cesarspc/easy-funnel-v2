@@ -413,6 +413,24 @@
   flex: none;
 }
 
+.landings-field__cta-color {
+  flex: 0 0 150px;
+}
+
+@media (max-width: 560px) {
+  .landings-field__row {
+    flex-wrap: wrap;
+  }
+
+  .landings-field__row .landings-field__label {
+    width: 100%;
+  }
+
+  .landings-field__cta-color {
+    flex-basis: 100%;
+  }
+}
+
 /* Stacks the per-CTA-position override rows, one per resolved CTA. */
 .landings-field__overrides {
   display: flex;

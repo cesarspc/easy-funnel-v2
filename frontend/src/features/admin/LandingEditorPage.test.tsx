@@ -224,6 +224,7 @@ describe("LandingEditorPage", () => {
         cta_text: null,
         cta_animation: null,
         cta_text_overrides: {},
+        cta_color_modes: {},
         blocks_dark_mode: false,
         offers: [
           {
@@ -645,6 +646,36 @@ describe("LandingEditorPage form accent and per-CTA text override", () => {
     await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
     const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
     expect(payload.cta_text_overrides).toEqual({ "2": "Lo quiero ahora" });
+  });
+
+  it("saves a background mode for only the selected CTA", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.selectOptions(screen.getByLabelText("Fondo CTA #2"), "dark");
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.cta_color_modes).toEqual({ "2": "dark" });
+  });
+
+  it("removes a CTA background override when changed back to default", async () => {
+    const user = userEvent.setup();
+    vi.mocked(landingsApi.get).mockResolvedValue({
+      ...DETAIL,
+      cta_color_modes: { "1": "light" },
+    });
+    renderEditor();
+    await screen.findByText("Banners (2/15)");
+
+    await user.selectOptions(screen.getByLabelText("Fondo CTA #1"), "default");
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(landingsApi.updateConfig).toHaveBeenCalled());
+    const payload = vi.mocked(landingsApi.updateConfig).mock.calls[0][1];
+    expect(payload.cta_color_modes).toEqual({});
   });
 
   it("preloads existing overrides from the stored landing", async () => {

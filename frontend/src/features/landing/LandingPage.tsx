@@ -257,6 +257,7 @@ export function LandingPage(): JSX.Element {
   const ctaLabel = landing.cta_text || defaultCtaLabel;
   const ctaAnimation = landing.cta_animation ?? null;
   const ctaTextOverrides = landing.cta_text_overrides;
+  const ctaColorModes = landing.cta_color_modes;
 
   /**
    * The label for the CTA at `position` (1-based): that position's override
@@ -271,12 +272,14 @@ export function LandingPage(): JSX.Element {
   /** One CTA band, painted for `position` (1-based). */
   function renderCtaBand(position: number) {
     const band = getCtaBandProps(position);
+    const colorMode = ctaColorModes?.[String(position)] ?? "default";
     return (
       <div
         className="lp-page__cta-band"
         style={band.style}
         data-cta-source={band.source}
         data-cta-band-style={band.bandStyle}
+        data-cta-color-mode={colorMode}
       >
         <div className="lp-page__cta-slot">
           <Cta

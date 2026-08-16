@@ -41,6 +41,7 @@ from app.domains.landings.accent_color import normalize_accent_color
 from app.domains.landings.alt_text import validate_alt_text
 from app.domains.landings.banner_ordering import contiguous_indices, reorder
 from app.domains.landings.cta_band_style import validate_cta_band_style
+from app.domains.landings.cta_color_modes import validate_cta_color_modes
 from app.domains.landings.cta_placement import validate_cta_config
 from app.domains.landings.cta_text_overrides import validate_cta_text_overrides
 from app.domains.landings.errors import (
@@ -83,6 +84,7 @@ class LandingManagementService:
         cta_text: str | None = None,
         cta_animation: str | None = None,
         cta_text_overrides: dict[object, object] | None = None,
+        cta_color_modes: dict[object, object] | None = None,
         blocks_dark_mode: bool | None = None,
         actor: str,
     ) -> Landing:
@@ -205,6 +207,9 @@ class LandingManagementService:
             if cta_text_overrides is not None:
                 validated_overrides = validate_cta_text_overrides(cta_text_overrides)
                 data["ctaTextOverrides"] = Json(validated_overrides)
+
+            if cta_color_modes is not None:
+                data["ctaColorModes"] = Json(validate_cta_color_modes(cta_color_modes))
 
             if blocks_dark_mode is not None:
                 data["blocksDarkMode"] = blocks_dark_mode

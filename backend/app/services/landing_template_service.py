@@ -181,6 +181,7 @@ class LandingTemplateService:
                 "ctaText": config["cta_text"],
                 "ctaAnimation": config["cta_animation"],
                 "ctaTextOverrides": Json(config["cta_text_overrides"]),
+                "ctaColorModes": Json(config["cta_color_modes"]),
                 "formPresentation": config["form_presentation"],
                 "accentColor": config["accent_color"],
                 "formAccentColor": config["form_accent_color"],

@@ -16,6 +16,7 @@ import { Link, useParams } from "react-router-dom";
 import { StatusPill } from "../../components";
 import type {
   CtaBandStyle,
+  CtaColorMode,
   CtaMode,
   FormPresentation,
   LandingBanner,
@@ -62,6 +63,7 @@ interface ConfigForm {
   ctaText: string;
   ctaAnimation: string;
   ctaTextOverrides: Record<string, string>;
+  ctaColorModes: Record<string, Exclude<CtaColorMode, "default">>;
   blocksDarkMode: boolean;
 }
 
@@ -124,6 +126,7 @@ function toConfigForm(landing: LandingDetail): ConfigForm {
     ctaText: landing.cta_text ?? "",
     ctaAnimation: landing.cta_animation ?? "",
     ctaTextOverrides: { ...(landing.cta_text_overrides ?? {}) },
+    ctaColorModes: { ...(landing.cta_color_modes ?? {}) },
     blocksDarkMode: landing.blocks_dark_mode ?? false,
   };
 }
@@ -316,6 +319,7 @@ export function LandingEditorPage() {
         cta_text: config.ctaText.trim() || null,
         cta_animation: (config.ctaAnimation as "slide" | "shake") || null,
         cta_text_overrides: config.ctaTextOverrides,
+        cta_color_modes: config.ctaColorModes,
         blocks_dark_mode: config.blocksDarkMode,
         // Only the rows the merchant can actually see are sent, so lowering the
         // count drops the trailing offers instead of submitting copy for tiers
@@ -1030,10 +1034,10 @@ export function LandingEditorPage() {
               never offered an override for a CTA that does not exist. */}
           {landing && landing.resolved_cta_positions.length > 0 && (
             <div className="landings-field">
-              <label className="landings-field__label">Texto por CTA (opcional)</label>
+              <label className="landings-field__label">Personalización por CTA</label>
               <p className="landings-field__hint" id="landing-cta-overrides-hint">
-                Reemplaza el texto del botón solo en la posición elegida. Vacío usa el texto por
-                defecto de arriba.
+                Personaliza el texto y el fondo de cada posición. Predeterminado conserva el
+                degradado o color medio calculado desde los banners.
               </p>
               <div className="landings-field__overrides">
                 {landing.resolved_cta_positions.map((position) => {
@@ -1069,6 +1073,25 @@ export function LandingEditorPage() {
                           });
                         }}
                       />
+                      <select
+                        className="landings-field__input landings-field__cta-color"
+                        aria-label={`Fondo CTA #${position}`}
+                        value={config.ctaColorModes[key] ?? "default"}
+                        onChange={(event) => {
+                          const mode = event.target.value as CtaColorMode;
+                          setConfig((current) => {
+                            if (!current) return current;
+                            const next = { ...current.ctaColorModes };
+                            if (mode === "default") delete next[key];
+                            else next[key] = mode;
+                            return { ...current, ctaColorModes: next };
+                          });
+                        }}
+                      >
+                        <option value="default">Predeterminado</option>
+                        <option value="dark">Oscuro</option>
+                        <option value="light">Claro</option>
+                      </select>
                     </div>
                   );
                 })}
@@ -1080,6 +1103,11 @@ export function LandingEditorPage() {
                   role="alert"
                 >
                   {fieldErrors.cta_text_overrides}
+                </p>
+              )}
+              {fieldErrors.cta_color_modes && (
+                <p className="landings-field__error" role="alert">
+                  {fieldErrors.cta_color_modes}
                 </p>
               )}
             </div>

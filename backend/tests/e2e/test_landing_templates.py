@@ -50,6 +50,7 @@ async def configure_source_landing(cod_flow: CodFlowHarness, landing_id: int) ->
             "cta_text": "Lo quiero ahora",
             "cta_animation": "shake",
             "cta_text_overrides": {"2": "Pídelo hoy"},
+            "cta_color_modes": {"1": "dark", "2": "light"},
             "blocks_dark_mode": True,
             "offer_count": 2,
             "offers": [
@@ -218,6 +219,7 @@ class TestLoadTemplate:
         assert body["cta_text"] == "Lo quiero ahora"
         assert body["cta_animation"] == "shake"
         assert body["cta_text_overrides"] == {"2": "Pídelo hoy"}
+        assert body["cta_color_modes"] == {"1": "dark", "2": "light"}
         assert body["blocks_dark_mode"] is True
         assert body["offer_count"] == 2
         assert [offer["quantity"] for offer in body["offers"]] == [1, 2]

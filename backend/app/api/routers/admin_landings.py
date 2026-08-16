@@ -121,6 +121,9 @@ class LandingSummaryResponse(BaseModel):
     # Per-CTA-position text override: `{"2": "Lo quiero ahora"}` overrides
     # only the second CTA's label, leaving the rest on `cta_text`/default.
     cta_text_overrides: dict[str, str] = {}
+    # Per-position CTA band mode. Missing positions use the sampled banner
+    # background; stored values are "dark" or "light".
+    cta_color_modes: dict[str, str] = {}
     blocks_dark_mode: bool = False
 
 
@@ -168,6 +171,7 @@ class LandingConfigUpdateRequest(BaseModel):
     cta_text: str | None = None
     cta_animation: str | None = None
     cta_text_overrides: dict[str, str] | None = None
+    cta_color_modes: dict[str, str] | None = None
     blocks_dark_mode: bool | None = None
 
 
@@ -320,6 +324,11 @@ def _to_summary_response(landing) -> LandingSummaryResponse:  # type: ignore[no-
         cta_text_overrides=(
             landing.ctaTextOverrides if isinstance(landing.ctaTextOverrides, dict) else {}
         ),
+        cta_color_modes=(
+            landing.ctaColorModes
+            if isinstance(getattr(landing, "ctaColorModes", None), dict)
+            else {}
+        ),
         blocks_dark_mode=bool(landing.blocksDarkMode),
     )
 
@@ -439,6 +448,7 @@ async def update_landing_config(
             cta_text=request.cta_text,
             cta_animation=request.cta_animation,
             cta_text_overrides=request.cta_text_overrides,
+            cta_color_modes=request.cta_color_modes,
             blocks_dark_mode=request.blocks_dark_mode,
             actor=admin_user.subject,
         )

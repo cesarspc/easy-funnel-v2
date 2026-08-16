@@ -426,6 +426,39 @@ async def test_landing_patch_stores_a_per_cta_position_text_override(
     assert response.json()["cta_text_overrides"] == {"2": "Lo quiero ahora"}
 
 
+async def test_landing_patch_stores_per_cta_color_modes(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing(landing_status="draft")
+
+    response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"cta_color_modes": {"1": "dark", "2": "light", "3": "default"}},
+        headers=cod_flow.admin_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cta_color_modes"] == {"1": "dark", "2": "light"}
+
+
+async def test_landing_patch_rejects_an_invalid_cta_color_mode_without_mutating(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing(landing_status="draft")
+
+    response = await cod_flow.client.patch(
+        f"/api/admin/landings/{landing.landing_id}",
+        json={"cta_color_modes": {"1": "blue"}},
+        headers=cod_flow.admin_headers(),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["field"] == "cta_color_modes"
+    stored = await cod_flow.db.landing.find_unique(where={"id": landing.landing_id})
+    assert stored is not None
+    assert stored.ctaColorModes == {}
+
+
 async def test_landing_patch_rejects_a_blank_cta_text_override_without_mutating(
     cod_flow: CodFlowHarness,
 ) -> None:

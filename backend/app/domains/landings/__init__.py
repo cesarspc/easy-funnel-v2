@@ -62,6 +62,14 @@ from app.domains.landings.cta_band_style import (
     CTA_BAND_STYLE_SOLID,
     validate_cta_band_style,
 )
+from app.domains.landings.cta_color_modes import (
+    ALLOWED_CTA_COLOR_MODES,
+    CTA_COLOR_MODE_DARK,
+    CTA_COLOR_MODE_DEFAULT,
+    CTA_COLOR_MODE_LIGHT,
+    resolve_cta_color_mode,
+    validate_cta_color_modes,
+)
 from app.domains.landings.cta_placement import (
     ALLOWED_CTA_MODES,
     CTA_MODE_AFTER_EVERY,
@@ -150,6 +158,12 @@ __all__ = [
     "CTA_BAND_STYLE_SOLID",
     "ALLOWED_CTA_BAND_STYLES",
     "validate_cta_band_style",
+    "CTA_COLOR_MODE_DEFAULT",
+    "CTA_COLOR_MODE_DARK",
+    "CTA_COLOR_MODE_LIGHT",
+    "ALLOWED_CTA_COLOR_MODES",
+    "validate_cta_color_modes",
+    "resolve_cta_color_mode",
     "BLOCK_COD_ASSURANCE",
     "BLOCK_BENEFITS",
     "BLOCK_OFFER_PRICE",

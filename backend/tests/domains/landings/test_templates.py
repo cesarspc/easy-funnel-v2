@@ -60,6 +60,7 @@ def landing_row(**overrides: object) -> SimpleNamespace:
         "ctaText": None,
         "ctaAnimation": None,
         "ctaTextOverrides": {},
+        "ctaColorModes": {},
         "formPresentation": "inline",
         "accentColor": "#1a7a4c",
         "formAccentColor": None,
@@ -175,6 +176,7 @@ class TestConfigSnapshot:
                 ctaText="Lo quiero",
                 ctaAnimation="shake",
                 ctaTextOverrides={"2": "Ahora"},
+                ctaColorModes={"1": "dark"},
                 formPresentation="modal",
                 accentColor="#2563eb",
                 formAccentColor="#e11d48",
@@ -188,6 +190,7 @@ class TestConfigSnapshot:
         assert config["cta_text"] == "Lo quiero"
         assert config["cta_animation"] == "shake"
         assert config["cta_text_overrides"] == {"2": "Ahora"}
+        assert config["cta_color_modes"] == {"1": "dark"}
         assert config["form_presentation"] == "modal"
         assert config["accent_color"] == "#2563eb"
         assert config["form_accent_color"] == "#e11d48"

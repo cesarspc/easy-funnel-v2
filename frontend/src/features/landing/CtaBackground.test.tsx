@@ -145,6 +145,26 @@ describe("CTA band: gradient between two banners", () => {
 });
 
 describe("CTA band: solid and fallback treatments", () => {
+  it("applies a dark or light override only to its configured CTA position", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding({ cta_color_modes: { "1": "dark", "2": "light" } }),
+    );
+
+    renderAtSlug();
+    await screen.findByAltText("Banner 1");
+
+    expect(bands()[0]).toHaveAttribute("data-cta-color-mode", "dark");
+    expect(bands()[1]).toHaveAttribute("data-cta-color-mode", "light");
+  });
+
+  it("keeps the automatic treatment when no position override exists", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(makeLanding());
+    renderAtSlug();
+    await screen.findByAltText("Banner 1");
+
+    expect(bands()[0]).toHaveAttribute("data-cta-color-mode", "default");
+  });
+
   it("renders a solid band when only the banner above has a usable edge", async () => {
     // `source: above` arrives with both endpoints already equal.
     vi.mocked(publicApi.getLanding).mockResolvedValue(

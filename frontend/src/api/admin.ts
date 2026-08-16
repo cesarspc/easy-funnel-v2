@@ -3,7 +3,12 @@
 import { apiClient } from "./client";
 // Declared once with the public payload it describes: admin and public must
 // agree on the vocabulary or the editor could save a value the page ignores.
-import type { ConversionBlockType, CtaBandStyle, ProductVariantOption } from "./public";
+import type {
+  ConversionBlockType,
+  CtaBandStyle,
+  CtaColorMode,
+  ProductVariantOption,
+} from "./public";
 
 // Product schemas
 export interface Product {
@@ -361,6 +366,7 @@ export interface LandingSummary {
    * (or the default label) instead.
    */
   cta_text_overrides: Record<string, string>;
+  cta_color_modes?: Record<string, Exclude<CtaColorMode, "default">>;
   blocks_dark_mode: boolean;
 }
 
@@ -407,6 +413,7 @@ export interface LandingConfigUpdate {
   cta_text?: string | null;
   cta_animation?: "slide" | "shake" | null;
   cta_text_overrides?: Record<string, string>;
+  cta_color_modes?: Record<string, Exclude<CtaColorMode, "default">>;
   blocks_dark_mode?: boolean;
 }
 

@@ -193,6 +193,19 @@
   );
 }
 
+/* A merchant can force one CTA band away from its sampled banner colors.
+   These stable neutral surfaces deliberately remove the generated image so
+   neither endpoint of the automatic gradient can bleed through. */
+.lp-page__cta-band[data-cta-color-mode="dark"] {
+  background-color: #14181c;
+  background-image: none;
+}
+
+.lp-page__cta-band[data-cta-color-mode="light"] {
+  background-color: #ffffff;
+  background-image: none;
+}
+
 /* `source: above` / `below` arrive with both endpoints already equal, so the
    gradient above is a solid fill and needs no separate rule. A landing set to
    `cta_band_style: solid` reaches the same place deliberately: LandingPage

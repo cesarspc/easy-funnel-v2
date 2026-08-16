@@ -45,6 +45,7 @@ from app.domains.landings.blocks import (
     validate_slot_index,
 )
 from app.domains.landings.cta_band_style import validate_cta_band_style
+from app.domains.landings.cta_color_modes import validate_cta_color_modes
 from app.domains.landings.cta_placement import validate_cta_config
 from app.domains.landings.cta_text_overrides import (
     OVERRIDE_TEXT_MAX,
@@ -74,6 +75,7 @@ TEMPLATE_CONFIG_FIELDS = (
     "cta_text",
     "cta_animation",
     "cta_text_overrides",
+    "cta_color_modes",
     "form_presentation",
     "accent_color",
     "form_accent_color",
@@ -150,6 +152,9 @@ def snapshot_config(landing: Any) -> dict[str, Any]:
     stored_overrides = (
         landing.ctaTextOverrides if isinstance(landing.ctaTextOverrides, dict) else {}
     )
+    stored_color_modes = (
+        landing.ctaColorModes if isinstance(getattr(landing, "ctaColorModes", None), dict) else {}
+    )
     return {
         "cta_mode": landing.ctaMode,
         "cta_interval": landing.ctaInterval,
@@ -158,6 +163,7 @@ def snapshot_config(landing: Any) -> dict[str, Any]:
         "cta_text": landing.ctaText,
         "cta_animation": landing.ctaAnimation,
         "cta_text_overrides": dict(stored_overrides),
+        "cta_color_modes": dict(stored_color_modes),
         "form_presentation": landing.formPresentation,
         "accent_color": landing.accentColor,
         "form_accent_color": landing.formAccentColor,
@@ -242,6 +248,8 @@ def parse_template_config(raw_config: Any, *, banner_count: int) -> dict[str, An
 
     raw_overrides = raw_config.get("cta_text_overrides")
     overrides: dict[object, object] = raw_overrides if isinstance(raw_overrides, dict) else {}
+    raw_color_modes = raw_config.get("cta_color_modes")
+    color_modes: dict[object, object] = raw_color_modes if isinstance(raw_color_modes, dict) else {}
 
     parsed: dict[str, Any] = {
         "cta_mode": cta_config.mode,
@@ -257,6 +265,7 @@ def parse_template_config(raw_config: Any, *, banner_count: int) -> dict[str, An
         "default_offer_quantity": default_offer_quantity,
         "offers": [offer.to_json() for offer in offers],
         "cta_text_overrides": validate_cta_text_overrides(overrides),
+        "cta_color_modes": validate_cta_color_modes(color_modes),
     }
 
     # `None` and `""` are different intentions for the nullable columns: absent

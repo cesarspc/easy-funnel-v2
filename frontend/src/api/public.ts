@@ -26,6 +26,8 @@ export type CtaForegroundMode = "light" | "dark" | null;
  * either way — this only selects how they are applied.
  */
 export type CtaBandStyle = "gradient" | "solid";
+/** Per-position CTA band treatment. Default keeps banner-derived colors. */
+export type CtaColorMode = "default" | "dark" | "light";
 
 export interface CtaBackground {
   position: number;
@@ -198,6 +200,8 @@ export interface PublicLanding {
    * cached before this existed.
    */
   cta_text_overrides?: Record<string, string>;
+  /** Missing positions use the automatic banner-derived background. */
+  cta_color_modes?: Record<string, Exclude<CtaColorMode, "default">>;
 }
 
 export interface OrderCreateRequest {

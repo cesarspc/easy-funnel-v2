@@ -153,6 +153,9 @@ class LandingResponse(BaseModel):
     # itself rather than the server pre-resolving each band, since the
     # client already knows which position each band renders at.
     cta_text_overrides: dict[str, str] = {}
+    # Per-position band appearance: absent = automatic sampled background;
+    # stored values are "dark" or "light".
+    cta_color_modes: dict[str, str] = {}
     # The merchant's accent plus its derived shades. The page applies these as
     # CSS custom properties, so one stored color themes the CTA, the offer
     # tiles, focus rings, and accent text together.
@@ -379,6 +382,11 @@ async def get_public_landing(
         cta_animation=landing.ctaAnimation,
         cta_text_overrides=(
             landing.ctaTextOverrides if isinstance(landing.ctaTextOverrides, dict) else {}
+        ),
+        cta_color_modes=(
+            landing.ctaColorModes
+            if isinstance(getattr(landing, "ctaColorModes", None), dict)
+            else {}
         ),
         accent_color=palette.accent,
         accent_palette=AccentPaletteResponse(

@@ -363,6 +363,27 @@ class TestCtaTextOverrides:
         assert response.json()["detail"]["field"] == "cta_text_overrides"
 
 
+class TestCtaColorModes:
+    async def test_default_public_payload_has_no_color_overrides(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _published_landing(cod_flow)
+
+        response = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+
+        assert response.status_code == 200
+        assert response.json()["cta_color_modes"] == {}
+
+    async def test_configured_modes_are_served_publicly(self, cod_flow: CodFlowHarness) -> None:
+        landing = await _published_landing(cod_flow)
+        await _configure(cod_flow, landing, {"cta_color_modes": {"1": "dark"}})
+
+        response = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+
+        assert response.status_code == 200
+        assert response.json()["cta_color_modes"] == {"1": "dark"}
+
+
 class TestOfferPricing:
     async def test_a_fixed_discount_derives_percentage_and_is_snapshotted(
         self, cod_flow: CodFlowHarness

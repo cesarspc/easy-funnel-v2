@@ -96,6 +96,10 @@ model Landing {
   /// default (no positions overridden).
   ctaTextOverrides Json @default("{}") @map("cta_text_overrides")
 
+  /// Per-CTA-position band color override. Missing positions keep the sampled
+  /// banner gradient/solid background; values are "dark" or "light".
+  ctaColorModes Json @default("{}") @map("cta_color_modes")
+
   /// When true, all conversion blocks render in dark mode by default.
   /// Individual blocks can override this via their own `dark_mode` config field.
   blocksDarkMode Boolean @default(false) @map("blocks_dark_mode")
