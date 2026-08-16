@@ -10,11 +10,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from upstash_redis import AsyncRedis
 
 from app.core.auth_dependencies import require_admin
 from app.db.client import get_prisma
 from app.domains.analytics.date_range import parse_date_range
 from app.domains.analytics.errors import AnalyticsValidationError
+from app.redis.client import get_redis
 from app.services.analytics_query_service import AnalyticsQueryService
 
 router = APIRouter(prefix="/api/admin/analytics", tags=["admin", "analytics"])
@@ -71,10 +73,11 @@ async def get_landing_analytics(
     date_to: str = Query(...),
     landing_id: int | None = Query(None),
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008 (FastAPI DI)
 ) -> list[LandingAnalyticsResponse]:
     """Return per-landing views, clicks, orders, and conversion rate."""
     date_range = _resolve_range(date_from, date_to)
-    results = await AnalyticsQueryService(get_prisma()).get_landing_analytics(
+    results = await AnalyticsQueryService(get_prisma(), redis).get_landing_analytics(
         date_range, landing_id=landing_id
     )
 

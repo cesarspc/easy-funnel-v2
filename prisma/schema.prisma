@@ -128,6 +128,7 @@ model Landing {
   orders  Order[]
   views   LandingView[]
   clicks  CtaClick[]
+  dailyTraffic LandingAnalyticsDaily[]
 
   @@index([slug], map: "idx_landings_slug")
   @@map("landings")
@@ -370,6 +371,28 @@ model CtaClick {
 
   @@index([landingId, createdAt], map: "idx_cta_clicks_landing_created")
   @@map("cta_clicks")
+}
+
+/// Bounded production analytics storage. Public view and CTA events are
+/// atomically folded into one row per Landing per UTC calendar day, so table
+/// growth depends on the number of active landings and days rather than raw
+/// traffic volume. `LandingView` and `CtaClick` remain as read-only legacy
+/// history and are included alongside these counters by analytics reports.
+model LandingAnalyticsDaily {
+  id            BigInt   @id @default(autoincrement())
+  landingId     BigInt   @map("landing_id")
+  eventDate     DateTime @map("event_date") @db.Date
+  viewCount     BigInt   @default(0) @map("view_count")
+  ctaClickCount BigInt   @default(0) @map("cta_click_count")
+  fallbackViewCount BigInt @default(0) @map("fallback_view_count")
+  fallbackCtaClickCount BigInt @default(0) @map("fallback_cta_click_count")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  landing Landing @relation(fields: [landingId], references: [id])
+
+  @@unique([landingId, eventDate], map: "idx_landing_analytics_daily_unique")
+  @@index([eventDate, landingId], map: "idx_landing_analytics_daily_range")
+  @@map("landing_analytics_daily")
 }
 
 model AdminUser {

@@ -20,6 +20,8 @@ in `tests/e2e/conftest.py`.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from app.domains.orders.normalization import normalize_colombian_phone_key
 
 from tests.conftest import requires_database
@@ -98,9 +100,28 @@ async def test_e2e_cod_flow_clean_order(cod_flow: CodFlowHarness) -> None:
     assert stored.ipAddress == _CLIENT_IP
     assert stored.userAgent == _USER_AGENT
 
-    # 6. Analytics counters recorded exactly one view and one click.
-    assert await cod_flow.db.landingview.count(where={"landingId": landing.landing_id}) == 1
-    assert await cod_flow.db.ctaclick.count(where={"landingId": landing.landing_id}) == 1
+    # 6. Reading analytics reconciles the live Redis counters durably.
+    today = datetime.now(UTC).date().isoformat()
+    analytics_response = await cod_flow.client.get(
+        f"/api/admin/analytics/landings?date_from={today}&date_to={today}"
+        f"&landing_id={landing.landing_id}",
+        headers=cod_flow.admin_headers(),
+    )
+    assert analytics_response.status_code == 200
+    assert analytics_response.json()[0]["views"] == 1
+    assert analytics_response.json()[0]["clicks"] == 1
+
+    traffic = await cod_flow.db.query_raw(
+        """
+        SELECT "view_count", "cta_click_count"
+        FROM "landing_analytics_daily"
+        WHERE "landing_id" = $1
+        """,
+        landing.landing_id,
+    )
+    assert traffic == [{"view_count": 1, "cta_click_count": 1}]
+    assert await cod_flow.db.landingview.count(where={"landingId": landing.landing_id}) == 0
+    assert await cod_flow.db.ctaclick.count(where={"landingId": landing.landing_id}) == 0
 
 
 async def test_e2e_cod_flow_duplicate_detection(cod_flow: CodFlowHarness) -> None:

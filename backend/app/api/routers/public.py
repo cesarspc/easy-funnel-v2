@@ -32,6 +32,7 @@ from app.domains.orders.errors import OrderValidationError
 from app.domains.orders.locations import public_location_catalog
 from app.redis.client import get_redis
 from app.services.geoip_resolver import GeoIpResolver, get_geoip_resolver
+from app.services.landing_traffic_service import LandingTrafficService
 from app.services.order_submission_service import OrderSubmissionService
 from app.storage.r2_client import variant_public_url
 
@@ -415,6 +416,7 @@ async def get_public_landing(
 @router.post("/landings/{slug}/view")
 async def record_landing_view(
     slug: str,
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008 (FastAPI DI)
 ) -> dict[str, bool]:
     """Record a landing view (no contact fields)."""
     db = get_prisma()
@@ -426,13 +428,14 @@ async def record_landing_view(
             detail="Landing not found",
         )
 
-    await db.landingview.create(data={"landingId": landing.id})
+    await LandingTrafficService(db, redis).record_view(landing.id)
     return {"view_recorded": True}
 
 
 @router.post("/landings/{slug}/cta-click")
 async def record_cta_click(
     slug: str,
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008 (FastAPI DI)
 ) -> dict[str, bool]:
     """Record a CTA click."""
     db = get_prisma()
@@ -444,7 +447,7 @@ async def record_cta_click(
             detail="Landing not found",
         )
 
-    await db.ctaclick.create(data={"landingId": landing.id})
+    await LandingTrafficService(db, redis).record_cta_click(landing.id)
     return {"click_recorded": True}
 
 

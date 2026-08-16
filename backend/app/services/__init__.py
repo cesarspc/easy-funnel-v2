@@ -13,6 +13,7 @@ from app.services.landing_publication_service import (
     LandingPublicationService,
     PublicLandingView,
 )
+from app.services.landing_traffic_service import LandingTrafficService
 from app.services.product_lifecycle_service import (
     ProductCreationResult,
     ProductLifecycleService,
@@ -29,6 +30,7 @@ __all__ = [
     "ProductCreationResult",
     "LandingPublicationService",
     "PublicLandingView",
+    "LandingTrafficService",
     "BannerUploadService",
     "BannerUploadResult",
     "CsvExportService",

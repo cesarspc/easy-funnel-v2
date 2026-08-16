@@ -22,7 +22,6 @@ from prisma.models import (
     AuditLog,
     Banner,
     BlacklistEntry,
-    CtaClick,
     FraudConfig,
     FraudFlag,
     GeoIpRule,
@@ -31,7 +30,6 @@ from prisma.models import (
     Landing,
     LandingBlock,
     LandingTemplate,
-    LandingView,
     Order,
     Product,
 )
@@ -335,26 +333,111 @@ class LandingViewRepository:
     def __init__(self, db: Prisma) -> None:
         self._db = db
 
-    async def record(self, landing_id: int) -> LandingView:
-        return await self._db.landingview.create(data={"landingId": landing_id})
+    async def record_fallback(self, landing_id: int) -> int:
+        """Increment the durable fallback used only while Redis is unavailable."""
+        rows = await self._db.query_raw(
+            """
+            INSERT INTO "landing_analytics_daily" (
+                "landing_id", "event_date", "view_count", "cta_click_count",
+                "fallback_view_count", "fallback_cta_click_count", "updated_at"
+            )
+            VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date, 0, 0, 1, 0, CURRENT_TIMESTAMP)
+            ON CONFLICT ("landing_id", "event_date") DO UPDATE
+            SET "fallback_view_count" =
+                    "landing_analytics_daily"."fallback_view_count" + 1,
+                "updated_at" = CURRENT_TIMESTAMP
+            RETURNING "fallback_view_count" AS count
+            """,
+            landing_id,
+        )
+        return int(rows[0]["count"])
+
+    async def persist_redis_snapshot(
+        self,
+        landing_id: int,
+        *,
+        event_date: str,
+        views: int,
+        cta_clicks: int,
+    ) -> None:
+        """Persist monotonic absolute Redis totals for one UTC day.
+
+        `GREATEST` makes concurrent or retried snapshots idempotent: an older
+        snapshot can never replace a newer one. Fallback columns are untouched.
+        """
+        await self._db.execute_raw(
+            """
+            INSERT INTO "landing_analytics_daily" (
+                "landing_id", "event_date", "view_count", "cta_click_count",
+                "fallback_view_count", "fallback_cta_click_count", "updated_at"
+            )
+            VALUES ($1, $2::date, $3, $4, 0, 0, CURRENT_TIMESTAMP)
+            ON CONFLICT ("landing_id", "event_date") DO UPDATE
+            SET "view_count" = GREATEST(
+                    "landing_analytics_daily"."view_count", EXCLUDED."view_count"
+                ),
+                "cta_click_count" = GREATEST(
+                    "landing_analytics_daily"."cta_click_count", EXCLUDED."cta_click_count"
+                ),
+                "updated_at" = CURRENT_TIMESTAMP
+            """,
+            landing_id,
+            event_date,
+            views,
+            cta_clicks,
+        )
 
     async def count_for_landing(self, landing_id: int, *, since: datetime, until: datetime) -> int:
-        return await self._db.landingview.count(
-            where={"landingId": landing_id, "createdAt": {"gte": since, "lte": until}}
+        rows = await self._db.query_raw(
+            """
+            SELECT COALESCE(SUM("view_count" + "fallback_view_count"), 0) AS count
+            FROM "landing_analytics_daily"
+            WHERE "landing_id" = $1
+              AND "event_date" BETWEEN $2::date AND $3::date
+            """,
+            landing_id,
+            since.date().isoformat(),
+            until.date().isoformat(),
         )
+        return int(rows[0]["count"])
 
 
 class CtaClickRepository:
     def __init__(self, db: Prisma) -> None:
         self._db = db
 
-    async def record(self, landing_id: int) -> CtaClick:
-        return await self._db.ctaclick.create(data={"landingId": landing_id})
+    async def record_fallback(self, landing_id: int) -> int:
+        """Increment the durable fallback used only while Redis is unavailable."""
+        rows = await self._db.query_raw(
+            """
+            INSERT INTO "landing_analytics_daily" (
+                "landing_id", "event_date", "view_count", "cta_click_count",
+                "fallback_view_count", "fallback_cta_click_count", "updated_at"
+            )
+            VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date, 0, 0, 0, 1, CURRENT_TIMESTAMP)
+            ON CONFLICT ("landing_id", "event_date") DO UPDATE
+            SET "fallback_cta_click_count" =
+                    "landing_analytics_daily"."fallback_cta_click_count" + 1,
+                "updated_at" = CURRENT_TIMESTAMP
+            RETURNING "fallback_cta_click_count" AS count
+            """,
+            landing_id,
+        )
+        return int(rows[0]["count"])
 
     async def count_for_landing(self, landing_id: int, *, since: datetime, until: datetime) -> int:
-        return await self._db.ctaclick.count(
-            where={"landingId": landing_id, "createdAt": {"gte": since, "lte": until}}
+        rows = await self._db.query_raw(
+            """
+            SELECT COALESCE(SUM("cta_click_count" + "fallback_cta_click_count"), 0) AS count
+            FROM "landing_analytics_daily"
+            WHERE "landing_id" = $1
+              AND "event_date" BETWEEN $2::date AND $3::date
+            """,
+            landing_id,
+            since.date().isoformat(),
+            until.date().isoformat(),
         )
+        return int(rows[0]["count"])
 
 
 class AdminUserRepository:

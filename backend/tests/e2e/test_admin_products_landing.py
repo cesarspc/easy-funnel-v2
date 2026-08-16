@@ -160,6 +160,9 @@ async def _cleanup_product(cod_flow: CodFlowHarness, *, product_id: int) -> None
     landing = await db.landing.find_unique(where={"productId": product_id})
     if landing is not None:
         await db.order.delete_many(where={"landingId": landing.id})
+        await db.execute_raw(
+            'DELETE FROM "landing_analytics_daily" WHERE "landing_id" = $1', landing.id
+        )
         await db.ctaclick.delete_many(where={"landingId": landing.id})
         await db.landingview.delete_many(where={"landingId": landing.id})
         # Every landing now starts with a default announcement_bar component

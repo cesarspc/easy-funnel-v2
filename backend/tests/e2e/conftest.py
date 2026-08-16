@@ -293,6 +293,10 @@ class CodFlowHarness:
             for order in orders:
                 await self.db.fraudflag.delete_many(where={"orderId": order.id})
             await self.db.order.delete_many(where={"landingId": landing.landing_id})
+            await self.db.execute_raw(
+                'DELETE FROM "landing_analytics_daily" WHERE "landing_id" = $1',
+                landing.landing_id,
+            )
             await self.db.ctaclick.delete_many(where={"landingId": landing.landing_id})
             await self.db.landingview.delete_many(where={"landingId": landing.landing_id})
             stored_banners = await self.db.banner.find_many(where={"landingId": landing.landing_id})
