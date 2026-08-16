@@ -787,6 +787,27 @@
   color: var(--lp-form-action-deep, var(--lp-action-deep));
 }
 
+/* The saved accent tint is intentionally very pale for light landings. Using
+   it directly as a gradient stop creates a white patch when this optional
+   closing badge inherits dark mode. Derive the stop from the accent and the
+   active dark surface so the badge keeps its contrast with every palette. */
+.cblock-dark-wrap .cblock__solution-final {
+  border-color: color-mix(
+    in srgb,
+    var(--lp-form-action, var(--lp-action)) 38%,
+    var(--lp-hairline)
+  );
+  background: linear-gradient(
+    135deg,
+    var(--lp-surface),
+    color-mix(
+      in srgb,
+      var(--lp-form-action, var(--lp-action)) 18%,
+      var(--lp-surface)
+    )
+  );
+}
+
 .cblock__story-timeline {
   position: relative;
   display: flex;
