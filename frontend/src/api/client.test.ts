@@ -33,4 +33,41 @@ describe("configured API base URL", () => {
     );
     expect(result).toBe(expectedBlob);
   });
+
+  it("does not label a bodyless tracking POST as JSON", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({ view_recorded: true }),
+    } as unknown as Response);
+
+    await apiClient.post("/public/landings/example/view");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/public/landings/example/view",
+      expect.objectContaining({
+        method: "POST",
+        body: undefined,
+        headers: {},
+      }),
+    );
+  });
+
+  it("keeps the JSON content type when a request has a JSON body", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({}),
+    } as unknown as Response);
+
+    await apiClient.post("/example", { enabled: true });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/example",
+      expect.objectContaining({
+        body: JSON.stringify({ enabled: true }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  });
 });

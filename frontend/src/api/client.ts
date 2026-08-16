@@ -26,13 +26,15 @@ export function buildApiUrl(path: string): string {
 
 async function fetchApi(path: string, options: RequestInit = {}): Promise<Response> {
   // `FormData` bodies must keep the browser-generated multipart boundary, so
-  // the JSON content type is only applied to non-multipart requests.
+  // the JSON content type is only applied to non-multipart requests that
+  // actually carry a body. Empty analytics POSTs stay CORS-simple.
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const hasBody = options.body !== undefined && options.body !== null;
   const response = await fetch(buildApiUrl(path), {
     ...options,
     credentials: "include",
     headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...options.headers,
     },
   });

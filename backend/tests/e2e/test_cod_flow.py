@@ -65,7 +65,6 @@ async def test_e2e_cod_flow_clean_order(cod_flow: CodFlowHarness) -> None:
     # 2. Record the view on display.
     view_response = await cod_flow.client.post(
         f"/api/public/landings/{landing.slug}/view",
-        json={"landing_slug": landing.slug},
     )
     assert view_response.status_code == 200
 

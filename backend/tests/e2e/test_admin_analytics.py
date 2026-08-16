@@ -33,8 +33,8 @@ def _order_payload(slug: str, phone: str) -> dict:
         "landing_slug": slug,
         "full_name": "Ana Gomez",
         "phone": phone,
-        "department": "Antioquia",
-        "city": "Medellin",
+        "department": "ANTIOQUIA",
+        "city": "MEDELLÍN",
         "address": "Carrera 45 #12-34",
         "quantity": 1,
     }
@@ -44,7 +44,6 @@ async def _record_views(cod_flow: CodFlowHarness, landing: SeededLanding, count:
     for _ in range(count):
         response = await cod_flow.client.post(
             f"/api/public/landings/{landing.slug}/view",
-            json={"landing_slug": landing.slug},
         )
         assert response.status_code == 200
 

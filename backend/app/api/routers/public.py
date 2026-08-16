@@ -412,14 +412,9 @@ async def get_public_landing(
     )
 
 
-class ViewRequest(BaseModel):
-    landing_slug: str
-
-
 @router.post("/landings/{slug}/view")
 async def record_landing_view(
     slug: str,
-    request: ViewRequest,
 ) -> dict[str, bool]:
     """Record a landing view (no contact fields)."""
     db = get_prisma()
