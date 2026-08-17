@@ -850,7 +850,7 @@ async def create_landing_block(
     return await _block_list(landing_id)
 
 
-@router.put("/{landing_id}/blocks/order", response_model=LandingBlockListResponse)
+@router.patch("/{landing_id}/blocks/order", response_model=LandingBlockListResponse)
 async def reorder_landing_blocks(
     landing_id: int,
     request: LandingBlockOrderRequest,

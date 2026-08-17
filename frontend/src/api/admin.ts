@@ -598,7 +598,7 @@ export const landingsApi = {
   },
 
   reorderBlocks: async (id: number, blockIds: number[]): Promise<LandingBlockListResponse> => {
-    return apiClient.put<LandingBlockListResponse>(`/admin/landings/${id}/blocks/order`, {
+    return apiClient.patch<LandingBlockListResponse>(`/admin/landings/${id}/blocks/order`, {
       block_ids: blockIds,
     });
   },
