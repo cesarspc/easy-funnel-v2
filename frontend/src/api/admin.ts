@@ -597,6 +597,12 @@ export const landingsApi = {
     );
   },
 
+  reorderBlocks: async (id: number, blockIds: number[]): Promise<LandingBlockListResponse> => {
+    return apiClient.put<LandingBlockListResponse>(`/admin/landings/${id}/blocks/order`, {
+      block_ids: blockIds,
+    });
+  },
+
   deleteBlock: async (id: number, blockId: number): Promise<LandingBlockListResponse> => {
     return apiClient.delete<LandingBlockListResponse>(`/admin/landings/${id}/blocks/${blockId}`);
   },

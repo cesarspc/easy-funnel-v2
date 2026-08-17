@@ -39,6 +39,19 @@
   flex-wrap: wrap;
 }
 
+.lblocks__order-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.lblocks__order-actions .landings-table__action {
+  min-width: 32px;
+  padding-right: 8px;
+  padding-left: 8px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .lblocks__toggle {
   display: inline-flex;
   align-items: center;

@@ -1335,6 +1335,33 @@ export function LandingBlocksPanel({
     }
   }
 
+  async function handleReorder(block: LandingBlock, direction: -1 | 1) {
+    const siblings = blocks.filter((item) => item.slot_index === block.slot_index);
+    const currentIndex = siblings.findIndex((item) => item.id === block.id);
+    const nextSibling = siblings[currentIndex + direction];
+    if (!nextSibling) return;
+
+    const orderedIds = blocks.map((item) => item.id);
+    const currentPosition = orderedIds.indexOf(block.id);
+    const nextPosition = orderedIds.indexOf(nextSibling.id);
+    [orderedIds[currentPosition], orderedIds[nextPosition]] = [
+      orderedIds[nextPosition],
+      orderedIds[currentPosition],
+    ];
+
+    reset();
+    setBusy(true);
+    try {
+      const response = await landingsApi.reorderBlocks(landingId, orderedIds);
+      setBlocks(response.blocks);
+      setNotice(direction < 0 ? "Componente subido." : "Componente bajado.");
+    } catch (err) {
+      handleFailure(err, "No se pudo cambiar el orden del componente.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleToggle(block: LandingBlock) {
     reset();
     setBusy(true);
@@ -1396,14 +1423,39 @@ export function LandingBlocksPanel({
         <ul className="lblocks__list" aria-label="Componentes colocados">
           {blocks.map((block) => (
             <li className="lblocks__item" key={block.id}>
+              {(() => {
+                const siblings = blocks.filter((item) => item.slot_index === block.slot_index);
+                const siblingIndex = siblings.findIndex((item) => item.id === block.id);
+                const blockLabel = BLOCK_TYPES[block.block_type].label;
+                return (
               <div className="lblocks__item-head">
                 <div>
-                  <p className="lblocks__item-title">{BLOCK_TYPES[block.block_type].label}</p>
+                  <p className="lblocks__item-title">{blockLabel}</p>
                   <p className="landings-page__muted">
                     Posición actual: {slotLabel(block.slot_index)}
                   </p>
                 </div>
                 <div className="lblocks__item-actions">
+                  <div className="lblocks__order-actions" aria-label={`Orden de ${blockLabel}`}>
+                    <button
+                      type="button"
+                      className="landings-table__action"
+                      disabled={busy || siblingIndex === 0}
+                      aria-label={`Subir ${blockLabel}`}
+                      onClick={() => void handleReorder(block, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="landings-table__action"
+                      disabled={busy || siblingIndex === siblings.length - 1}
+                      aria-label={`Bajar ${blockLabel}`}
+                      onClick={() => void handleReorder(block, 1)}
+                    >
+                      ↓
+                    </button>
+                  </div>
                   <label className="lblocks__toggle">
                     <input
                       type="checkbox"
@@ -1453,6 +1505,8 @@ export function LandingBlocksPanel({
                   )}
                 </div>
               </div>
+                );
+              })()}
 
               <div className="landings-field">
                 <label

@@ -238,6 +238,12 @@ class LandingBlockUpdateRequest(BaseModel):
     enabled: bool | None = None
 
 
+class LandingBlockOrderRequest(BaseModel):
+    """Full current block-id sequence, reordered only by the dashboard."""
+
+    block_ids: list[int]
+
+
 class LandingLoadTemplateRequest(BaseModel):
     """Which saved template to apply to this landing."""
 
@@ -836,6 +842,24 @@ async def create_landing_block(
             enabled=request.enabled,
             actor=admin_user.subject,
         )
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing not found") from exc
+    except LandingValidationError as exc:
+        raise _field_error(exc.field, exc.message) from exc
+
+    return await _block_list(landing_id)
+
+
+@router.put("/{landing_id}/blocks/order", response_model=LandingBlockListResponse)
+async def reorder_landing_blocks(
+    landing_id: int,
+    request: LandingBlockOrderRequest,
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
+) -> LandingBlockListResponse:
+    """Reorder components within their existing slots without editing content."""
+    service = LandingBlockService(get_prisma())
+    try:
+        await service.reorder_blocks(landing_id, request.block_ids, actor=admin_user.subject)
     except LandingNotFoundError as exc:
         raise _not_found("Landing not found") from exc
     except LandingValidationError as exc:

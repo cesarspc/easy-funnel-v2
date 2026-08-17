@@ -22,6 +22,7 @@ vi.mock("../../api", async () => {
       listBlocks: vi.fn(),
       createBlock: vi.fn(),
       updateBlock: vi.fn(),
+      reorderBlocks: vi.fn(),
       deleteBlock: vi.fn(),
     },
   };
@@ -219,6 +220,24 @@ describe("LandingBlocksPanel", () => {
     expect(
       await within(list).findByText("Posición actual: 4-5 · entre CTA 2 y banner 3"),
     ).toBeInTheDocument();
+  });
+
+  it("moves a component up or down within its own slot", async () => {
+    const second = { ...ASSURANCE, id: 12, block_type: "benefits" as const, order_index: 1, config: { items: ["Uno", "Dos"] } };
+    vi.mocked(landingsApi.listBlocks).mockResolvedValue(response([ASSURANCE, second]));
+    vi.mocked(landingsApi.reorderBlocks).mockResolvedValue(response([
+      { ...second, order_index: 0 },
+      { ...ASSURANCE, order_index: 1 },
+    ]));
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(await screen.findByRole("button", { name: "Bajar Pago contraentrega" }));
+
+    await waitFor(() =>
+      expect(landingsApi.reorderBlocks).toHaveBeenCalledWith(7, [12, 11]),
+    );
+    expect(screen.getByText("Componente bajado.")).toBeInTheDocument();
   });
 
   it("hides a component from the public landing without deleting it", async () => {

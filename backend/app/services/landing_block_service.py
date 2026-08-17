@@ -176,6 +176,55 @@ class LandingBlockService:
             )
             return updated
 
+    async def reorder_blocks(
+        self, landing_id: int, ordered_block_ids: list[int], *, actor: str
+    ) -> list[LandingBlock]:
+        """Reorder blocks inside their slots from one verified dashboard sequence.
+
+        The request contains every block id so a stale page can never drop or
+        duplicate a component. Slots remain unchanged; only their render order
+        is normalized to contiguous indices.
+        """
+        async with self._db.tx() as tx:
+            landings = LandingRepository(tx)
+            blocks = LandingBlockRepository(tx)
+            audit_log = AuditLogRepository(tx)
+
+            if await landings.get_by_id(landing_id) is None:
+                raise LandingNotFoundError(landing_id)
+
+            stored = await blocks.list_for_landing(landing_id)
+            stored_ids = [block.id for block in stored]
+            if sorted(ordered_block_ids) != sorted(stored_ids):
+                raise LandingValidationError(
+                    "block_ids",
+                    "El orden debe incluir cada componente de esta landing una sola vez.",
+                )
+
+            blocks_by_id = {block.id: block for block in stored}
+            ids_by_slot: dict[int, list[int]] = {}
+            for block_id in ordered_block_ids:
+                slot = blocks_by_id[block_id].slotIndex
+                ids_by_slot.setdefault(slot, []).append(block_id)
+
+            # The database checks the unique slot/order pair for each update.
+            # Park every value in a unique negative range before assigning the
+            # compact final values, just like banner ordering does.
+            for temporary_index, block_id in enumerate(stored_ids, start=1):
+                await blocks.update(block_id, {"orderIndex": -temporary_index})
+            for block_ids in ids_by_slot.values():
+                for order_index, block_id in enumerate(block_ids):
+                    await blocks.update(block_id, {"orderIndex": order_index})
+
+            await audit_log.record(
+                actor=actor,
+                action="landing_block.reorder",
+                target_type="landing",
+                target_id=str(landing_id),
+                result="success",
+            )
+            return await blocks.list_for_landing(landing_id)
+
     async def delete_block(self, landing_id: int, block_id: int, *, actor: str) -> None:
         async with self._db.tx() as tx:
             landings = LandingRepository(tx)
