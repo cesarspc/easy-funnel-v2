@@ -1692,92 +1692,145 @@
   text-align: center;
 }
 
-/* One active player only: inactive videos have no DOM media element and
-   therefore cannot consume bandwidth. The immutable WebP poster makes the
-   first frame immediate while MP4 metadata is fetched progressively. */
+/* Navigation swaps preloaded immutable posters immediately. An MP4 enters the
+   DOM only after the visitor presses play, so inactive videos consume no video
+   bandwidth and native duration/progress controls never appear. */
 .cblock--video-carousel {
   display: grid;
   gap: var(--lp-space-md);
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.cblock--video-carousel > .cblock__title,
+.cblock__video-navigation,
+.cblock__video-caption {
+  margin-right: var(--lp-space-md);
+  margin-left: var(--lp-space-md);
 }
 
 .cblock__video-stage {
   position: relative;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 0;
   background: #090909;
-  box-shadow: 0 12px 34px rgb(0 0 0 / 18%);
 }
 
 .cblock__video {
   display: block;
   width: 100%;
-  max-height: min(72vh, 720px);
   height: auto;
   margin: auto;
   object-fit: contain;
   background: #090909;
 }
 
-.cblock__video-arrow {
+.cblock__video-poster {
+  object-fit: cover;
+}
+
+.cblock__video-play {
   position: absolute;
   z-index: 1;
   top: 50%;
-  width: 38px;
-  height: 48px;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
   padding: 0;
-  border: 1px solid rgb(255 255 255 / 35%);
+  border: 1px solid rgb(255 255 255 / 42%);
   border-radius: 999px;
-  background: rgb(10 10 10 / 68%);
+  background: rgb(10 10 10 / 62%);
   color: #fff;
-  font: 300 2rem/1 sans-serif;
   cursor: pointer;
-  transform: translateY(-50%);
-  backdrop-filter: blur(5px);
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(6px);
 }
 
-.cblock__video-arrow--previous {
-  left: 8px;
+.cblock__video-play svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
 }
 
-.cblock__video-arrow--next {
-  right: 8px;
-}
-
-.cblock__video-arrow:focus-visible {
+.cblock__video-play:focus-visible,
+.cblock__video-navigation button:focus-visible {
   outline: 3px solid var(--lp-form-action, var(--lp-action));
   outline-offset: 2px;
 }
 
-.cblock__video-meta {
+.cblock__video-navigation {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--lp-space-sm);
-  min-height: 1.4em;
+}
+
+.cblock__video-arrows,
+.cblock__video-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cblock__video-navigation button {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--lp-hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--lp-ink-quiet);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.cblock__video-arrows button {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.cblock__video-tabs button {
+  min-width: 26px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 0.75rem;
+}
+
+.cblock__video-tabs button.is-active {
+  border-color: var(--lp-form-action, var(--lp-action));
+  background: var(--lp-form-action, var(--lp-action));
+  color: var(--lp-form-action-ink, #fff);
+}
+
+.cblock__video-caption {
+  margin-top: calc(var(--lp-space-sm) * -1);
+  margin-bottom: 0;
   color: var(--lp-ink-quiet);
   font-size: 0.875rem;
-}
-
-.cblock__video-meta p {
-  margin: 0;
-}
-
-.cblock__video-meta span {
-  flex: none;
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
 }
 
 @media (min-width: 640px) {
-  .cblock__video-arrow {
-    width: 44px;
-    height: 54px;
+  .cblock--video-carousel {
+    padding-right: var(--lp-space-md);
+    padding-left: var(--lp-space-md);
   }
 
-  .cblock__video-arrow--previous {
-    left: 12px;
+  .cblock--video-carousel > .cblock__title,
+  .cblock__video-navigation,
+  .cblock__video-caption {
+    margin-right: 0;
+    margin-left: 0;
   }
 
-  .cblock__video-arrow--next {
-    right: 12px;
+  .cblock__video-stage {
+    border-radius: 14px;
+    box-shadow: 0 12px 34px rgb(0 0 0 / 18%);
   }
 }

@@ -55,7 +55,7 @@
  *   and decision moment into a coherent long-form sales sequence.
  */
 
-import { useState, type CSSProperties, type JSX } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type JSX } from "react";
 import type { AccentPalette, ConversionBlock, ConversionBlockConfig } from "../../api";
 import { Cta } from "../../components/Cta";
 import { safeColor } from "../../utils";
@@ -172,15 +172,58 @@ function VideoCarousel({
   block: ConversionBlock;
   palette: AccentPalette | null;
 }): JSX.Element | null {
-  const videos = block.videos ?? [];
+  const videos = block.videos;
   const [requestedIndex, setRequestedIndex] = useState(0);
-  if (videos.length === 0) return null;
+  const [activatedVideoId, setActivatedVideoId] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Posters are tiny immutable WebPs. Preloading at most six of them makes
+  // arrow navigation immediate without preloading a single inactive MP4.
+  useEffect(() => {
+    const posters = (videos ?? []).map((video) => {
+      const image = new Image();
+      image.src = video.poster_url;
+      return image;
+    });
+    return () => posters.forEach((image) => image.removeAttribute("src"));
+  }, [videos]);
+
+  if (!videos?.length) return null;
+  const videoCount = videos.length;
   const activeIndex = Math.min(requestedIndex, videos.length - 1);
   const active = videos[activeIndex];
   const multiple = videos.length > 1;
+  const isActivated = activatedVideoId === active.id;
 
   function move(delta: number) {
-    setRequestedIndex((current) => (current + delta + videos.length) % videos.length);
+    setActivatedVideoId(null);
+    setIsPlaying(false);
+    setRequestedIndex((current) => (current + delta + videoCount) % videoCount);
+  }
+
+  function select(index: number) {
+    setActivatedVideoId(null);
+    setIsPlaying(false);
+    setRequestedIndex(index);
+  }
+
+  function togglePlayback() {
+    if (!isActivated) {
+      setActivatedVideoId(active.id);
+      setIsPlaying(true);
+      return;
+    }
+    const player = videoRef.current;
+    if (!player) return;
+    if (isPlaying) {
+      player.pause();
+      setIsPlaying(false);
+      return;
+    }
+    const playback = player.play();
+    setIsPlaying(true);
+    void playback.catch(() => setIsPlaying(false));
   }
 
   return (
@@ -192,44 +235,75 @@ function VideoCarousel({
     >
       <BlockHeading title={block.config.title} />
       <div className="cblock__video-stage">
-        {multiple && (
-          <button
-            type="button"
-            className="cblock__video-arrow cblock__video-arrow--previous"
-            aria-label="Video anterior"
-            onClick={() => move(-1)}
+        {isActivated ? (
+          <video
+            ref={videoRef}
+            key={active.id}
+            className="cblock__video"
+            autoPlay
+            playsInline
+            preload="auto"
+            poster={active.poster_url}
+            width={active.width}
+            height={active.height}
+            aria-label={active.caption ?? `Video ${activeIndex + 1}`}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
           >
-            ‹
-          </button>
+            <source src={active.url} type="video/mp4" />
+          </video>
+        ) : (
+          <img
+            key={active.id}
+            className="cblock__video cblock__video-poster"
+            src={active.poster_url}
+            alt=""
+            width={active.width}
+            height={active.height}
+            decoding="async"
+          />
         )}
-        <video
-          key={active.id}
-          className="cblock__video"
-          controls
-          playsInline
-          preload="metadata"
-          poster={active.poster_url}
-          width={active.width}
-          height={active.height}
-          aria-label={active.caption ?? `Video ${activeIndex + 1}`}
+        <button
+          type="button"
+          className="cblock__video-play"
+          aria-label={`${isPlaying ? "Pausar" : "Reproducir"} ${active.caption ?? `video ${activeIndex + 1}`}`}
+          onClick={togglePlayback}
         >
-          <source src={active.url} type="video/mp4" />
-        </video>
-        {multiple && (
-          <button
-            type="button"
-            className="cblock__video-arrow cblock__video-arrow--next"
-            aria-label="Video siguiente"
-            onClick={() => move(1)}
-          >
-            ›
-          </button>
-        )}
+          {isPlaying ? (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 5h4v14H7zM13 5h4v14h-4z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          )}
+        </button>
       </div>
-      <div className="cblock__video-meta" aria-live="polite">
-        {active.caption && <p>{active.caption}</p>}
-        {multiple && <span>{activeIndex + 1} / {videos.length}</span>}
-      </div>
+      {multiple && (
+        <div className="cblock__video-navigation">
+          <div className="cblock__video-arrows">
+            <button type="button" aria-label="Video anterior" onClick={() => move(-1)}>‹</button>
+            <button type="button" aria-label="Video siguiente" onClick={() => move(1)}>›</button>
+          </div>
+          <div className="cblock__video-tabs" aria-label="Seleccionar video">
+            {videos.map((video, index) => (
+              <button
+                type="button"
+                key={video.id}
+                className={index === activeIndex ? "is-active" : undefined}
+                aria-label={`Ir al video ${index + 1}`}
+                aria-current={index === activeIndex ? "true" : undefined}
+                onClick={() => select(index)}
+              >
+                {index + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {active.caption && <p className="cblock__video-caption" aria-live="polite">{active.caption}</p>}
     </section>
   );
 }

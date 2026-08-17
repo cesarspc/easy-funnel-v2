@@ -111,7 +111,7 @@ describe("conversion components on the landing", () => {
     expect(document.querySelector(".cblock--purchase-cta")).toBeInTheDocument();
   });
 
-  it("mounts only the active carousel video and switches it with mobile-sized arrows", async () => {
+  it("switches preloaded posters instantly and mounts only the video the visitor plays", async () => {
     const user = userEvent.setup();
     vi.mocked(publicApi.getLanding).mockResolvedValue(
       makeLanding([
@@ -143,20 +143,33 @@ describe("conversion components on the landing", () => {
     );
     renderPage();
 
-    const first = await screen.findByLabelText("Video uno");
-    expect(first).toHaveAttribute("poster", "https://r2.example/videos/one/poster.webp");
+    await screen.findByRole("button", { name: "Reproducir Video uno" });
+    expect(document.querySelector(".cblock__video-poster")).toHaveAttribute(
+      "src",
+      "https://r2.example/videos/one/poster.webp",
+    );
+    expect(document.querySelectorAll(".cblock__video source")).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Reproducir Video uno" }));
     expect(document.querySelectorAll(".cblock__video source")).toHaveLength(1);
+    expect(document.querySelector("video.cblock__video")).not.toHaveAttribute("controls");
     expect(document.querySelector(".cblock__video source")).toHaveAttribute(
       "src",
       "https://r2.example/videos/one/video.mp4",
     );
+    expect(screen.getByRole("button", { name: "Pausar Video uno" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Video siguiente" }));
-    expect(await screen.findByLabelText("Video dos")).toHaveAttribute(
-      "poster",
+    expect(document.querySelector(".cblock__video-poster")).toHaveAttribute(
+      "src",
       "https://r2.example/videos/two/poster.webp",
     );
-    expect(document.querySelectorAll(".cblock__video source")).toHaveLength(1);
+    expect(document.querySelectorAll(".cblock__video source")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Reproducir Video dos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ir al video 2" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
   });
 
   it("places a component in slot 1, between the first banner and the first CTA", async () => {
