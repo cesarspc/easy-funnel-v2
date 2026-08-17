@@ -177,7 +177,6 @@ function VideoCarousel({
   const [activatedVideoId, setActivatedVideoId] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [bufferedVideoId, setBufferedVideoId] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Posters are tiny immutable WebPs. Preloading at most six of them makes
@@ -191,28 +190,25 @@ function VideoCarousel({
     return () => posters.forEach((image) => image.removeAttribute("src"));
   }, [videos]);
 
-  if (!videos?.length) return null;
-  const videoCount = videos.length;
-  const activeIndex = Math.min(requestedIndex, videos.length - 1);
-  const active = videos[activeIndex];
-  const multiple = videos.length > 1;
-  const isActivated = activatedVideoId === active.id;
-  const connection = (
-    navigator as Navigator & { connection?: { saveData?: boolean } }
-  ).connection;
-  const shouldWarmNeighbors = bufferedVideoId === active.id && connection?.saveData !== true;
-  const neighborIndexes = shouldWarmNeighbors && multiple
-    ? Array.from(new Set([
-        (activeIndex + 1) % videoCount,
-        (activeIndex - 1 + videoCount) % videoCount,
-      ])).filter((index) => index !== activeIndex)
-    : [];
+  const safeVideos = videos ?? [];
+  const videoCount = safeVideos.length;
+  const activeIndex = videoCount > 0 ? Math.min(requestedIndex, videoCount - 1) : 0;
+  const active = safeVideos[activeIndex];
+  const multiple = videoCount > 1;
+  const isActivated = active ? activatedVideoId === active.id : false;
+
+  useEffect(() => {
+    const player = videoRef.current;
+    if (!player || !active) return;
+    player.load();
+  }, [active]);
+
+  if (!active) return null;
 
   function move(delta: number) {
     setActivatedVideoId(null);
     setIsPlaying(false);
     setIsLoading(false);
-    setBufferedVideoId(null);
     setRequestedIndex((current) => (current + delta + videoCount) % videoCount);
   }
 
@@ -220,7 +216,6 @@ function VideoCarousel({
     setActivatedVideoId(null);
     setIsPlaying(false);
     setIsLoading(false);
-    setBufferedVideoId(null);
     setRequestedIndex(index);
   }
 
@@ -261,7 +256,6 @@ function VideoCarousel({
           width={active.width}
           height={active.height}
           aria-label={active.caption ?? `Video ${activeIndex + 1}`}
-          onCanPlay={() => setBufferedVideoId(active.id)}
           onPlaying={() => {
             setIsLoading(false);
             setIsPlaying(true);
@@ -308,20 +302,6 @@ function VideoCarousel({
           )}
         </button>
       </div>
-      {neighborIndexes.length > 0 && (
-        <div className="cblock__video-preloads" aria-hidden="true">
-          {neighborIndexes.map((index) => (
-            <video
-              key={videos[index].id}
-              preload="auto"
-              playsInline
-              muted
-              tabIndex={-1}
-              src={videos[index].url}
-            />
-          ))}
-        </div>
-      )}
       {multiple && (
         <div className="cblock__video-navigation">
           <div className="cblock__video-arrows">
@@ -329,7 +309,7 @@ function VideoCarousel({
             <button type="button" aria-label="Video siguiente" onClick={() => move(1)}>›</button>
           </div>
           <div className="cblock__video-tabs" aria-label="Seleccionar video">
-            {videos.map((video, index) => (
+            {safeVideos.map((video, index) => (
               <button
                 type="button"
                 key={video.id}

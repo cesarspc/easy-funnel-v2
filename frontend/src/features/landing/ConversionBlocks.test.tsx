@@ -114,6 +114,7 @@ describe("conversion components on the landing", () => {
   it("buffers only the selected video behind its instant poster and exposes custom playback", async () => {
     const user = userEvent.setup();
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
     vi.mocked(publicApi.getLanding).mockResolvedValue(
       makeLanding([
         block({
@@ -151,12 +152,9 @@ describe("conversion components on the landing", () => {
     );
     expect(document.querySelectorAll(".cblock__video source")).toHaveLength(1);
     expect(document.querySelector("video.cblock__video")).toHaveAttribute("preload", "auto");
+    expect(load).toHaveBeenCalledOnce();
     fireEvent.canPlay(document.querySelector("video.cblock__video") as HTMLVideoElement);
-    expect(document.querySelectorAll(".cblock__video-preloads video")).toHaveLength(1);
-    expect(document.querySelector(".cblock__video-preloads video")).toHaveAttribute(
-      "src",
-      "https://r2.example/videos/two/video.mp4",
-    );
+    expect(document.querySelectorAll("video")).toHaveLength(1);
 
     await user.click(screen.getByRole("button", { name: "Reproducir Video uno" }));
     expect(play).toHaveBeenCalledOnce();
@@ -178,6 +176,8 @@ describe("conversion components on the landing", () => {
       "src",
       "https://r2.example/videos/two/poster.webp",
     );
+    expect(document.querySelectorAll("video")).toHaveLength(1);
+    expect(load).toHaveBeenCalledTimes(2);
     expect(document.querySelectorAll(".cblock__video source")).toHaveLength(1);
     expect(document.querySelector(".cblock__video source")).toHaveAttribute(
       "src",

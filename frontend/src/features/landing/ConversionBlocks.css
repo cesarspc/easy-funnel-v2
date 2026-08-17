@@ -1692,9 +1692,8 @@
   text-align: center;
 }
 
-/* Navigation swaps preloaded immutable posters immediately. An MP4 enters the
-   DOM only after the visitor presses play, so inactive videos consume no video
-   bandwidth and native duration/progress controls never appear. */
+/* Navigation swaps immutable posters immediately. Only the selected MP4 is in
+   the DOM and it is explicitly loaded when the tab becomes active. */
 .cblock--video-carousel {
   display: grid;
   gap: var(--lp-space-md);
@@ -1767,22 +1766,6 @@
   border-top-color: #fff;
   border-radius: 999px;
   animation: cblock-video-spin 0.7s linear infinite;
-}
-
-/* Keep adjacent preloaders in the render tree so mobile browsers may fill
-   their media cache, but make them completely non-interactive and invisible. */
-.cblock__video-preloads {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  pointer-events: none;
-}
-
-.cblock__video-preloads video {
-  width: 1px;
-  height: 1px;
 }
 
 @keyframes cblock-video-spin {
