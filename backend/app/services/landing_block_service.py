@@ -33,6 +33,7 @@ from app.db.repositories import (
 )
 from app.domains.landings.blocks import (
     MAX_ORDER_INDEX,
+    MAX_SLOT_INDEX,
     slot_labels,
     validate_block_config,
     validate_block_type,
@@ -207,14 +208,25 @@ class LandingBlockService:
                 slot = blocks_by_id[block_id].slotIndex
                 ids_by_slot.setdefault(slot, []).append(block_id)
 
-            # The database checks the unique slot/order pair for each update.
-            # Park every value in a unique negative range before assigning the
-            # compact final values, just like banner ordering does.
-            for temporary_index, block_id in enumerate(stored_ids, start=1):
-                await blocks.update(block_id, {"orderIndex": -temporary_index})
-            for block_ids in ids_by_slot.values():
+            # `landing_blocks.order_index` has a 0..9 database CHECK, so unlike
+            # banners it cannot use negative placeholders. Move each changed
+            # slot through an unused, valid slot instead; a landing has at most
+            # 20 blocks across 31 slots, so one is always available.
+            occupied_slots = {block.slotIndex for block in stored}
+            temporary_slot = next(
+                slot for slot in range(MAX_SLOT_INDEX + 1) if slot not in occupied_slots
+            )
+            for slot, block_ids in ids_by_slot.items():
+                current_ids = [block.id for block in stored if block.slotIndex == slot]
+                if block_ids == current_ids:
+                    continue
+                for block_id in current_ids:
+                    await blocks.update(block_id, {"slotIndex": temporary_slot})
                 for order_index, block_id in enumerate(block_ids):
-                    await blocks.update(block_id, {"orderIndex": order_index})
+                    await blocks.update(
+                        block_id,
+                        {"slotIndex": slot, "orderIndex": order_index},
+                    )
 
             await audit_log.record(
                 actor=actor,
