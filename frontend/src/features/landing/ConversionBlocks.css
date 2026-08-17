@@ -1750,7 +1750,15 @@
   color: #fff;
   cursor: pointer;
   transform: translate(-50%, -50%);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   backdrop-filter: blur(6px);
+}
+
+/* The global pressed-button rule uses translateY(1px). This control is
+   centered with a transform, so preserve both axes while it is pressed. */
+.cblock__video-play:not(:disabled):active {
+  transform: translate(-50%, calc(-50% + 1px));
 }
 
 .cblock__video-play svg {

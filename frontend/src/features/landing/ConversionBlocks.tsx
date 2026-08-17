@@ -197,12 +197,6 @@ function VideoCarousel({
   const multiple = videoCount > 1;
   const isActivated = active ? activatedVideoId === active.id : false;
 
-  useEffect(() => {
-    const player = videoRef.current;
-    if (!player || !active) return;
-    player.load();
-  }, [active]);
-
   if (!active) return null;
 
   function move(delta: number) {
@@ -221,14 +215,17 @@ function VideoCarousel({
 
   function togglePlayback() {
     const player = videoRef.current;
-    if (!player || isLoading) return;
+    if (!player) return;
     if (isPlaying) {
       player.pause();
       setIsPlaying(false);
       return;
     }
     setActivatedVideoId(active.id);
-    setIsLoading(true);
+    // A second tap must never be ignored while a mobile browser is preparing
+    // playback. Calling play again is harmless and lets the browser retry
+    // without making the visitor wait for a spinner that appears stuck.
+    setIsLoading(player.readyState < HTMLMediaElement.HAVE_FUTURE_DATA);
     const playback = player.play();
     void playback.catch(() => {
       setActivatedVideoId(null);
@@ -250,6 +247,7 @@ function VideoCarousel({
           ref={videoRef}
           key={`player-${active.id}`}
           className="cblock__video"
+          src={active.url}
           playsInline
           preload="auto"
           poster={active.poster_url}
@@ -268,9 +266,7 @@ function VideoCarousel({
             setIsLoading(false);
             setIsPlaying(false);
           }}
-        >
-          <source src={active.url} type="video/mp4" />
-        </video>
+        />
         {!isActivated && (
           <img
             key={`poster-${active.id}`}

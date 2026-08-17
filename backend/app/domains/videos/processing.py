@@ -101,7 +101,8 @@ def optimize_video(raw_bytes: bytes) -> OptimizedVideo:
             raise VideoValidationError("file", "El video debe durar máximo 90 segundos.")
 
         # Cap inside 720x1280, preserve aspect ratio and force even dimensions
-        # required by yuv420p. faststart moves the MP4 index to the beginning.
+        # required by yuv420p. The rate cap keeps a 90-second mobile video
+        # practical on a cold 4G cache; faststart moves its MP4 index first.
         scale = (
             "scale='min(720,iw)':'min(1280,ih)':"
             "force_original_aspect_ratio=decrease:force_divisible_by=2"
@@ -126,6 +127,12 @@ def optimize_video(raw_bytes: bytes) -> OptimizedVideo:
                 "veryfast",
                 "-crf",
                 "28",
+                "-maxrate",
+                "900k",
+                "-bufsize",
+                "1800k",
+                "-r",
+                "30",
                 "-pix_fmt",
                 "yuv420p",
                 "-movflags",

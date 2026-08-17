@@ -43,6 +43,9 @@ def test_emits_one_faststart_mp4_and_one_webp_poster(
     assert len(commands) == 2
     assert "+faststart" in commands[0]
     assert "libx264" in commands[0]
+    assert commands[0][commands[0].index("-maxrate") + 1] == "900k"
+    assert commands[0][commands[0].index("-bufsize") + 1] == "1800k"
+    assert commands[0][commands[0].index("-r") + 1] == "30"
     assert commands[1][commands[1].index("-q:v") + 1] == "72"
 
 
