@@ -11,6 +11,7 @@ disabled component never reaches a visitor.
 from __future__ import annotations
 
 import pytest
+from app.domains.videos import OptimizedVideo
 
 from tests.e2e.conftest import CodFlowHarness
 
@@ -48,8 +49,9 @@ class TestPlacement:
         assert len(body["slots"]) == 7
         assert body["slots"][1].startswith("1-2")
         assert body["slots"][2].startswith("2-3")
-        assert len(body["allowed_block_types"]) == 14
+        assert len(body["allowed_block_types"]) == 15
         assert "cta" in body["allowed_block_types"]
+        assert "video_carousel" in body["allowed_block_types"]
 
     async def test_creates_an_additional_cta_with_optional_text(
         self, cod_flow: CodFlowHarness
@@ -67,6 +69,60 @@ class TestPlacement:
         assert stored["block_type"] == "cta"
         assert stored["slot_index"] == 3
         assert stored["config"]["text"] == "Comprar ahora"
+
+    async def test_uploads_serves_and_deletes_one_optimized_carousel_video(
+        self, cod_flow: CodFlowHarness, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        landing = await _seed_three_banner_landing(cod_flow)
+        headers = cod_flow.admin_headers()
+        created = await cod_flow.client.post(
+            f"/api/admin/landings/{landing.landing_id}/blocks",
+            json={
+                "block_type": "video_carousel",
+                "slot_index": 2,
+                "config": {"title": "Míralo en acción"},
+            },
+            headers=headers,
+        )
+        block_id = created.json()["blocks"][0]["id"]
+        monkeypatch.setattr(
+            "app.services.video_upload_service.optimize_video",
+            lambda _raw: OptimizedVideo(
+                video=b"optimized-mp4",
+                poster=b"poster-webp",
+                width=720,
+                height=1280,
+                duration_ms=12_000,
+            ),
+        )
+
+        uploaded = await cod_flow.client.post(
+            f"/api/admin/landings/{landing.landing_id}/blocks/{block_id}/videos",
+            files={"file": ("demo.mov", b"source-video", "video/quicktime")},
+            data={"caption": "Resultado real"},
+            headers=headers,
+        )
+
+        assert uploaded.status_code == 201
+        video = uploaded.json()["blocks"][0]["videos"][0]
+        assert video["caption"] == "Resultado real"
+        assert video["width"] == 720
+        assert video["url"].endswith("/video.mp4")
+        assert video["poster_url"].endswith("/poster.webp")
+        assert sorted(cod_flow.r2.content_types.values()) == ["image/webp", "video/mp4"]
+
+        public = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+        public_video = public.json()["blocks"][0]["videos"][0]
+        assert public_video["url"] == video["url"]
+        assert public_video["poster_url"] == video["poster_url"]
+
+        deleted = await cod_flow.client.delete(
+            f"/api/admin/landings/{landing.landing_id}/blocks/{block_id}/videos/{video['id']}",
+            headers=headers,
+        )
+        assert deleted.status_code == 200
+        assert deleted.json()["blocks"][0]["videos"] == []
+        assert cod_flow.r2.objects == {}
 
     async def test_places_components_in_two_slots_and_reports_them_in_render_order(
         self, cod_flow: CodFlowHarness

@@ -27,6 +27,7 @@ WORKDIR /app
 #   libjpeg/webp/zlib -> Pillow banner variant generation
 #   libatomic1        -> prisma query engine
 #   openssl           -> prisma engine TLS to Neon/Postgres
+#   ffmpeg            -> bounded video normalization + poster extraction
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libjpeg62-turbo \
@@ -34,6 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zlib1g \
     libatomic1 \
     openssl \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Bake in Node + npm and tell prisma-client-py to use them instead of

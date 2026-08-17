@@ -34,7 +34,7 @@ from app.redis.client import get_redis
 from app.services.geoip_resolver import GeoIpResolver, get_geoip_resolver
 from app.services.landing_traffic_service import LandingTrafficService
 from app.services.order_submission_service import OrderSubmissionService
-from app.storage.r2_client import variant_public_url
+from app.storage.r2_client import object_public_url, variant_public_url
 
 router = APIRouter(prefix="/api/public", tags=["public"])
 
@@ -103,6 +103,7 @@ class ConversionBlockResponse(BaseModel):
     order_index: int
     config: dict
     accent_palette: AccentPaletteResponse | None = None
+    videos: list[dict] = []
 
 
 class LandingOfferResponse(BaseModel):
@@ -219,6 +220,7 @@ async def get_public_landing(
             "blocks": {
                 "where": {"enabled": True},
                 "order_by": [{"slotIndex": "asc"}, {"orderIndex": "asc"}],
+                "include": {"videos": {"order_by": {"orderIndex": "asc"}}},
             },
             "banners": {
                 "include": {
@@ -346,6 +348,18 @@ async def get_public_landing(
                 and override.strip()
                 else None
             ),
+            videos=[
+                {
+                    "id": video.id,
+                    "url": object_public_url(settings.r2_public_host, video.videoObjectKey),
+                    "poster_url": object_public_url(settings.r2_public_host, video.posterObjectKey),
+                    "width": video.width,
+                    "height": video.height,
+                    "duration_ms": video.durationMs,
+                    "caption": video.caption,
+                }
+                for video in (getattr(block, "videos", None) or [])
+            ],
         )
         # Prisma relations are opt-in; `or []` keeps a payload without the
         # relation from becoming a 500.

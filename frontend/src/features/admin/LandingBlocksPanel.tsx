@@ -40,6 +40,10 @@ const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
     label: "Botón CTA",
     purpose: "Añade otra llamada a la acción entre componentes y abre el mismo formulario COD.",
   },
+  video_carousel: {
+    label: "Carrusel de videos",
+    purpose: "Muestra hasta 6 videos optimizados, uno a la vez, con flechas minimalistas.",
+  },
   announcement_bar: {
     label: "Barra superior",
     purpose: "Un mensaje corto arriba de todo (envío gratis, promo). Es su propia franja de color.",
@@ -99,6 +103,7 @@ const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
   "cod_assurance",
   "offer_price",
   "cta",
+  "video_carousel",
   "benefits",
   "included_benefits",
   "reviews",
@@ -118,6 +123,8 @@ function defaultDraft(type: ConversionBlockType): Draft {
   switch (type) {
     case "cta":
       return { text: "", accent_color: "" };
+    case "video_carousel":
+      return { title: "", accent_color: "" };
     case "announcement_bar":
       return { text: "Envío gratis + Paga al recibir", accent_color: "" };
     case "cod_assurance":
@@ -531,6 +538,19 @@ function ContentEditor({
             </p>
             <FieldError id={`${idPrefix}-text-error`} message={fieldErrors.text} />
           </div>
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "video_carousel":
+      return (
+        <div className="lblocks__editor">
+          {titleField}
+          <p className="landings-page__muted">
+            Después de agregar el componente podrás subir sus videos. Se guarda una sola versión
+            optimizada por video y una portada ligera.
+          </p>
           {accentColorField}
           {darkModeField}
         </div>
@@ -1103,6 +1123,111 @@ function ContentEditor({
   }
 }
 
+function VideoAssetsEditor({
+  landingId,
+  block,
+  onChanged,
+  onError,
+}: {
+  landingId: number;
+  block: LandingBlock;
+  onChanged: (blocks: LandingBlock[]) => void;
+  onError: (message: string) => void;
+}): JSX.Element {
+  const [file, setFile] = useState<File | null>(null);
+  const [caption, setCaption] = useState("");
+  const [busy, setBusy] = useState(false);
+  const videos = block.videos ?? [];
+
+  async function upload(event: React.FormEvent) {
+    event.preventDefault();
+    if (!file) return;
+    setBusy(true);
+    try {
+      const response = await landingsApi.uploadBlockVideo(landingId, block.id, file, caption);
+      onChanged(response.blocks);
+      setFile(null);
+      setCaption("");
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : "No se pudo subir el video.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(videoId: number) {
+    setBusy(true);
+    try {
+      const response = await landingsApi.deleteBlockVideo(landingId, block.id, videoId);
+      onChanged(response.blocks);
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : "No se pudo eliminar el video.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="lblocks__videos">
+      <p className="landings-field__label">Videos ({videos.length}/6)</p>
+      {videos.length > 0 && (
+        <ul className="lblocks__video-list" aria-label="Videos del carrusel">
+          {videos.map((video) => (
+            <li key={video.id}>
+              <img src={video.poster_url} alt="" width={video.width} height={video.height} />
+              <div>
+                <strong>{video.caption || `Video ${video.order_index + 1}`}</strong>
+                <small>
+                  {Math.ceil(video.duration_ms / 1000)} s · {Math.ceil(video.byte_size / 1024)} KB
+                </small>
+              </div>
+              <button
+                type="button"
+                className="landings-table__action landings-table__action--danger"
+                disabled={busy}
+                onClick={() => void remove(video.id)}
+              >
+                Eliminar
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {videos.length < 6 && (
+        <form className="lblocks__video-upload" onSubmit={upload}>
+          <input
+            className="landings-field__input"
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            required
+            disabled={busy}
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
+          <input
+            className="landings-field__input"
+            value={caption}
+            maxLength={100}
+            placeholder="Texto debajo del video (opcional)"
+            disabled={busy}
+            onChange={(event) => setCaption(event.target.value)}
+          />
+          <button
+            type="submit"
+            className="landings-table__action landings-table__action--primary"
+            disabled={busy || !file}
+          >
+            {busy ? "Optimizando…" : "Subir video"}
+          </button>
+          <p className="landings-page__muted">
+            MP4, WebM o MOV · máximo 100 MB y 90 segundos. La subida puede tardar mientras se
+            comprime; el original no se conserva.
+          </p>
+        </form>
+      )}
+    </div>
+  );
+}
+
 export function LandingBlocksPanel({
   landingId,
   sequenceSignature,
@@ -1375,6 +1500,14 @@ export function LandingBlocksPanel({
                   >
                     Guardar contenido
                   </button>
+                  {block.block_type === "video_carousel" && (
+                    <VideoAssetsEditor
+                      landingId={landingId}
+                      block={block}
+                      onChanged={setBlocks}
+                      onError={setError}
+                    />
+                  )}
                 </div>
               )}
             </li>

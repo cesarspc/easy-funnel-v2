@@ -27,6 +27,7 @@ from app.domains.landings.blocks import (
     BLOCK_OFFER_PRICE,
     BLOCK_REVIEWS,
     BLOCK_SOLUTION_PRESENTATION,
+    BLOCK_VIDEO_CAROUSEL,
     MAX_BLOCKS_PER_LANDING,
     MAX_SLOT_INDEX,
     slot_labels,
@@ -42,6 +43,7 @@ from hypothesis import strategies as st
 
 SUPPORTED_KEYS = {
     BLOCK_CTA: {"text", "accent_color", "dark_mode"},
+    BLOCK_VIDEO_CAROUSEL: {"title", "accent_color", "dark_mode"},
     BLOCK_ANNOUNCEMENT_BAR: {"text", "accent_color", "dark_mode"},
     BLOCK_COD_ASSURANCE: {"note", "accent_color", "dark_mode"},
     BLOCK_BENEFITS: {"title", "items", "accent_color", "dark_mode"},
@@ -94,8 +96,8 @@ class TestVocabulary:
     def test_every_type_has_a_validator_and_key_set(self) -> None:
         assert set(SUPPORTED_KEYS) == set(ALLOWED_BLOCK_TYPES)
 
-    def test_fourteen_types_exist(self) -> None:
-        assert len(ALLOWED_BLOCK_TYPES) == 14
+    def test_fifteen_types_exist(self) -> None:
+        assert len(ALLOWED_BLOCK_TYPES) == 15
 
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_known_type_is_accepted(self, block_type: str) -> None:
@@ -243,6 +245,7 @@ class TestContentValidation:
         accepts the key, and every type is valid without it."""
         minimal_config = {
             BLOCK_CTA: {},
+            BLOCK_VIDEO_CAROUSEL: {},
             BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
@@ -287,6 +290,7 @@ class TestContentValidation:
     def test_accent_color_is_normalized_like_any_other_accent(self, block_type: str) -> None:
         base_config = {
             BLOCK_CTA: {},
+            BLOCK_VIDEO_CAROUSEL: {},
             BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
@@ -318,6 +322,7 @@ class TestContentValidation:
     def test_malformed_accent_color_is_rejected_with_its_field(self, block_type: str) -> None:
         base_config = {
             BLOCK_CTA: {},
+            BLOCK_VIDEO_CAROUSEL: {},
             BLOCK_ANNOUNCEMENT_BAR: {"text": "Envío gratis"},
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},

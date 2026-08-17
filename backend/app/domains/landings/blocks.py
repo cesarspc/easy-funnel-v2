@@ -3,7 +3,7 @@ elements (Requirements 3.27-3.31).
 
 Two ideas own this module:
 
-**A fixed vocabulary, not a page builder.** Fourteen component types exist,
+**A fixed vocabulary, not a page builder.** Fifteen component types exist,
 each one a device that measurably moves cold cash-on-delivery traffic in this
 market: a top-of-page announcement bar, the COD assurance strip, benefit
 bullets, the price/saving statement, the included benefits list,
@@ -56,6 +56,7 @@ BLOCK_HOW_IT_WORKS = "how_it_works"
 BLOCK_AUDIENCE = "audience"
 BLOCK_MOMENT = "moment"
 BLOCK_CTA = "cta"
+BLOCK_VIDEO_CAROUSEL = "video_carousel"
 
 # Mirrors the `landing_blocks_type_allowed` database check.
 ALLOWED_BLOCK_TYPES = (
@@ -73,6 +74,7 @@ ALLOWED_BLOCK_TYPES = (
     BLOCK_AUDIENCE,
     BLOCK_MOMENT,
     BLOCK_CTA,
+    BLOCK_VIDEO_CAROUSEL,
 )
 
 # 15 banners + one CTA band each is the longest sequence the page can render,
@@ -284,6 +286,17 @@ def _validate_cta(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "text": _optional_text(
             config.get("text"), field="text", label="CTA text", maximum=_CTA_TEXT_MAX
+        ),
+        "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
+    }
+
+
+def _validate_video_carousel(config: dict[str, Any]) -> dict[str, Any]:
+    """Video assets are relational; config only carries optional copy/theme."""
+    return {
+        "title": _optional_text(
+            config.get("title"), field="title", label="Title", maximum=_LONG_TITLE_MAX
         ),
         "accent_color": _optional_accent_color(config),
         "dark_mode": _optional_dark_mode(config),
@@ -786,6 +799,7 @@ def _validate_moment(config: dict[str, Any]) -> dict[str, Any]:
 
 _VALIDATORS = {
     BLOCK_CTA: _validate_cta,
+    BLOCK_VIDEO_CAROUSEL: _validate_video_carousel,
     BLOCK_COD_ASSURANCE: _validate_cod_assurance,
     BLOCK_BENEFITS: _validate_benefits,
     BLOCK_OFFER_PRICE: _validate_offer_price,

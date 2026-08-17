@@ -52,6 +52,18 @@ def variant_public_url(public_host: str, opaque_key: str, width: int, format_: s
     return f"{public_host.rstrip('/')}/{variant_object_key(opaque_key, width, format_)}"
 
 
+def video_object_key(opaque_key: str) -> str:
+    return f"videos/{opaque_key}/video.mp4"
+
+
+def video_poster_object_key(opaque_key: str) -> str:
+    return f"videos/{opaque_key}/poster.webp"
+
+
+def object_public_url(public_host: str, object_key: str) -> str:
+    return f"{public_host.rstrip('/')}/{object_key}"
+
+
 class R2Client:
     """Thin wrapper over the boto3 S3 client scoped to one bucket.
 
@@ -78,7 +90,7 @@ class R2Client:
             Key=key,
             Body=data,
             ContentType=content_type,
-            # Every image object is stored below an opaque, never-reused key.
+            # Every public media object is stored below an opaque, never-reused key.
             # Preserve Cloudflare's edge caching while also advertising the
             # same immutable policy to browsers and direct R2 consumers.
             CacheControl=IMMUTABLE_CACHE_CONTROL,

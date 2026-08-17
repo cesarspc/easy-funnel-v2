@@ -31,18 +31,18 @@ generator client {
 // ---------------------------------------------------------------------------
 
 model Product {
-  id          BigInt    @id @default(autoincrement())
-  name        String
-  sku         String
-  price       Decimal   @db.Decimal(12, 2)
-  description String    @default("")
+  id             BigInt    @id @default(autoincrement())
+  name           String
+  sku            String
+  price          Decimal   @db.Decimal(12, 2)
+  description    String    @default("")
   /// Zero to two fulfillment option groups configured only when the product
   /// is created. Shape: `[{name, values}]`; existing products keep `[]`.
-  variantOptions Json @default("[]") @map("variant_options")
-  status      String    @default("paused")
-  retiredAt   DateTime? @map("retired_at") @db.Timestamptz
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  variantOptions Json      @default("[]") @map("variant_options")
+  status         String    @default("paused")
+  retiredAt      DateTime? @map("retired_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   landing Landing?
   orders  Order[]
@@ -52,19 +52,19 @@ model Product {
 }
 
 model Landing {
-  id               BigInt    @id @default(autoincrement())
-  productId        BigInt    @unique @map("product_id")
-  slug             String    @unique
-  status           String    @default("draft")
-  ctaMode          String    @map("cta_mode")
-  ctaInterval      Int?      @map("cta_interval")
-  ctaPositions     Int[]     @map("cta_positions")
-  formPresentation String    @map("form_presentation")
-  ctaBandStyle     String    @default("gradient") @map("cta_band_style")
+  id               BigInt @id @default(autoincrement())
+  productId        BigInt @unique @map("product_id")
+  slug             String @unique
+  status           String @default("draft")
+  ctaMode          String @map("cta_mode")
+  ctaInterval      Int?   @map("cta_interval")
+  ctaPositions     Int[]  @map("cta_positions")
+  formPresentation String @map("form_presentation")
+  ctaBandStyle     String @default("gradient") @map("cta_band_style")
 
   /// Custom CTA button text. When null the landing uses its default label
   /// ("Pedir ahora — $price"). Max 60 characters.
-  ctaText      String? @map("cta_text") @db.VarChar(60)
+  ctaText String? @map("cta_text") @db.VarChar(60)
 
   /// CTA button animation: null (none), "slide" (left-to-right), or "shake".
   ctaAnimation String? @map("cta_animation") @db.VarChar(10)
@@ -126,12 +126,12 @@ model Landing {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  product Product       @relation(fields: [productId], references: [id])
-  banners Banner[]
-  blocks  LandingBlock[]
-  orders  Order[]
-  views   LandingView[]
-  clicks  CtaClick[]
+  product      Product                 @relation(fields: [productId], references: [id])
+  banners      Banner[]
+  blocks       LandingBlock[]
+  orders       Order[]
+  views        LandingView[]
+  clicks       CtaClick[]
   dailyTraffic LandingAnalyticsDaily[]
 
   @@index([slug], map: "idx_landings_slug")
@@ -160,7 +160,8 @@ model LandingBlock {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  landing Landing @relation(fields: [landingId], references: [id])
+  landing    Landing      @relation(fields: [landingId], references: [id])
+  videos     VideoAsset[]
 
   @@unique([landingId, slotIndex, orderIndex], map: "idx_landing_blocks_slot")
   @@index([landingId, slotIndex, orderIndex], map: "idx_landing_blocks_render")
@@ -260,19 +261,19 @@ model ImageVariant {
 // ---------------------------------------------------------------------------
 
 model Order {
-  id                 BigInt   @id @default(autoincrement())
-  productId          BigInt   @map("product_id")
-  landingId          BigInt   @map("landing_id")
-  landingSlug        String   @map("landing_slug")
-  customerName       String   @map("customer_name")
-  phoneE164          String   @map("phone_e164")
-  phoneNormalizedKey String   @map("phone_normalized_key")
+  id                 BigInt @id @default(autoincrement())
+  productId          BigInt @map("product_id")
+  landingId          BigInt @map("landing_id")
+  landingSlug        String @map("landing_slug")
+  customerName       String @map("customer_name")
+  phoneE164          String @map("phone_e164")
+  phoneNormalizedKey String @map("phone_normalized_key")
   department         String
   city               String
   address            String
   quantity           Int
   /// One immutable fulfillment selection per ordered unit.
-  variantSelections  Json @default("[]") @map("variant_selections")
+  variantSelections  Json   @default("[]") @map("variant_selections")
 
   /// Money as charged, snapshotted at submission. The Landing's offer
   /// discounts are merchant-editable at any time, so re-deriving an order's
@@ -284,11 +285,11 @@ model Order {
   discountPercent Int     @default(0) @map("discount_percent")
   totalPrice      Decimal @map("total_price") @db.Decimal(12, 2)
 
-  status             String   @default("pending")
-  ipAddress          String   @map("ip_address")
-  userAgent          String   @map("user_agent")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  status    String   @default("pending")
+  ipAddress String   @map("ip_address")
+  userAgent String   @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   product    Product     @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   landing    Landing     @relation(fields: [landingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -322,7 +323,7 @@ model FraudConfig {
   rateLimitWindowMinutes Int      @default(10) @map("rate_limit_window_minutes")
   /// Canonical uppercase municipality names hidden from checkout and rejected
   /// by the order service. A name bans every municipality with that name.
-  bannedCities             String[] @default([]) @map("banned_cities")
+  bannedCities           String[] @default([]) @map("banned_cities")
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("fraud_config")
@@ -383,20 +384,43 @@ model CtaClick {
 /// traffic volume. `LandingView` and `CtaClick` remain as read-only legacy
 /// history and are included alongside these counters by analytics reports.
 model LandingAnalyticsDaily {
-  id            BigInt   @id @default(autoincrement())
-  landingId     BigInt   @map("landing_id")
-  eventDate     DateTime @map("event_date") @db.Date
-  viewCount     BigInt   @default(0) @map("view_count")
-  ctaClickCount BigInt   @default(0) @map("cta_click_count")
-  fallbackViewCount BigInt @default(0) @map("fallback_view_count")
-  fallbackCtaClickCount BigInt @default(0) @map("fallback_cta_click_count")
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id                    BigInt   @id @default(autoincrement())
+  landingId             BigInt   @map("landing_id")
+  eventDate             DateTime @map("event_date") @db.Date
+  viewCount             BigInt   @default(0) @map("view_count")
+  ctaClickCount         BigInt   @default(0) @map("cta_click_count")
+  fallbackViewCount     BigInt   @default(0) @map("fallback_view_count")
+  fallbackCtaClickCount BigInt   @default(0) @map("fallback_cta_click_count")
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   landing Landing @relation(fields: [landingId], references: [id])
 
   @@unique([landingId, eventDate], map: "idx_landing_analytics_daily_unique")
   @@index([eventDate, landingId], map: "idx_landing_analytics_daily_range")
   @@map("landing_analytics_daily")
+}
+
+/// One immutable, optimized MP4 belonging to a video-carousel conversion
+/// block. Only the optimized output and its lightweight poster are stored.
+model VideoAsset {
+  id              BigInt   @id @default(autoincrement())
+  landingBlockId  BigInt   @map("landing_block_id")
+  opaqueKey       String   @unique @map("opaque_key")
+  videoObjectKey  String   @map("video_object_key")
+  posterObjectKey String   @map("poster_object_key")
+  width           Int
+  height          Int
+  durationMs      Int      @map("duration_ms")
+  byteSize        BigInt   @map("byte_size")
+  orderIndex      Int      @map("order_index")
+  caption         String?  @db.VarChar(100)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  landingBlock LandingBlock @relation(fields: [landingBlockId], references: [id], onDelete: Cascade)
+
+  @@unique([landingBlockId, orderIndex], map: "idx_video_assets_block_order")
+  @@index([landingBlockId, orderIndex], map: "idx_video_assets_render")
+  @@map("video_assets")
 }
 
 model AdminUser {

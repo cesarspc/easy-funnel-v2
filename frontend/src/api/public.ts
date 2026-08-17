@@ -47,6 +47,7 @@ export interface CtaBackground {
  */
 export type ConversionBlockType =
   | "cta"
+  | "video_carousel"
   | "announcement_bar"
   | "cod_assurance"
   | "benefits"
@@ -101,6 +102,17 @@ export interface ConversionBlock {
    * has no override and inherits the page's form accent.
    */
   accent_palette: AccentPalette | null;
+  videos?: VideoAsset[];
+}
+
+export interface VideoAsset {
+  id: number;
+  url: string;
+  poster_url: string;
+  width: number;
+  height: number;
+  duration_ms: number;
+  caption: string | null;
 }
 
 /**

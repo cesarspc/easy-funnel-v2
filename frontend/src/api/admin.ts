@@ -431,6 +431,19 @@ export interface LandingBlock {
   order_index: number;
   enabled: boolean;
   config: Record<string, unknown>;
+  videos?: LandingBlockVideo[];
+}
+
+export interface LandingBlockVideo {
+  id: number;
+  url: string;
+  poster_url: string;
+  width: number;
+  height: number;
+  duration_ms: number;
+  byte_size: number;
+  order_index: number;
+  caption: string | null;
 }
 
 export interface LandingBlockListResponse {
@@ -586,5 +599,30 @@ export const landingsApi = {
 
   deleteBlock: async (id: number, blockId: number): Promise<LandingBlockListResponse> => {
     return apiClient.delete<LandingBlockListResponse>(`/admin/landings/${id}/blocks/${blockId}`);
+  },
+
+  uploadBlockVideo: async (
+    id: number,
+    blockId: number,
+    file: File,
+    caption: string,
+  ): Promise<LandingBlockListResponse> => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("caption", caption);
+    return apiClient.postForm<LandingBlockListResponse>(
+      `/admin/landings/${id}/blocks/${blockId}/videos`,
+      form,
+    );
+  },
+
+  deleteBlockVideo: async (
+    id: number,
+    blockId: number,
+    videoId: number,
+  ): Promise<LandingBlockListResponse> => {
+    return apiClient.delete<LandingBlockListResponse>(
+      `/admin/landings/${id}/blocks/${blockId}/videos/${videoId}`,
+    );
   },
 };

@@ -55,7 +55,7 @@
  *   and decision moment into a coherent long-form sales sequence.
  */
 
-import type { CSSProperties, JSX } from "react";
+import { useState, type CSSProperties, type JSX } from "react";
 import type { AccentPalette, ConversionBlock, ConversionBlockConfig } from "../../api";
 import { Cta } from "../../components/Cta";
 import { safeColor } from "../../utils";
@@ -161,6 +161,75 @@ function PurchaseCta({
   return (
     <section className="cblock cblock--purchase-cta" style={ctaAccentStyle(palette)}>
       <Cta label={label} animation={animation} onClick={onActivate} />
+    </section>
+  );
+}
+
+function VideoCarousel({
+  block,
+  palette,
+}: {
+  block: ConversionBlock;
+  palette: AccentPalette | null;
+}): JSX.Element | null {
+  const videos = block.videos ?? [];
+  const [requestedIndex, setRequestedIndex] = useState(0);
+  if (videos.length === 0) return null;
+  const activeIndex = Math.min(requestedIndex, videos.length - 1);
+  const active = videos[activeIndex];
+  const multiple = videos.length > 1;
+
+  function move(delta: number) {
+    setRequestedIndex((current) => (current + delta + videos.length) % videos.length);
+  }
+
+  return (
+    <section
+      className="cblock cblock--video-carousel"
+      style={accentStyle(palette)}
+      aria-roledescription="carrusel"
+      aria-label={asOptionalString(block.config.title) ?? "Videos del producto"}
+    >
+      <BlockHeading title={block.config.title} />
+      <div className="cblock__video-stage">
+        {multiple && (
+          <button
+            type="button"
+            className="cblock__video-arrow cblock__video-arrow--previous"
+            aria-label="Video anterior"
+            onClick={() => move(-1)}
+          >
+            ‹
+          </button>
+        )}
+        <video
+          key={active.id}
+          className="cblock__video"
+          controls
+          playsInline
+          preload="metadata"
+          poster={active.poster_url}
+          width={active.width}
+          height={active.height}
+          aria-label={active.caption ?? `Video ${activeIndex + 1}`}
+        >
+          <source src={active.url} type="video/mp4" />
+        </video>
+        {multiple && (
+          <button
+            type="button"
+            className="cblock__video-arrow cblock__video-arrow--next"
+            aria-label="Video siguiente"
+            onClick={() => move(1)}
+          >
+            ›
+          </button>
+        )}
+      </div>
+      <div className="cblock__video-meta" aria-live="polite">
+        {active.caption && <p>{active.caption}</p>}
+        {multiple && <span>{activeIndex + 1} / {videos.length}</span>}
+      </div>
     </section>
   );
 }
@@ -1195,6 +1264,9 @@ export function ConversionBlockView({
           onActivate={onActivateCta}
         />
       );
+      break;
+    case "video_carousel":
+      content = <VideoCarousel block={block} palette={palette} />;
       break;
     case "announcement_bar":
       content = <AnnouncementBar config={config} palette={palette} />;

@@ -18,6 +18,8 @@ Error mapping, applied uniformly to every endpoint here:
 
 from __future__ import annotations
 
+import contextlib
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
@@ -42,6 +44,7 @@ from app.domains.landings.errors import (
     PublicationValidationError,
 )
 from app.domains.landings.offers import parse_stored_offers, resolve_offer_pricing
+from app.domains.videos import SOURCE_VIDEO_MAX_BYTES, VideoPipelineError, VideoValidationError
 from app.services.banner_upload_service import BannerUploadService
 from app.services.landing_block_service import BlockNotFoundError, LandingBlockService
 from app.services.landing_management_service import LandingManagementService
@@ -50,12 +53,14 @@ from app.services.landing_template_service import (
     LandingTemplateService,
     TemplateNotFoundError,
 )
+from app.services.video_upload_service import VideoNotFoundError, VideoUploadService
 from app.storage.dependencies import get_r2_client
-from app.storage.r2_client import R2Client, variant_public_url
+from app.storage.r2_client import R2Client, object_public_url, variant_public_url
 
 router = APIRouter(prefix="/api/admin/landings", tags=["admin", "landings"])
 
 _UPLOAD_UNAVAILABLE_MESSAGE = "Image upload is temporarily unavailable. Please try again."
+_VIDEO_CONTENT_TYPES = {"video/mp4", "video/webm", "video/quicktime", "video/x-m4v"}
 
 
 class ImageVariantResponse(BaseModel):
@@ -198,6 +203,19 @@ class LandingBlockResponse(BaseModel):
     order_index: int
     enabled: bool
     config: dict
+    videos: list[VideoAssetResponse] = []
+
+
+class VideoAssetResponse(BaseModel):
+    id: int
+    url: str
+    poster_url: str
+    width: int
+    height: int
+    duration_ms: int
+    byte_size: int
+    order_index: int
+    caption: str | None = None
 
 
 class LandingBlockListResponse(BaseModel):
@@ -635,6 +653,7 @@ async def load_landing_template(
     landing_id: int,
     request: LandingLoadTemplateRequest,
     settings: Settings = Depends(get_settings),  # noqa: B008 (FastAPI DI convention)
+    r2: R2Client = Depends(get_r2_client),  # noqa: B008
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
 ) -> LandingDetailResponse:
     """Apply a saved template's configuration and components to this landing.
@@ -646,7 +665,17 @@ async def load_landing_template(
 
     Banners, slug, product, and publication status are never touched.
     """
-    service = LandingTemplateService(get_prisma())
+    db = get_prisma()
+    service = LandingTemplateService(db)
+    current_blocks = await db.landingblock.find_many(
+        where={"landingId": landing_id}, include={"videos": True}
+    )
+    replaced_video_keys = [
+        key
+        for block in current_blocks
+        for video in (getattr(block, "videos", None) or [])
+        for key in (video.videoObjectKey, video.posterObjectKey)
+    ]
     try:
         await service.load_template(landing_id, request.template_id, actor=admin_user.subject)
     except LandingNotFoundError as exc:
@@ -655,6 +684,10 @@ async def load_landing_template(
         raise _not_found("Landing template not found") from exc
     except LandingValidationError as exc:
         raise _field_error(exc.field, exc.message) from exc
+
+    for key in replaced_video_keys:
+        with contextlib.suppress(Exception):
+            await r2.delete(key)
 
     return await get_landing(landing_id, settings=settings, admin_user=admin_user)
 
@@ -676,7 +709,7 @@ async def _banner_list(landing_id: int, public_host: str) -> BannerListResponse:
 # ---------------------------------------------------------------------------
 
 
-def _to_block_response(block) -> LandingBlockResponse:  # type: ignore[no-untyped-def]
+def _to_block_response(block, public_host: str) -> LandingBlockResponse:  # type: ignore[no-untyped-def]
     return LandingBlockResponse(
         id=block.id,
         block_type=block.blockType,
@@ -684,17 +717,90 @@ def _to_block_response(block) -> LandingBlockResponse:  # type: ignore[no-untype
         order_index=block.orderIndex,
         enabled=block.enabled,
         config=block.config if isinstance(block.config, dict) else {},
+        videos=[
+            VideoAssetResponse(
+                id=video.id,
+                url=object_public_url(public_host, video.videoObjectKey),
+                poster_url=object_public_url(public_host, video.posterObjectKey),
+                width=video.width,
+                height=video.height,
+                duration_ms=video.durationMs,
+                byte_size=video.byteSize,
+                order_index=video.orderIndex,
+                caption=video.caption,
+            )
+            for video in sorted(
+                getattr(block, "videos", None) or [], key=lambda item: item.orderIndex
+            )
+        ],
     )
 
 
 async def _block_list(landing_id: int) -> LandingBlockListResponse:
-    service = LandingBlockService(get_prisma())
-    blocks = await service.list_blocks(landing_id)
+    db = get_prisma()
+    service = LandingBlockService(db)
+    blocks = await db.landingblock.find_many(
+        where={"landingId": landing_id},
+        include={"videos": True},
+        order=[{"slotIndex": "asc"}, {"orderIndex": "asc"}],
+    )
+    settings = get_settings()
     return LandingBlockListResponse(
-        blocks=[_to_block_response(block) for block in blocks],
+        blocks=[_to_block_response(block, settings.r2_public_host) for block in blocks],
         slots=await service.describe_slots(landing_id),
         allowed_block_types=list(ALLOWED_BLOCK_TYPES),
     )
+
+
+@router.post(
+    "/{landing_id}/blocks/{block_id}/videos",
+    response_model=LandingBlockListResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_block_video(
+    landing_id: int,
+    block_id: int,
+    file: UploadFile = File(...),  # noqa: B008
+    caption: str = Form(""),  # noqa: B008
+    r2: R2Client = Depends(get_r2_client),  # noqa: B008
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
+) -> LandingBlockListResponse:
+    if file.content_type not in _VIDEO_CONTENT_TYPES:
+        raise _field_error("file", "Selecciona un archivo MP4, WebM o MOV válido.")
+    raw_bytes = await file.read(SOURCE_VIDEO_MAX_BYTES + 1)
+    try:
+        await VideoUploadService(get_prisma(), r2).upload(
+            landing_id, block_id, raw_bytes=raw_bytes, caption=caption, actor=admin_user.subject
+        )
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing or component not found") from exc
+    except (LandingValidationError, VideoValidationError) as exc:
+        raise _field_error(exc.field, exc.message) from exc
+    except VideoPipelineError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    return await _block_list(landing_id)
+
+
+@router.delete(
+    "/{landing_id}/blocks/{block_id}/videos/{video_id}",
+    response_model=LandingBlockListResponse,
+)
+async def delete_block_video(
+    landing_id: int,
+    block_id: int,
+    video_id: int,
+    r2: R2Client = Depends(get_r2_client),  # noqa: B008
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
+) -> LandingBlockListResponse:
+    try:
+        await VideoUploadService(get_prisma(), r2).delete(
+            landing_id, block_id, video_id, actor=admin_user.subject
+        )
+    except VideoNotFoundError as exc:
+        raise _not_found("Video not found") from exc
+    return await _block_list(landing_id)
 
 
 @router.get("/{landing_id}/blocks", response_model=LandingBlockListResponse)
@@ -770,15 +876,29 @@ async def update_landing_block(
 async def delete_landing_block(
     landing_id: int,
     block_id: int,
+    r2: R2Client = Depends(get_r2_client),  # noqa: B008
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
 ) -> LandingBlockListResponse:
     """Remove a placed conversion component."""
-    service = LandingBlockService(get_prisma())
+    db = get_prisma()
+    service = LandingBlockService(db)
+    stored = await db.landingblock.find_first(
+        where={"id": block_id, "landingId": landing_id}, include={"videos": True}
+    )
+    removed_video_keys = [
+        key
+        for video in (getattr(stored, "videos", None) or [])
+        for key in (video.videoObjectKey, video.posterObjectKey)
+    ]
     try:
         await service.delete_block(landing_id, block_id, actor=admin_user.subject)
     except LandingNotFoundError as exc:
         raise _not_found("Landing not found") from exc
     except BlockNotFoundError as exc:
         raise _not_found("Conversion component not found") from exc
+
+    for key in removed_video_keys:
+        with contextlib.suppress(Exception):
+            await r2.delete(key)
 
     return await _block_list(landing_id)
