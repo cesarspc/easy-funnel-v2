@@ -176,6 +176,8 @@ function VideoCarousel({
   const [requestedIndex, setRequestedIndex] = useState(0);
   const [activatedVideoId, setActivatedVideoId] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [bufferedVideoId, setBufferedVideoId] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Posters are tiny immutable WebPs. Preloading at most six of them makes
@@ -195,35 +197,49 @@ function VideoCarousel({
   const active = videos[activeIndex];
   const multiple = videos.length > 1;
   const isActivated = activatedVideoId === active.id;
+  const connection = (
+    navigator as Navigator & { connection?: { saveData?: boolean } }
+  ).connection;
+  const shouldWarmNeighbors = bufferedVideoId === active.id && connection?.saveData !== true;
+  const neighborIndexes = shouldWarmNeighbors && multiple
+    ? Array.from(new Set([
+        (activeIndex + 1) % videoCount,
+        (activeIndex - 1 + videoCount) % videoCount,
+      ])).filter((index) => index !== activeIndex)
+    : [];
 
   function move(delta: number) {
     setActivatedVideoId(null);
     setIsPlaying(false);
+    setIsLoading(false);
+    setBufferedVideoId(null);
     setRequestedIndex((current) => (current + delta + videoCount) % videoCount);
   }
 
   function select(index: number) {
     setActivatedVideoId(null);
     setIsPlaying(false);
+    setIsLoading(false);
+    setBufferedVideoId(null);
     setRequestedIndex(index);
   }
 
   function togglePlayback() {
-    if (!isActivated) {
-      setActivatedVideoId(active.id);
-      setIsPlaying(true);
-      return;
-    }
     const player = videoRef.current;
-    if (!player) return;
+    if (!player || isLoading) return;
     if (isPlaying) {
       player.pause();
       setIsPlaying(false);
       return;
     }
+    setActivatedVideoId(active.id);
+    setIsLoading(true);
     const playback = player.play();
-    setIsPlaying(true);
-    void playback.catch(() => setIsPlaying(false));
+    void playback.catch(() => {
+      setActivatedVideoId(null);
+      setIsLoading(false);
+      setIsPlaying(false);
+    });
   }
 
   return (
@@ -235,28 +251,36 @@ function VideoCarousel({
     >
       <BlockHeading title={block.config.title} />
       <div className="cblock__video-stage">
-        {isActivated ? (
-          <video
-            ref={videoRef}
-            key={active.id}
-            className="cblock__video"
-            autoPlay
-            playsInline
-            preload="auto"
-            poster={active.poster_url}
-            width={active.width}
-            height={active.height}
-            aria-label={active.caption ?? `Video ${activeIndex + 1}`}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onEnded={() => setIsPlaying(false)}
-          >
-            <source src={active.url} type="video/mp4" />
-          </video>
-        ) : (
+        <video
+          ref={videoRef}
+          key={`player-${active.id}`}
+          className="cblock__video"
+          playsInline
+          preload="auto"
+          poster={active.poster_url}
+          width={active.width}
+          height={active.height}
+          aria-label={active.caption ?? `Video ${activeIndex + 1}`}
+          onCanPlay={() => setBufferedVideoId(active.id)}
+          onPlaying={() => {
+            setIsLoading(false);
+            setIsPlaying(true);
+          }}
+          onWaiting={() => {
+            if (isActivated) setIsLoading(true);
+          }}
+          onPause={() => setIsPlaying(false)}
+          onEnded={() => {
+            setIsLoading(false);
+            setIsPlaying(false);
+          }}
+        >
+          <source src={active.url} type="video/mp4" />
+        </video>
+        {!isActivated && (
           <img
-            key={active.id}
-            className="cblock__video cblock__video-poster"
+            key={`poster-${active.id}`}
+            className="cblock__video-poster"
             src={active.poster_url}
             alt=""
             width={active.width}
@@ -266,11 +290,14 @@ function VideoCarousel({
         )}
         <button
           type="button"
-          className="cblock__video-play"
-          aria-label={`${isPlaying ? "Pausar" : "Reproducir"} ${active.caption ?? `video ${activeIndex + 1}`}`}
+          className={`cblock__video-play${isLoading ? " is-loading" : ""}`}
+          aria-label={`${isLoading ? "Cargando" : isPlaying ? "Pausar" : "Reproducir"} ${active.caption ?? `video ${activeIndex + 1}`}`}
+          aria-busy={isLoading}
           onClick={togglePlayback}
         >
-          {isPlaying ? (
+          {isLoading ? (
+            <span className="cblock__video-spinner" aria-hidden="true" />
+          ) : isPlaying ? (
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M7 5h4v14H7zM13 5h4v14h-4z" />
             </svg>
@@ -281,6 +308,20 @@ function VideoCarousel({
           )}
         </button>
       </div>
+      {neighborIndexes.length > 0 && (
+        <div className="cblock__video-preloads" aria-hidden="true">
+          {neighborIndexes.map((index) => (
+            <video
+              key={videos[index].id}
+              preload="auto"
+              playsInline
+              muted
+              tabIndex={-1}
+              src={videos[index].url}
+            />
+          ))}
+        </div>
+      )}
       {multiple && (
         <div className="cblock__video-navigation">
           <div className="cblock__video-arrows">

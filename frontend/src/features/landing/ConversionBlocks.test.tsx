@@ -7,7 +7,7 @@
  * elements happen to be (banner or CTA band).
  */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -111,8 +111,9 @@ describe("conversion components on the landing", () => {
     expect(document.querySelector(".cblock--purchase-cta")).toBeInTheDocument();
   });
 
-  it("switches preloaded posters instantly and mounts only the video the visitor plays", async () => {
+  it("buffers only the selected video behind its instant poster and exposes custom playback", async () => {
     const user = userEvent.setup();
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.mocked(publicApi.getLanding).mockResolvedValue(
       makeLanding([
         block({
@@ -148,15 +149,28 @@ describe("conversion components on the landing", () => {
       "src",
       "https://r2.example/videos/one/poster.webp",
     );
-    expect(document.querySelectorAll(".cblock__video source")).toHaveLength(0);
+    expect(document.querySelectorAll(".cblock__video source")).toHaveLength(1);
+    expect(document.querySelector("video.cblock__video")).toHaveAttribute("preload", "auto");
+    fireEvent.canPlay(document.querySelector("video.cblock__video") as HTMLVideoElement);
+    expect(document.querySelectorAll(".cblock__video-preloads video")).toHaveLength(1);
+    expect(document.querySelector(".cblock__video-preloads video")).toHaveAttribute(
+      "src",
+      "https://r2.example/videos/two/video.mp4",
+    );
 
     await user.click(screen.getByRole("button", { name: "Reproducir Video uno" }));
+    expect(play).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Cargando Video uno" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
     expect(document.querySelectorAll(".cblock__video source")).toHaveLength(1);
     expect(document.querySelector("video.cblock__video")).not.toHaveAttribute("controls");
     expect(document.querySelector(".cblock__video source")).toHaveAttribute(
       "src",
       "https://r2.example/videos/one/video.mp4",
     );
+    fireEvent.playing(document.querySelector("video.cblock__video") as HTMLVideoElement);
     expect(screen.getByRole("button", { name: "Pausar Video uno" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Video siguiente" }));
@@ -164,12 +178,17 @@ describe("conversion components on the landing", () => {
       "src",
       "https://r2.example/videos/two/poster.webp",
     );
-    expect(document.querySelectorAll(".cblock__video source")).toHaveLength(0);
+    expect(document.querySelectorAll(".cblock__video source")).toHaveLength(1);
+    expect(document.querySelector(".cblock__video source")).toHaveAttribute(
+      "src",
+      "https://r2.example/videos/two/video.mp4",
+    );
     expect(screen.getByRole("button", { name: "Reproducir Video dos" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ir al video 2" })).toHaveAttribute(
       "aria-current",
       "true",
     );
+    play.mockRestore();
   });
 
   it("places a component in slot 1, between the first banner and the first CTA", async () => {
