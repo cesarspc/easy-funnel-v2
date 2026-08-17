@@ -1767,8 +1767,13 @@
 }
 
 .cblock__video-play .cblock__video-play-icon {
-  width: 62px;
-  height: 62px;
+  width: 72px;
+  height: 72px;
+}
+
+.cblock__video-play .cblock__video-pause-icon {
+  width: 72px;
+  height: 72px;
 }
 
 .cblock__video-spinner {

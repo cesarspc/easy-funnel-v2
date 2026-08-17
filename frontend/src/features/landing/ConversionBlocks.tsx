@@ -288,7 +288,7 @@ function VideoCarousel({
           {isLoading ? (
             <span className="cblock__video-spinner" aria-hidden="true" />
           ) : isPlaying ? (
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg className="cblock__video-pause-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M7 5h4v14H7zM13 5h4v14h-4z" />
             </svg>
           ) : (
