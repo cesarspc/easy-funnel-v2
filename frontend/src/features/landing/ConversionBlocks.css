@@ -1741,18 +1741,17 @@
   left: 50%;
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 50px;
+  width: 58px;
+  height: 58px;
   padding: 0;
-  border: 1px solid rgb(255 255 255 / 42%);
-  border-radius: 999px;
-  background: rgb(10 10 10 / 62%);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #fff;
   cursor: pointer;
   transform: translate(-50%, -50%);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  backdrop-filter: blur(6px);
 }
 
 /* The global pressed-button rule uses translateY(1px). This control is
@@ -1765,6 +1764,11 @@
   width: 22px;
   height: 22px;
   fill: currentColor;
+}
+
+.cblock__video-play .cblock__video-play-icon {
+  width: 31px;
+  height: 31px;
 }
 
 .cblock__video-spinner {
