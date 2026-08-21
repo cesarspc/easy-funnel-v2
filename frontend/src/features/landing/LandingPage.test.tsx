@@ -95,14 +95,15 @@ describe("LandingPage", () => {
     renderAtSlug("audifonos-bluetooth");
 
     await screen.findAllByRole("button", { name: /Pedir ahora/i });
-    expect(screen.queryByLabelText("Nombre completo")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Nombre")).not.toBeInTheDocument();
 
     await user.click(screen.getAllByRole("button", { name: /Pedir ahora/i })[0]);
 
     expect(publicApi.recordCtaClick).toHaveBeenCalledWith("audifonos-bluetooth");
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(screen.getByLabelText("Nombre completo")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    expect(screen.getByLabelText("Apellido")).toBeInTheDocument();
   });
 
   it("never renders the COD form until the CTA is activated, whatever form_presentation says", async () => {
@@ -119,7 +120,7 @@ describe("LandingPage", () => {
     await user.click(screen.getAllByRole("button", { name: /Pedir ahora/i })[0]);
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre completo")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
   });
 
   it("restates the offer and the total inside the pop-up", async () => {
@@ -162,9 +163,9 @@ describe("LandingPage", () => {
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
     await user.click(screen.getByRole("button", { name: /Confirmar pedido/i }));
 
-    expect(await screen.findByText("Escribe tu nombre y apellido.")).toBeInTheDocument();
+    expect(await screen.findByText("Escribe tu nombre.")).toBeInTheDocument();
     expect(publicApi.createOrder).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Nombre completo")).toHaveFocus();
+    expect(screen.getByLabelText("Nombre")).toHaveFocus();
   });
 
   it("submits the COD form and shows the confirmation state", async () => {
@@ -173,7 +174,8 @@ describe("LandingPage", () => {
     renderAtSlug("audifonos-bluetooth");
 
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
-    await user.type(screen.getByLabelText("Nombre completo"), "María Gómez");
+    await user.type(screen.getByLabelText("Nombre"), "María");
+    await user.type(screen.getByLabelText("Apellido"), "Gómez");
     await user.type(screen.getByLabelText("Número de celular"), "3001234567");
     await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
     await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
@@ -194,7 +196,8 @@ describe("LandingPage", () => {
     renderAtSlug("audifonos-bluetooth");
 
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
-    await user.type(screen.getByLabelText("Nombre completo"), "María Gómez");
+    await user.type(screen.getByLabelText("Nombre"), "María");
+    await user.type(screen.getByLabelText("Apellido"), "Gómez");
     await user.type(screen.getByLabelText("Número de celular"), "3009999999");
     await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
     await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");

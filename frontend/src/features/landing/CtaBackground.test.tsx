@@ -762,7 +762,8 @@ describe("CTA band: the live repo-landing-slug payload", () => {
 
     expect(publicApi.recordCtaClick).toHaveBeenCalledWith("repo-landing-slug");
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre completo")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    expect(screen.getByLabelText("Apellido")).toBeInTheDocument();
   });
 
   it("opens the same pop-up from the first band CTA regardless of form_presentation", async () => {
@@ -773,7 +774,8 @@ describe("CTA band: the live repo-landing-slug payload", () => {
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre completo")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    expect(screen.getByLabelText("Apellido")).toBeInTheDocument();
   });
 });
 

@@ -1,9 +1,7 @@
 /**
- * Tests for the frontend-only "Dirección 2" field: a reference/complement
- * line (apartment, tower, landmark) shown right after the address field, but
- * never sent to the backend as its own key. It is joined onto `address` with
- * a single space before the order is submitted, so `OrderCreateRequest`
- * carries one complete address string with no backend or schema change.
+ * Tests for frontend-only COD form fields. Split name controls are joined into
+ * `full_name`, and the address complement is joined into `address`, so the
+ * existing `OrderCreateRequest` and database schema remain unchanged.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -69,14 +67,15 @@ async function openForm(landing: PublicLanding = makeLanding()) {
 }
 
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("Nombre completo"), "Ana Gómez");
+  await user.type(screen.getByLabelText("Nombre"), "Ana");
+  await user.type(screen.getByLabelText("Apellido"), "Gómez");
   await user.type(screen.getByLabelText(/Número de celular/), "3001234567");
   await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
   await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
   await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 # 43-25");
 }
 
-describe("Dirección 2 (frontend-only)", () => {
+describe("COD form frontend-only fields", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(publicApi.createOrder).mockResolvedValue({ order_id: 1, status: "pending" });
@@ -124,6 +123,43 @@ describe("Dirección 2 (frontend-only)", () => {
     await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
 
     await waitFor(() => expect(publicApi.createOrder).toHaveBeenCalledTimes(1));
+  });
+
+  it("requires separate first-name and last-name controls", async () => {
+    await openForm();
+
+    expect(screen.getByLabelText("Nombre")).toBeRequired();
+    expect(screen.getByLabelText("Apellido")).toBeRequired();
+    expect(screen.queryByLabelText("Nombre completo")).not.toBeInTheDocument();
+  });
+
+  it("joins the trimmed name parts into full_name without changing the API contract", async () => {
+    const user = await openForm();
+    await user.type(screen.getByLabelText("Nombre"), "  Ana María  ");
+    await user.type(screen.getByLabelText("Apellido"), "  Gómez Ruiz  ");
+    await user.type(screen.getByLabelText(/Número de celular/), "3001234567");
+    await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
+    await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
+    await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 # 43-25");
+
+    await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
+
+    await waitFor(() => expect(publicApi.createOrder).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(publicApi.createOrder).mock.calls[0][0];
+    expect(payload.full_name).toBe("Ana María Gómez Ruiz");
+    expect(payload).not.toHaveProperty("first_name");
+    expect(payload).not.toHaveProperty("last_name");
+  });
+
+  it("blocks submission when the last name is missing and focuses it", async () => {
+    const user = await openForm();
+    await user.type(screen.getByLabelText("Nombre"), "Ana");
+
+    await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
+
+    expect(await screen.findByText("Escribe tu apellido.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Apellido")).toHaveFocus();
+    expect(publicApi.createOrder).not.toHaveBeenCalled();
   });
 
   it("uses the configured default offer and submits options for every unit", async () => {

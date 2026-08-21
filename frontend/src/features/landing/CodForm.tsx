@@ -8,7 +8,7 @@
  *    an address before restating the offer.
  * 2. Nothing to pay now. — the COD promise is stated where the commitment is
  *    asked for, not only on the page behind the sheet.
- * 3. Six fields, one column, in postal order (who → phone → where → how many),
+ * 3. Customer fields in postal order (who → phone → where → how many),
  *    each with the autofill token and mobile keyboard that fits it, so a phone
  *    with saved autofill can complete most of this in one tap.
  * 4. Errors that name the problem and the fix, shown on blur (not while
@@ -34,7 +34,9 @@ import type {
 import "./CodForm.css";
 
 export interface CodFormValues {
-  full_name: string;
+  /** Frontend-only name parts, joined into the API's existing `full_name`. */
+  first_name: string;
+  last_name: string;
   phone: string;
   department: string;
   city: string;
@@ -53,12 +55,13 @@ export interface CodFormValues {
 
 function initialValues(defaultOfferQuantity?: number): CodFormValues {
   return {
-  full_name: "",
-  phone: "",
-  department: "",
-  city: "",
-  address: "",
-  address2: "",
+    first_name: "",
+    last_name: "",
+    phone: "",
+    department: "",
+    city: "",
+    address: "",
+    address2: "",
     quantity: String(defaultOfferQuantity ?? 1),
   };
 }
@@ -77,7 +80,8 @@ const CURRENCY = new Intl.NumberFormat("es-CO", {
 
 /** Field order, used to focus the first invalid control on submit. */
 const FIELD_ORDER: (keyof CodFormValues)[] = [
-  "full_name",
+  "first_name",
+  "last_name",
   "phone",
   "department",
   "city",
@@ -133,9 +137,13 @@ function validateField(field: keyof CodFormValues, raw: string): string | undefi
   const value = raw.trim();
 
   switch (field) {
-    case "full_name":
-      if (!value) return "Escribe tu nombre y apellido.";
-      if (value.length < 2) return "Escribe tu nombre completo.";
+    case "first_name":
+      if (!value) return "Escribe tu nombre.";
+      if (value.length > 120) return "El nombre no puede superar 120 caracteres.";
+      return undefined;
+    case "last_name":
+      if (!value) return "Escribe tu apellido.";
+      if (value.length > 120) return "El apellido no puede superar 120 caracteres.";
       return undefined;
     case "phone": {
       const digits = value.replace(/\D/g, "").replace(/^57/, "");
@@ -284,6 +292,11 @@ export function CodForm({
       if (message) nextErrors[field] = message;
     }
 
+    const fullName = [values.first_name.trim(), values.last_name.trim()].join(" ");
+    if (!nextErrors.first_name && !nextErrors.last_name && fullName.length > 120) {
+      nextErrors.last_name = "El nombre completo no puede superar 120 caracteres.";
+    }
+
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       const firstInvalid = FIELD_ORDER.find((field) => nextErrors[field]);
@@ -296,7 +309,9 @@ export function CodForm({
     try {
       const result = await publicApi.createOrder({
         landing_slug: landingSlug,
-        full_name: values.full_name.trim(),
+        // The split is presentation-only. Keep the established API/database
+        // contract by sending one normalized full-name value.
+        full_name: fullName,
         phone: values.phone.trim(),
         department: values.department.trim(),
         city: values.city.trim(),
@@ -317,9 +332,14 @@ export function CodForm({
       onSuccess(result);
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors) {
-        setErrors(err.fieldErrors as Partial<Record<keyof CodFormValues, string>>);
+        const { full_name: fullNameError, ...fieldErrors } = err.fieldErrors;
+        const mappedErrors = {
+          ...fieldErrors,
+          first_name: fullNameError ?? fieldErrors.first_name,
+        } as Partial<Record<keyof CodFormValues, string>>;
+        setErrors(mappedErrors);
         setVariantError(err.fieldErrors.variant_selections);
-        const firstInvalid = FIELD_ORDER.find((field) => err.fieldErrors?.[field]);
+        const firstInvalid = FIELD_ORDER.find((field) => mappedErrors[field]);
         if (firstInvalid) focusField(firstInvalid);
       } else if (err instanceof ApiError) {
         setFormError(err.message);
@@ -440,20 +460,35 @@ export function CodForm({
         </div>
       )}
 
-      <FormField
-        name="full_name"
-        label="Nombre completo"
-        autoComplete="name"
-        enterKeyHint="next"
-        autoCapitalize="words"
-        required
-        minLength={2}
-        maxLength={120}
-        value={values.full_name}
-        onChange={(e) => update("full_name", e.target.value)}
-        onBlur={() => handleBlur("full_name")}
-        error={errors.full_name}
-      />
+      <div className="cod-form__row">
+        <FormField
+          name="first_name"
+          label="Nombre"
+          autoComplete="given-name"
+          enterKeyHint="next"
+          autoCapitalize="words"
+          required
+          maxLength={120}
+          value={values.first_name}
+          onChange={(e) => update("first_name", e.target.value)}
+          onBlur={() => handleBlur("first_name")}
+          error={errors.first_name}
+        />
+
+        <FormField
+          name="last_name"
+          label="Apellido"
+          autoComplete="family-name"
+          enterKeyHint="next"
+          autoCapitalize="words"
+          required
+          maxLength={120}
+          value={values.last_name}
+          onChange={(e) => update("last_name", e.target.value)}
+          onBlur={() => handleBlur("last_name")}
+          error={errors.last_name}
+        />
+      </div>
 
       <FormField
         name="phone"

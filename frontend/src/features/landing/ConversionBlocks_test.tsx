@@ -376,7 +376,8 @@ describe("conversion components on the landing", () => {
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre completo")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    expect(screen.getByLabelText("Apellido")).toBeInTheDocument();
   });
 });
 
