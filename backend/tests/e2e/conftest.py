@@ -270,7 +270,11 @@ class CodFlowHarness:
         """
         return await self.db.order.find_many(
             where={"landingId": landing.landing_id},
-            include={"fraudFlags": True},
+            include={
+                "fraudFlags": True,
+                "fulfillmentDetails": True,
+                "mastershopSync": True,
+            },
             order={"id": "asc"},
         )
 
@@ -292,6 +296,8 @@ class CodFlowHarness:
             orders = await self.db.order.find_many(where={"landingId": landing.landing_id})
             for order in orders:
                 await self.db.fraudflag.delete_many(where={"orderId": order.id})
+                await self.db.mastershopordersync.delete_many(where={"orderId": order.id})
+                await self.db.orderfulfillmentdetails.delete_many(where={"orderId": order.id})
             await self.db.order.delete_many(where={"landingId": landing.landing_id})
             await self.db.execute_raw(
                 'DELETE FROM "landing_analytics_daily" WHERE "landing_id" = $1',
@@ -323,6 +329,9 @@ class CodFlowHarness:
                 await self.db.imagevariant.delete_many(where={"imageAssetId": image_asset_id})
                 await self.db.imageasset.delete(where={"id": image_asset_id})
             await self.db.landing.delete(where={"id": landing.landing_id})
+            await self.db.mastershopproductmapping.delete_many(
+                where={"productId": landing.product_id}
+            )
             await self.db.product.delete(where={"id": landing.product_id})
 
 

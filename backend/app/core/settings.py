@@ -47,6 +47,22 @@ class Settings(BaseSettings):
     geoip_database_path: str = Field(alias="GEOIP_DATABASE_PATH")
     geoip_update_url: str | None = Field(default=None, alias="GEOIP_UPDATE_URL")
 
+    # --- MasterShop fulfillment ---
+    # Optional for rolling-deploy safety: a missing secret never prevents the
+    # API from booting or accepting local orders. The durable sync row records
+    # the configuration failure until the secret is configured and retried.
+    mastershop_api_key: str | None = Field(default=None, alias="MASTERSHOP_API_KEY")
+    mastershop_orders_url: str = Field(
+        default="https://prod.api.mastershop.com/api/orders",
+        alias="MASTERSHOP_ORDERS_URL",
+    )
+    mastershop_timeout_seconds: float = Field(
+        default=5.0,
+        gt=0,
+        le=30,
+        alias="MASTERSHOP_TIMEOUT_SECONDS",
+    )
+
     # --- Admin bootstrap ---
     # When both are set, startup provisions this Administrator if it is missing.
     # An existing account is left untouched unless `admin_password_reset` is on,

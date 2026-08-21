@@ -1,0 +1,1 @@
+"""MasterShop integration tests."""

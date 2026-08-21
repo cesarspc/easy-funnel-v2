@@ -16,8 +16,11 @@ Each product gets its own banner-based landing page. A visitor arrives (usually 
 | Cache & Counters | Redis | Upstash |
 | Image Storage | Object storage | Cloudflare R2 |
 | GeoIP | MaxMind GeoLite2 | Bundled in container |
+| COD Fulfillment | Order handoff | MasterShop |
 
-Monolithic backend by design — no microservices, no external SaaS dependencies beyond the infrastructure listed above.
+Monolithic backend by design — no microservices. MasterShop is the single
+post-commit fulfillment integration; local order acceptance never depends on
+its availability.
 
 ## Project Structure
 
@@ -85,6 +88,12 @@ pnpm test
 
 Copy `.env.example` to `.env` and fill in your values. The example file documents every variable with placeholder values. Frontend build-time variables (prefixed `VITE_`) contain no secrets — only public configuration like the API base URL.
 
+For MasterShop fulfillment, deploy the additive Prisma migration first with
+`MASTERSHOP_API_KEY` unset, configure each product/variant mapping in Admin,
+and only then add the key to the backend secret manager. Existing orders are
+not backfilled; orders created during the staged rollout retain a failed sync
+record that can be reviewed and retried from Admin.
+
 ## Documentation
 
 - [Backend Development](docs/backend.md) — API structure, domains, services, fraud logic, security
@@ -95,7 +104,7 @@ Copy `.env.example` to `.env` and fill in your values. The example file document
 ## Key Design Decisions
 
 - **No storefront or catalog** — each product lives at its own URL (`/p/{slug}`), reached via direct links from ads or social
-- **Self-hosted everything** — images, GeoIP, fraud rules; no external SaaS per-request dependencies
+- **Local order authority** — images, GeoIP, fraud rules, and accepted orders remain local; fulfillment handoff failures are durable and retryable
 - **Single admin role** — one merchant operates the entire platform
 - **Mobile-first public pages** — buyers come from ads on their phones
 - **Desktop-first admin** — the dashboard is an operational tool for daily use

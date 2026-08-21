@@ -37,10 +37,14 @@ def _order_payload(slug: str, phone: str) -> dict:
     return {
         "landing_slug": slug,
         "full_name": "Juana Perez",
+        "first_name": "Juana",
+        "last_name": "Perez",
         "phone": phone,
         "department": "CUNDINAMARCA",
         "city": "SOACHA",
         "address": "Calle 123 #45-67",
+        "address1": "Calle 123 #45-67",
+        "address2": None,
         "quantity": 1,
     }
 
@@ -99,6 +103,13 @@ async def test_e2e_cod_flow_clean_order(cod_flow: CodFlowHarness) -> None:
     assert stored.phoneE164 == f"+57{phone}"
     assert stored.ipAddress == _CLIENT_IP
     assert stored.userAgent == _USER_AGENT
+    assert stored.fulfillmentDetails.firstName == "Juana"
+    assert stored.fulfillmentDetails.lastName == "Perez"
+    # This fixture deliberately has no MasterShop catalog mapping. The local
+    # order still returns 201 and the post-commit handoff failure is durable.
+    assert stored.mastershopSync.status == "failed"
+    assert stored.mastershopSync.attemptCount == 1
+    assert "Missing MasterShop mapping" in stored.mastershopSync.lastError
 
     # 6. Reading analytics reconciles the live Redis counters durably.
     today = datetime.now(UTC).date().isoformat()
@@ -169,9 +180,52 @@ async def test_e2e_cod_flow_blacklist(cod_flow: CodFlowHarness) -> None:
 
     (stored,) = await cod_flow.orders_for(landing)
     assert [flag.flagType for flag in stored.fraudFlags] == ["blacklist"]
+    assert stored.mastershopSync.status == "waiting_review"
+    assert stored.mastershopSync.attemptCount == 0
     detail = stored.fraudFlags[0].detail
     assert detail["entry_type"] == "phone"
     assert detail["reason"] == "Chargeback history"
+
+
+async def test_failed_mastershop_order_can_be_corrected_and_retried(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing()
+    submitted = await cod_flow.client.post(
+        "/api/public/orders",
+        json=_order_payload(landing.slug, unique_phone()),
+        headers=_submission_headers(),
+    )
+    assert submitted.status_code == 201
+    order_id = submitted.json()["order_id"]
+
+    corrected = await cod_flow.client.patch(
+        f"/api/admin/orders/{order_id}/fulfillment",
+        json={
+            "first_name": "Cesar",
+            "last_name": "Pulido",
+            "phone": "3222615532",
+            "department": "ANTIOQUIA",
+            "city": "MEDELLÍN",
+            "address1": "Calle 10 #01-12",
+            "address2": "Apto 201",
+        },
+        headers=cod_flow.admin_headers(),
+    )
+    assert corrected.status_code == 200
+    assert corrected.json()["customer_name"] == "Cesar Pulido"
+    assert corrected.json()["address"] == "Calle 10 #01-12 Apto 201"
+    assert corrected.json()["mastershop_sync"]["status"] == "pending"
+
+    retried = await cod_flow.client.post(
+        f"/api/admin/orders/{order_id}/mastershop/retry",
+        headers=cod_flow.admin_headers(),
+    )
+    assert retried.status_code == 200
+    sync = retried.json()["mastershop_sync"]
+    assert sync["status"] == "failed"
+    assert sync["attempt_count"] == 2
+    assert "Missing MasterShop mapping" in sync["last_error"]
 
 
 async def test_e2e_cod_flow_rate_limit(cod_flow: CodFlowHarness) -> None:
@@ -392,6 +446,8 @@ async def test_e2e_cod_flow_csv_export(cod_flow: CodFlowHarness) -> None:
     payload = _order_payload(landing.slug, phone)
     # A name a spreadsheet would otherwise evaluate as a formula.
     payload["full_name"] = "=cmd|' /c calc'!A1"
+    payload["first_name"] = "=cmd|'"
+    payload["last_name"] = "/c calc'!A1"
     submitted = await cod_flow.client.post(
         "/api/public/orders", json=payload, headers=_submission_headers()
     )

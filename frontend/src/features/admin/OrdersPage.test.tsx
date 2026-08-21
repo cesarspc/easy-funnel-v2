@@ -13,6 +13,8 @@ vi.mock("../../api", async () => {
       list: vi.fn(),
       get: vi.fn(),
       export: vi.fn(),
+      updateFulfillment: vi.fn(),
+      retryMastershop: vi.fn(),
     },
   };
 });
@@ -36,6 +38,22 @@ const SAMPLE_ORDER: Order = {
   user_agent: "test-agent",
   created_at: "2026-01-15T10:00:00Z",
   updated_at: "2026-01-15T10:00:00Z",
+  fulfillment_details: {
+    first_name: "María",
+    last_name: "Gómez",
+    address1: "Calle 10 #20-30",
+    address2: null,
+  },
+  mastershop_sync: {
+    status: "failed",
+    attempt_count: 1,
+    response_status: 422,
+    response_body: { message: "invalid variant" },
+    last_error: "MasterShop returned HTTP 422.",
+    last_attempt_at: "2026-01-15T10:01:00Z",
+    synced_at: null,
+    updated_at: "2026-01-15T10:01:00Z",
+  },
 };
 
 describe("OrdersPage", () => {
@@ -49,6 +67,11 @@ describe("OrdersPage", () => {
       fraud_flags: [],
     });
     vi.mocked(ordersApi.export).mockResolvedValue(new Blob(["csv"], { type: "text/csv" }));
+    vi.mocked(ordersApi.updateFulfillment).mockResolvedValue(SAMPLE_ORDER);
+    vi.mocked(ordersApi.retryMastershop).mockResolvedValue({
+      order_id: SAMPLE_ORDER.id,
+      mastershop_sync: { ...SAMPLE_ORDER.mastershop_sync!, status: "success", response_status: 200 },
+    });
   });
 
   afterEach(() => {
@@ -115,5 +138,24 @@ describe("OrdersPage", () => {
     expect(screen.getByText("Color: Gris")).toBeInTheDocument();
     expect(screen.getByText("Sin alertas de fraude.")).toBeInTheDocument();
     expect(screen.getByText("203.0.113.5")).toBeInTheDocument();
+    expect(screen.getByText("MasterShop returned HTTP 422.")).toBeInTheDocument();
+  });
+
+  it("edits failed fulfillment data and retries MasterShop synchronization", async () => {
+    const user = userEvent.setup();
+    render(<OrdersPage />);
+    await screen.findByText("María Gómez");
+    await user.click(screen.getByRole("button", { name: /todos los detalles.*#101/i }));
+    await screen.findByRole("dialog", { name: "Pedido #101" });
+
+    await user.clear(screen.getByLabelText("Dirección 2"));
+    await user.type(screen.getByLabelText("Dirección 2"), "Apto 201");
+    await user.click(screen.getByRole("button", { name: "Guardar datos de entrega" }));
+    await waitFor(() => expect(ordersApi.updateFulfillment).toHaveBeenCalledWith(101,
+      expect.objectContaining({ first_name: "María", last_name: "Gómez", address2: "Apto 201" }),
+    ));
+
+    await user.click(screen.getByRole("button", { name: "Reintentar sincronización" }));
+    await waitFor(() => expect(ordersApi.retryMastershop).toHaveBeenCalledWith(101));
   });
 });

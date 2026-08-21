@@ -4,8 +4,9 @@
  * with AND semantics via ordersApi.list. CSV export reuses active filters.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { StatusPill } from "../../components";
+import { FormField } from "../../components/FormField";
 import { Modal } from "../../components/Modal";
 import type { Order } from "../../api";
 import { ApiError, ordersApi } from "../../api";
@@ -44,6 +45,26 @@ interface Filters {
   landingId: string;
   dateFrom: string;
   dateTo: string;
+}
+
+interface FulfillmentForm {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  department: string;
+  city: string;
+  address1: string;
+  address2: string;
+}
+
+function syncLabel(status?: string): string {
+  return ({
+    pending: "Pendiente",
+    syncing: "Sincronizando",
+    success: "Sincronizado",
+    failed: "Falló",
+    waiting_review: "Espera revisión",
+  } as Record<string, string>)[status ?? ""] ?? "Sin registro";
 }
 
 const EMPTY_FILTERS: Filters = {
@@ -85,6 +106,9 @@ export function OrdersPage() {
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [fulfillmentForm, setFulfillmentForm] = useState<FulfillmentForm | null>(null);
+  const [savingFulfillment, setSavingFulfillment] = useState(false);
+  const [retryingSync, setRetryingSync] = useState(false);
 
   const params = useMemo(() => buildParams(filters), [filters]);
 
@@ -133,7 +157,18 @@ export function OrdersPage() {
     setDetailError(null);
     setDetailLoading(true);
     try {
-      setDetailOrder(await ordersApi.get(orderId));
+      const order = await ordersApi.get(orderId);
+      setDetailOrder(order);
+      const nameParts = order.customer_name.split(" ");
+      setFulfillmentForm({
+        first_name: order.fulfillment_details?.first_name ?? nameParts.shift() ?? "",
+        last_name: order.fulfillment_details?.last_name ?? nameParts.join(" "),
+        phone: order.phone_e164,
+        department: order.department,
+        city: order.city,
+        address1: order.fulfillment_details?.address1 ?? order.address,
+        address2: order.fulfillment_details?.address2 ?? "",
+      });
     } catch (err) {
       setDetailError(
         err instanceof ApiError ? err.message : "No se pudieron cargar los detalles del pedido.",
@@ -147,7 +182,44 @@ export function OrdersPage() {
     setDetailOrderId(null);
     setDetailOrder(null);
     setDetailError(null);
+    setFulfillmentForm(null);
   }, []);
+
+  async function saveFulfillment(event: FormEvent) {
+    event.preventDefault();
+    if (!detailOrder || !fulfillmentForm) return;
+    setSavingFulfillment(true);
+    setDetailError(null);
+    try {
+      const updated = await ordersApi.updateFulfillment(detailOrder.id, {
+        ...fulfillmentForm,
+        address2: fulfillmentForm.address2 || null,
+      });
+      setDetailOrder(updated);
+      setOrders((current) => current.map((order) => order.id === updated.id ? updated : order));
+    } catch (err) {
+      setDetailError(err instanceof ApiError ? err.message : "No se pudo actualizar el pedido.");
+    } finally {
+      setSavingFulfillment(false);
+    }
+  }
+
+  async function retryMastershop() {
+    if (!detailOrder) return;
+    setRetryingSync(true);
+    setDetailError(null);
+    try {
+      const response = await ordersApi.retryMastershop(detailOrder.id);
+      setDetailOrder((order) => order ? { ...order, mastershop_sync: response.mastershop_sync } : order);
+      setOrders((current) => current.map((order) => order.id === detailOrder.id
+        ? { ...order, mastershop_sync: response.mastershop_sync }
+        : order));
+    } catch (err) {
+      setDetailError(err instanceof ApiError ? err.message : "No se pudo reintentar la sincronización.");
+    } finally {
+      setRetryingSync(false);
+    }
+  }
 
   return (
     <div className="orders-page">
@@ -251,6 +323,7 @@ export function OrdersPage() {
               <th>Cant.</th>
               <th>Variantes</th>
               <th>Estado</th>
+              <th>MasterShop</th>
               <th>Creado</th>
               <th><span className="sr-only">Acciones</span></th>
             </tr>
@@ -258,13 +331,13 @@ export function OrdersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="orders-table__empty">
+                <td colSpan={10} className="orders-table__empty">
                   Cargando pedidos…
                 </td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={9} className="orders-table__empty">
+                <td colSpan={10} className="orders-table__empty">
                   No hay pedidos que coincidan con los filtros actuales.
                 </td>
               </tr>
@@ -280,6 +353,7 @@ export function OrdersPage() {
                   <td>
                     <StatusPill status={order.status} />
                   </td>
+                  <td>{syncLabel(order.mastershop_sync?.status)}</td>
                   <td className="orders-table__data">
                     {DATE_FORMATTER.format(new Date(order.created_at))}
                   </td>
@@ -339,6 +413,46 @@ export function OrdersPage() {
                 <div><dt>Ciudad</dt><dd>{detailOrder.city}</dd></div>
                 <div className="order-detail__wide"><dt>Dirección</dt><dd>{detailOrder.address}</dd></div>
               </dl>
+              {fulfillmentForm && detailOrder.mastershop_sync && detailOrder.mastershop_sync.status !== "success" && detailOrder.mastershop_sync.status !== "syncing" && (
+                <form className="order-detail__edit" onSubmit={saveFulfillment} noValidate>
+                  <FormField name="order-first-name" label="Nombre" required value={fulfillmentForm.first_name} onChange={(event) => setFulfillmentForm((form) => form ? { ...form, first_name: event.target.value } : form)} />
+                  <FormField name="order-last-name" label="Apellido" required value={fulfillmentForm.last_name} onChange={(event) => setFulfillmentForm((form) => form ? { ...form, last_name: event.target.value } : form)} />
+                  <FormField name="order-phone" label="Teléfono" required value={fulfillmentForm.phone} onChange={(event) => setFulfillmentForm((form) => form ? { ...form, phone: event.target.value } : form)} />
+                  <FormField name="order-department" label="Departamento" required value={fulfillmentForm.department} onChange={(event) => setFulfillmentForm((form) => form ? { ...form, department: event.target.value } : form)} />
+                  <FormField name="order-city" label="Ciudad" required value={fulfillmentForm.city} onChange={(event) => setFulfillmentForm((form) => form ? { ...form, city: event.target.value } : form)} />
+                  <FormField name="order-address1" label="Dirección" required value={fulfillmentForm.address1} onChange={(event) => setFulfillmentForm((form) => form ? { ...form, address1: event.target.value } : form)} />
+                  <FormField name="order-address2" label="Dirección 2" value={fulfillmentForm.address2} onChange={(event) => setFulfillmentForm((form) => form ? { ...form, address2: event.target.value } : form)} />
+                  <button type="submit" className="orders-page__export" disabled={savingFulfillment}>
+                    {savingFulfillment ? "Guardando…" : "Guardar datos de entrega"}
+                  </button>
+                </form>
+              )}
+            </section>
+
+            <section className="order-detail__section">
+              <h3>Sincronización MasterShop</h3>
+              <dl className="order-detail__grid">
+                <div><dt>Estado</dt><dd>{syncLabel(detailOrder.mastershop_sync?.status)}</dd></div>
+                <div><dt>ID externo</dt><dd>{`bp_${detailOrder.id}`}</dd></div>
+                <div><dt>Intentos</dt><dd>{detailOrder.mastershop_sync?.attempt_count ?? 0}</dd></div>
+                <div><dt>HTTP</dt><dd>{detailOrder.mastershop_sync?.response_status ?? "—"}</dd></div>
+                <div><dt>Sincronizado</dt><dd>{detailOrder.mastershop_sync?.synced_at ? DATE_TIME_FORMATTER.format(new Date(detailOrder.mastershop_sync.synced_at)) : "—"}</dd></div>
+                {detailOrder.mastershop_sync?.last_error && <div className="order-detail__wide"><dt>Error</dt><dd>{detailOrder.mastershop_sync.last_error}</dd></div>}
+              </dl>
+              {detailOrder.mastershop_sync?.response_body != null && (
+                <pre className="order-detail__sync-response">{JSON.stringify(detailOrder.mastershop_sync.response_body, null, 2)}</pre>
+              )}
+              {detailOrder.mastershop_sync?.status === "syncing" && (
+                <p className="order-detail__empty">
+                  Si lleva más de un minuto, busca primero el ID externo en MasterShop. El botón
+                  solo reintentará cuando el intento anterior ya esté vencido.
+                </p>
+              )}
+              {detailOrder.status === "pending" && detailOrder.mastershop_sync && detailOrder.mastershop_sync.status !== "success" && (
+                <button type="button" className="orders-page__export" onClick={() => void retryMastershop()} disabled={retryingSync}>
+                  {retryingSync ? "Reintentando…" : detailOrder.mastershop_sync.status === "syncing" ? "Verificar y reintentar" : "Reintentar sincronización"}
+                </button>
+              )}
             </section>
 
             <section className="order-detail__section">

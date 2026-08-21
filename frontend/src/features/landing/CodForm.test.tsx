@@ -1,7 +1,6 @@
 /**
- * Tests for frontend-only COD form fields. Split name controls are joined into
- * `full_name`, and the address complement is joined into `address`, so the
- * existing `OrderCreateRequest` and database schema remain unchanged.
+ * Tests for split COD form controls. Joined values preserve the existing local
+ * order fields while exact parts are also sent for fulfillment synchronization.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -98,8 +97,8 @@ describe("COD form frontend-only fields", () => {
     await waitFor(() => expect(publicApi.createOrder).toHaveBeenCalled());
     const payload = vi.mocked(publicApi.createOrder).mock.calls[0][0];
     expect(payload.address).toBe("Calle 10 # 43-25 Torre 3, apto 302");
-    // Never sent as its own field: the backend contract is untouched.
-    expect(payload).not.toHaveProperty("address2");
+    expect(payload.address1).toBe("Calle 10 # 43-25");
+    expect(payload.address2).toBe("Torre 3, apto 302");
   });
 
   it("submits only the trimmed address when Dirección 2 is left blank", async () => {
@@ -133,7 +132,7 @@ describe("COD form frontend-only fields", () => {
     expect(screen.queryByLabelText("Nombre completo")).not.toBeInTheDocument();
   });
 
-  it("joins the trimmed name parts into full_name without changing the API contract", async () => {
+  it("joins the trimmed name parts and also preserves the exact fulfillment parts", async () => {
     const user = await openForm();
     await user.type(screen.getByLabelText("Nombre"), "  Ana María  ");
     await user.type(screen.getByLabelText("Apellido"), "  Gómez Ruiz  ");
@@ -147,8 +146,8 @@ describe("COD form frontend-only fields", () => {
     await waitFor(() => expect(publicApi.createOrder).toHaveBeenCalledTimes(1));
     const payload = vi.mocked(publicApi.createOrder).mock.calls[0][0];
     expect(payload.full_name).toBe("Ana María Gómez Ruiz");
-    expect(payload).not.toHaveProperty("first_name");
-    expect(payload).not.toHaveProperty("last_name");
+    expect(payload.first_name).toBe("Ana María");
+    expect(payload.last_name).toBe("Gómez Ruiz");
   });
 
   it("blocks submission when the last name is missing and focuses it", async () => {

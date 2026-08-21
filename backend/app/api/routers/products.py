@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from prisma import Json
 from pydantic import BaseModel, Field
 
 from app.core.auth_dependencies import require_admin
 from app.core.settings import Settings
 from app.db.client import get_prisma
+from app.db.repositories import AuditLogRepository
 from app.domains.products.errors import DuplicateSkuError, ProductValidationError
+from app.domains.products.mastershop_mappings import validate_mastershop_mappings
 from app.services.product_lifecycle_service import (
     ProductLifecycleService,
 )
@@ -72,6 +76,27 @@ class ProductListResponse(BaseModel):
     products: list[ProductResponse]
 
 
+class MastershopProductMappingRequest(BaseModel):
+    variant_selection: dict[str, str] = Field(default_factory=dict)
+    mastershop_product_id: int
+    mastershop_variant_id: int | None = None
+    weight: float = 1
+
+
+class MastershopMappingsRequest(BaseModel):
+    mappings: list[MastershopProductMappingRequest]
+
+
+def _serialize_mastershop_mapping(mapping: Any) -> dict[str, Any]:
+    return {
+        "id": mapping.id,
+        "variant_selection": mapping.variantSelection,
+        "mastershop_product_id": mapping.mastershopProductId,
+        "mastershop_variant_id": mapping.mastershopVariantId,
+        "weight": float(mapping.weight),
+    }
+
+
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(
     request: ProductCreateRequest,
@@ -122,6 +147,73 @@ async def list_products(
         )
 
     return ProductListResponse(products=[_to_product_response(p) for p in products])
+
+
+@router.get("/{product_id}/mastershop-mappings", response_model=dict)
+async def get_mastershop_mappings(
+    product_id: int,
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
+):
+    db = get_prisma()
+    product = await db.product.find_unique(where={"id": product_id})
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    mappings = await db.mastershopproductmapping.find_many(
+        where={"productId": product_id}, order={"id": "asc"}
+    )
+    return {"mappings": [_serialize_mastershop_mapping(mapping) for mapping in mappings]}
+
+
+@router.put("/{product_id}/mastershop-mappings", response_model=dict)
+async def replace_mastershop_mappings(
+    product_id: int,
+    request: MastershopMappingsRequest,
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
+):
+    """Atomically replace the complete mapping matrix for one product."""
+    db = get_prisma()
+    product = await db.product.find_unique(where={"id": product_id})
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    options: list[dict[str, Any]] = (
+        cast(list[dict[str, Any]], product.variantOptions)
+        if isinstance(product.variantOptions, list)
+        else []
+    )
+    try:
+        validated = validate_mastershop_mappings(
+            [mapping.model_dump() for mapping in request.mappings], options=options
+        )
+    except ProductValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"field": exc.field, "message": exc.message},
+        ) from exc
+
+    async with db.tx() as tx:
+        await tx.mastershopproductmapping.delete_many(where={"productId": product_id})
+        stored = []
+        for mapping in validated:
+            stored.append(
+                await tx.mastershopproductmapping.create(
+                    {
+                        "productId": product_id,
+                        "selectionKey": mapping["selection_key"],
+                        "variantSelection": Json(mapping["variant_selection"]),
+                        "mastershopProductId": mapping["mastershop_product_id"],
+                        "mastershopVariantId": mapping["mastershop_variant_id"],
+                        "weight": Decimal(str(mapping["weight"])),
+                    }
+                )
+            )
+        await AuditLogRepository(tx).record(
+            actor=admin_user.subject,
+            action="mastershop.product_mappings.replaced",
+            target_type="product",
+            target_id=str(product_id),
+            result="success",
+        )
+    return {"mappings": [_serialize_mastershop_mapping(mapping) for mapping in stored]}
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
@@ -195,9 +287,7 @@ async def activate_product(
             detail=str(exc),
         ) from exc
 
-    with_landing = await db.product.find_unique(
-        where={"id": product.id}, include={"landing": True}
-    )
+    with_landing = await db.product.find_unique(where={"id": product.id}, include={"landing": True})
     return _to_product_response(with_landing if with_landing else product)
 
 
@@ -218,9 +308,7 @@ async def pause_product(
             detail=str(exc),
         ) from exc
 
-    with_landing = await db.product.find_unique(
-        where={"id": product.id}, include={"landing": True}
-    )
+    with_landing = await db.product.find_unique(where={"id": product.id}, include={"landing": True})
     return _to_product_response(with_landing if with_landing else product)
 
 

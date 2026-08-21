@@ -45,7 +45,8 @@ model Product {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   landing Landing?
-  orders  Order[]
+  orders                    Order[]
+  mastershopProductMappings MastershopProductMapping[]
 
   @@unique([sku], map: "idx_products_sku")
   @@map("products")
@@ -294,12 +295,74 @@ model Order {
   product    Product     @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   landing    Landing     @relation(fields: [landingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   fraudFlags FraudFlag[]
+  fulfillmentDetails OrderFulfillmentDetails?
+  mastershopSync     MastershopOrderSync?
 
   @@index([status, createdAt], map: "idx_orders_status_created")
   @@index([productId, landingId, createdAt], map: "idx_orders_product_landing_created")
   @@index([createdAt], map: "idx_orders_created")
   @@index([phoneNormalizedKey, ipAddress, createdAt], map: "idx_orders_dupe")
   @@map("orders")
+}
+
+/// Exact customer/address components captured by the public form for external
+/// fulfillment. The existing Order remains the local record of record; this
+/// additive 1:1 row avoids changing any deployed order column.
+model OrderFulfillmentDetails {
+  orderId   BigInt   @id @map("order_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  address1  String   @map("address1")
+  address2  String?  @map("address2")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("order_fulfillment_details")
+}
+
+/// Maps one local product option combination to MasterShop catalog identifiers.
+/// Variant-free products use the canonical empty selection key (`{}`).
+model MastershopProductMapping {
+  id                    BigInt   @id @default(autoincrement())
+  productId             BigInt   @map("product_id")
+  selectionKey          String   @map("selection_key")
+  variantSelection      Json     @default("{}") @map("variant_selection")
+  mastershopProductId   BigInt   @map("mastershop_product_id")
+  mastershopVariantId   BigInt?  @map("mastershop_variant_id")
+  weight                Decimal  @default(1) @db.Decimal(8, 3)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([productId, selectionKey], map: "idx_mastershop_product_mapping_selection")
+  @@index([productId], map: "idx_mastershop_product_mapping_product")
+  @@map("mastershop_product_mappings")
+}
+
+/// Durable state for the local Order -> MasterShop handoff. There is one row
+/// per new order and no automatic backfill, so a deployment can never transmit
+/// historical production orders unexpectedly.
+model MastershopOrderSync {
+  id             BigInt    @id @default(autoincrement())
+  orderId        BigInt    @unique @map("order_id")
+  status         String    @default("pending")
+  attemptCount   Int       @default(0) @map("attempt_count")
+  requestBody    Json?     @map("request_body")
+  responseStatus Int?      @map("response_status")
+  responseBody   Json?     @map("response_body")
+  lastError      String?   @map("last_error")
+  lastAttemptAt  DateTime? @map("last_attempt_at") @db.Timestamptz
+  syncedAt       DateTime? @map("synced_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([status, updatedAt], map: "idx_mastershop_order_sync_status")
+  @@map("mastershop_order_syncs")
 }
 
 model FraudFlag {

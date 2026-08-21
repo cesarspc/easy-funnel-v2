@@ -5,6 +5,7 @@ Requirements 3.21-3.24, 5.7-5.8, 5.13-5.17, 8.14-8.15.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -37,6 +38,7 @@ from app.services.order_submission_service import OrderSubmissionService
 from app.storage.r2_client import object_public_url, variant_public_url
 
 router = APIRouter(prefix="/api/public", tags=["public"])
+logger = logging.getLogger(__name__)
 
 
 class ImageVariantResponse(BaseModel):
@@ -476,10 +478,14 @@ async def record_cta_click(
 class OrderCreateRequest(BaseModel):
     landing_slug: str
     full_name: str
+    first_name: str | None = None
+    last_name: str | None = None
     phone: str
     department: str
     city: str
     address: str
+    address1: str | None = None
+    address2: str | None = None
     quantity: int
     variant_selections: list[dict[str, str]] = Field(default_factory=list)
 
@@ -516,17 +522,20 @@ async def create_order(
         result = await service.submit(
             landing_slug=request.landing_slug,
             full_name=request.full_name,
+            first_name=request.first_name,
+            last_name=request.last_name,
             phone=request.phone,
             department=request.department,
             city=request.city,
             address=request.address,
+            address1=request.address1,
+            address2=request.address2,
             quantity=request.quantity,
             variant_selections=request.variant_selections,
             ip_address=context.ip_address,
             user_agent=context.user_agent,
             actor="system",
         )
-        return OrderCreateResponse(order_id=result.order_id, status=result.status)
     except OrderValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -537,6 +546,23 @@ async def create_order(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Order submission failed",
         ) from exc
+
+    # The local order is already committed and remains authoritative. A
+    # provider outage or even an unexpected integration bug must never turn a
+    # successful COD checkout into a false 503 or create a duplicate retry.
+    if result.status == "pending":
+        from app.core.settings import get_settings
+        from app.integrations.mastershop import MastershopSyncService
+
+        try:
+            await MastershopSyncService(db, get_settings()).sync_order(result.order_id)
+        except Exception:
+            logger.exception(
+                "Post-commit MasterShop synchronization crashed",
+                extra={"order_id": result.order_id},
+            )
+
+    return OrderCreateResponse(order_id=result.order_id, status=result.status)
 
 
 class CityResponse(BaseModel):

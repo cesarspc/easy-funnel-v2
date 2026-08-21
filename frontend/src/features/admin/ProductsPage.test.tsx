@@ -16,6 +16,8 @@ vi.mock("../../api", async () => {
       pause: vi.fn(),
       delete: vi.fn(),
       create: vi.fn(),
+      getMastershopMappings: vi.fn(),
+      replaceMastershopMappings: vi.fn(),
     },
   };
 });
@@ -57,6 +59,8 @@ describe("ProductsPage", () => {
     vi.mocked(productsApi.list).mockResolvedValue({
       products: [PAUSED_PRODUCT, ACTIVE_PRODUCT],
     });
+    vi.mocked(productsApi.getMastershopMappings).mockResolvedValue({ mappings: [] });
+    vi.mocked(productsApi.replaceMastershopMappings).mockResolvedValue({ mappings: [] });
   });
 
   afterEach(() => {
@@ -85,6 +89,27 @@ describe("ProductsPage", () => {
     const links = await screen.findAllByRole("link", { name: "Editar landing" });
     expect(links[0]).toHaveAttribute("href", "/admin/landings/11");
     expect(links[1]).toHaveAttribute("href", "/admin/landings/12");
+  });
+
+  it("configures the MasterShop catalog mapping without changing the product", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Audífonos inalámbricos");
+
+    await user.click(screen.getAllByRole("button", { name: "MasterShop" })[0]);
+    expect(await screen.findByRole("dialog", { name: /MasterShop · Audífonos/ })).toBeInTheDocument();
+    await user.click(screen.getByLabelText("ID producto MasterShop"));
+    await user.paste("232082");
+    await user.click(screen.getByRole("button", { name: "Guardar configuración" }));
+
+    await waitFor(() => expect(productsApi.replaceMastershopMappings).toHaveBeenCalledWith(1, [
+      {
+        variant_selection: {},
+        mastershop_product_id: 232082,
+        mastershop_variant_id: null,
+        weight: 1,
+      },
+    ]));
   });
 
   it("shows an Activar action for paused products and calls productsApi.activate", async () => {

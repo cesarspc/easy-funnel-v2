@@ -152,6 +152,53 @@ async def test_activate_and_pause_preserve_landing_slug(cod_flow: CodFlowHarness
         await _cleanup_product(cod_flow, product_id=product_id)
 
 
+async def test_mastershop_mapping_replaces_complete_variant_matrix_atomically(
+    cod_flow: CodFlowHarness,
+) -> None:
+    created = await cod_flow.client.post(
+        "/api/admin/products",
+        json={
+            "name": "Jogger con talla",
+            "sku": _unique_sku(),
+            "price": 59900,
+            "variant_options": [{"name": "Talla", "values": ["M", "L"]}],
+        },
+        headers=cod_flow.admin_headers(),
+    )
+    assert created.status_code == 201
+    product_id = created.json()["id"]
+    mappings = [
+        {
+            "variant_selection": {"Talla": size},
+            "mastershop_product_id": 232082,
+            "mastershop_variant_id": variant_id,
+            "weight": 1,
+        }
+        for size, variant_id in [("M", 9001), ("L", 9002)]
+    ]
+
+    try:
+        saved = await cod_flow.client.put(
+            f"/api/admin/products/{product_id}/mastershop-mappings",
+            json={"mappings": mappings},
+            headers=cod_flow.admin_headers(),
+        )
+        assert saved.status_code == 200
+        assert len(saved.json()["mappings"]) == 2
+
+        loaded = await cod_flow.client.get(
+            f"/api/admin/products/{product_id}/mastershop-mappings",
+            headers=cod_flow.admin_headers(),
+        )
+        assert loaded.status_code == 200
+        assert {
+            (row["variant_selection"]["Talla"], row["mastershop_variant_id"])
+            for row in loaded.json()["mappings"]
+        } == {("M", 9001), ("L", 9002)}
+    finally:
+        await _cleanup_product(cod_flow, product_id=product_id)
+
+
 async def _cleanup_product(cod_flow: CodFlowHarness, *, product_id: int) -> None:
     """Delete the product created directly through the API (bypassing
     the harness's `seed_landing` bookkeeping, since these tests create
@@ -159,6 +206,10 @@ async def _cleanup_product(cod_flow: CodFlowHarness, *, product_id: int) -> None
     db = cod_flow.db
     landing = await db.landing.find_unique(where={"productId": product_id})
     if landing is not None:
+        orders = await db.order.find_many(where={"landingId": landing.id})
+        for order in orders:
+            await db.mastershopordersync.delete_many(where={"orderId": order.id})
+            await db.orderfulfillmentdetails.delete_many(where={"orderId": order.id})
         await db.order.delete_many(where={"landingId": landing.id})
         await db.execute_raw(
             'DELETE FROM "landing_analytics_daily" WHERE "landing_id" = $1', landing.id
@@ -171,4 +222,5 @@ async def _cleanup_product(cod_flow: CodFlowHarness, *, product_id: int) -> None
         await db.landingblock.delete_many(where={"landingId": landing.id})
         await db.landing.delete(where={"id": landing.id})
     await db.auditlog.delete_many(where={"targetId": str(product_id), "targetType": "product"})
+    await db.mastershopproductmapping.delete_many(where={"productId": product_id})
     await db.product.delete(where={"id": product_id})

@@ -40,6 +40,14 @@ export interface ProductListResponse {
   products: Product[];
 }
 
+export interface MastershopProductMapping {
+  id?: number;
+  variant_selection: Record<string, string>;
+  mastershop_product_id: number;
+  mastershop_variant_id: number | null;
+  weight: number;
+}
+
 export const productsApi = {
   list: async (include_retired?: boolean): Promise<ProductListResponse> => {
     const params = new URLSearchParams();
@@ -70,6 +78,17 @@ export const productsApi = {
   delete: async (id: number): Promise<void> => {
     return apiClient.delete(`/admin/products/${id}`);
   },
+
+  getMastershopMappings: async (id: number): Promise<{ mappings: MastershopProductMapping[] }> => {
+    return apiClient.get(`/admin/products/${id}/mastershop-mappings`);
+  },
+
+  replaceMastershopMappings: async (
+    id: number,
+    mappings: MastershopProductMapping[],
+  ): Promise<{ mappings: MastershopProductMapping[] }> => {
+    return apiClient.put(`/admin/products/${id}/mastershop-mappings`, { mappings });
+  },
 };
 
 // Order schemas
@@ -97,6 +116,36 @@ export interface Order {
   created_at: string;
   updated_at: string;
   fraud_flags?: FraudFlag[];
+  fulfillment_details?: OrderFulfillmentDetails | null;
+  mastershop_sync?: MastershopOrderSync | null;
+}
+
+export interface OrderFulfillmentDetails {
+  first_name: string;
+  last_name: string;
+  address1: string;
+  address2: string | null;
+}
+
+export interface MastershopOrderSync {
+  status: "pending" | "syncing" | "success" | "failed" | "waiting_review";
+  attempt_count: number;
+  response_status: number | null;
+  response_body: unknown;
+  last_error: string | null;
+  last_attempt_at: string | null;
+  synced_at: string | null;
+  updated_at: string;
+}
+
+export interface OrderFulfillmentUpdateRequest {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  department: string;
+  city: string;
+  address1: string;
+  address2?: string | null;
 }
 
 export interface FraudFlag {
@@ -138,6 +187,19 @@ export const ordersApi = {
 
   transition: async (id: number, request: OrderTransitionRequest): Promise<Order> => {
     return apiClient.post<Order>(`/admin/orders/${id}/transition`, request);
+  },
+
+  updateFulfillment: async (
+    id: number,
+    request: OrderFulfillmentUpdateRequest,
+  ): Promise<Order> => {
+    return apiClient.patch<Order>(`/admin/orders/${id}/fulfillment`, request);
+  },
+
+  retryMastershop: async (
+    id: number,
+  ): Promise<{ order_id: number; mastershop_sync: MastershopOrderSync }> => {
+    return apiClient.post(`/admin/orders/${id}/mastershop/retry`, {});
   },
 
   export: async (params?: {

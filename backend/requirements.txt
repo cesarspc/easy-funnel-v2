@@ -4,6 +4,7 @@
 # Web Framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
+httpx==0.28.1
 # Multipart form parsing for banner image uploads (FastAPI UploadFile/Form)
 python-multipart==0.0.20
 

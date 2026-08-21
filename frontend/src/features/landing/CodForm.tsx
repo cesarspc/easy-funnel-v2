@@ -34,7 +34,7 @@ import type {
 import "./CodForm.css";
 
 export interface CodFormValues {
-  /** Frontend-only name parts, joined into the API's existing `full_name`. */
+  /** Exact fulfillment parts; also joined into the existing `full_name`. */
   first_name: string;
   last_name: string;
   phone: string;
@@ -309,19 +309,19 @@ export function CodForm({
     try {
       const result = await publicApi.createOrder({
         landing_slug: landingSlug,
-        // The split is presentation-only. Keep the established API/database
-        // contract by sending one normalized full-name value.
+        // Preserve the established Order value and send exact components to
+        // the additive fulfillment record used by MasterShop.
         full_name: fullName,
+        first_name: values.first_name.trim(),
+        last_name: values.last_name.trim(),
         phone: values.phone.trim(),
         department: values.department.trim(),
         city: values.city.trim(),
-        // Direccion 2 is a frontend-only field (Requirement: no backend
-        // change): it never travels as its own key. Instead it is joined
-        // onto the address with a single space, so the backend still
-        // receives one complete `address` string and the order's `address`
-        // column carries the full delivery address including any apartment/
-        // reference detail.
+        // Keep the established local order contract while also sending the
+        // exact components needed by the fulfillment integration.
         address: [values.address.trim(), values.address2.trim()].filter(Boolean).join(" "),
+        address1: values.address.trim(),
+        address2: values.address2.trim() || null,
         quantity: safeQuantity,
         variant_selections: fitVariantSelections(
           variantOptions,

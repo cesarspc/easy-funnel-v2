@@ -128,6 +128,10 @@ class OrderSubmissionService:
         user_agent: str,
         actor: str,
         variant_selections: list[dict[str, str]] | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        address1: str | None = None,
+        address2: str | None = None,
     ) -> OrderSubmissionResult:
         """Submit a COD order with fraud evaluation.
 
@@ -151,10 +155,35 @@ class OrderSubmissionService:
             OrderValidationError: On validation failure (no order created)
         """
         # 1. Validate and normalize all fields
-        validated_name = validate_name(full_name)
+        supplied_name_parts = first_name is not None or last_name is not None
+        if supplied_name_parts:
+            validated_first_name = (first_name or "").strip()
+            validated_last_name = (last_name or "").strip()
+            if not validated_first_name:
+                raise OrderValidationError("first_name", "First name is required.")
+            if not validated_last_name:
+                raise OrderValidationError("last_name", "Last name is required.")
+            validated_name = validate_name(f"{validated_first_name} {validated_last_name}")
+        else:
+            validated_name = validate_name(full_name)
+            legacy_name_parts = validated_name.split(" ", 1)
+            validated_first_name = legacy_name_parts[0]
+            validated_last_name = legacy_name_parts[1] if len(legacy_name_parts) == 2 else ""
         validated_phone = normalize_colombian_phone(phone)
         validated_phone_key = normalize_colombian_phone_key(phone)
-        validated_address = validate_address(address)
+        supplied_address_parts = address1 is not None or address2 is not None
+        if supplied_address_parts:
+            validated_address1 = (address1 or "").strip()
+            if not validated_address1:
+                raise OrderValidationError("address1", "Address is required.")
+            validated_address2 = (address2 or "").strip() or None
+            validated_address = validate_address(
+                " ".join(part for part in [validated_address1, validated_address2] if part)
+            )
+        else:
+            validated_address = validate_address(address)
+            validated_address1 = validated_address
+            validated_address2 = None
         validated_quantity = validate_quantity(quantity)
 
         # Truncate user agent to 512 chars (Requirement 5.11)
@@ -281,6 +310,21 @@ class OrderSubmissionService:
                     "status": order_status,
                     "ipAddress": ip_address,
                     "userAgent": validated_user_agent,
+                }
+            )
+            await persist_tx.orderfulfillmentdetails.create(
+                {
+                    "orderId": order.id,
+                    "firstName": validated_first_name,
+                    "lastName": validated_last_name,
+                    "address1": validated_address1,
+                    "address2": validated_address2,
+                }
+            )
+            await persist_tx.mastershopordersync.create(
+                {
+                    "orderId": order.id,
+                    "status": "waiting_review" if all_flags else "pending",
                 }
             )
             for flag in all_flags:

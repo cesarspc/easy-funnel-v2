@@ -16,7 +16,7 @@ import { Link } from "react-router-dom";
 import { Modal } from "../../components/Modal";
 import { FormField } from "../../components/FormField";
 import { StatusPill } from "../../components";
-import type { Product } from "../../api";
+import type { MastershopProductMapping, Product, ProductVariantOption } from "../../api";
 import { ApiError, productsApi } from "../../api";
 import "./ProductsPage.css";
 
@@ -45,6 +45,31 @@ const EMPTY_CREATE_FORM: CreateFormValues = {
   ],
 };
 
+interface MappingFormRow {
+  variantSelection: Record<string, string>;
+  productId: string;
+  variantId: string;
+  weight: string;
+}
+
+function variantCombinations(options: ProductVariantOption[] = []): Record<string, string>[] {
+  if (options.length === 0) return [{}];
+  return options.reduce<Record<string, string>[]>(
+    (rows, option) =>
+      rows.flatMap((row) => option.values.map((value) => ({ ...row, [option.name]: value }))),
+    [{}],
+  );
+}
+
+function mappingLabel(selection: Record<string, string>): string {
+  const values = Object.entries(selection).map(([name, value]) => `${name}: ${value}`);
+  return values.length ? values.join(" · ") : "Producto sin variantes";
+}
+
+function mappingKey(selection: Record<string, string>): string {
+  return JSON.stringify(Object.entries(selection).sort(([left], [right]) => left.localeCompare(right)));
+}
+
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +83,11 @@ export function ProductsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createdLandingSlug, setCreatedLandingSlug] = useState<string | null>(null);
+  const [mappingProduct, setMappingProduct] = useState<Product | null>(null);
+  const [mappingRows, setMappingRows] = useState<MappingFormRow[]>([]);
+  const [mappingLoading, setMappingLoading] = useState(false);
+  const [mappingSaving, setMappingSaving] = useState(false);
+  const [mappingError, setMappingError] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -164,6 +194,58 @@ export function ProductsPage() {
     } finally {
       setPendingId(null);
       setConfirmRetireId(null);
+    }
+  }
+
+  async function openMappings(product: Product) {
+    setMappingProduct(product);
+    setMappingLoading(true);
+    setMappingError(null);
+    const combinations = variantCombinations(product.variant_options);
+    try {
+      const response = await productsApi.getMastershopMappings(product.id);
+      setMappingRows(
+        combinations.map((selection) => {
+          const stored = response.mappings.find(
+            (mapping) => mappingKey(mapping.variant_selection) === mappingKey(selection),
+          );
+          return {
+            variantSelection: selection,
+            productId: stored ? String(stored.mastershop_product_id) : "",
+            variantId: stored?.mastershop_variant_id ? String(stored.mastershop_variant_id) : "",
+            weight: stored ? String(stored.weight) : "1",
+          };
+        }),
+      );
+    } catch (err) {
+      setMappingError(
+        err instanceof ApiError ? err.message : "No se pudo cargar la configuración MasterShop.",
+      );
+    } finally {
+      setMappingLoading(false);
+    }
+  }
+
+  async function saveMappings(event: FormEvent) {
+    event.preventDefault();
+    if (!mappingProduct) return;
+    setMappingSaving(true);
+    setMappingError(null);
+    const mappings: MastershopProductMapping[] = mappingRows.map((row) => ({
+      variant_selection: row.variantSelection,
+      mastershop_product_id: Number(row.productId),
+      mastershop_variant_id: row.variantId ? Number(row.variantId) : null,
+      weight: Number(row.weight),
+    }));
+    try {
+      await productsApi.replaceMastershopMappings(mappingProduct.id, mappings);
+      setMappingProduct(null);
+    } catch (err) {
+      setMappingError(
+        err instanceof ApiError ? err.message : "No se pudo guardar la configuración MasterShop.",
+      );
+    } finally {
+      setMappingSaving(false);
     }
   }
 
@@ -327,6 +409,70 @@ export function ProductsPage() {
         </Modal>
       )}
 
+      <Modal
+        isOpen={mappingProduct !== null}
+        onClose={() => setMappingProduct(null)}
+        title={`MasterShop · ${mappingProduct?.name ?? ""}`}
+        subtitle="Relaciona cada variante local con los identificadores de MasterShop."
+      >
+        {mappingLoading ? (
+          <p>Cargando configuración…</p>
+        ) : (
+          <form className="products-page__mapping-form" onSubmit={saveMappings} noValidate>
+            {mappingError && <p className="products-page__error" role="alert">{mappingError}</p>}
+            {mappingRows.map((row, index) => (
+              <fieldset className="products-page__mapping-row" key={mappingLabel(row.variantSelection)}>
+                <legend>{mappingLabel(row.variantSelection)}</legend>
+                <FormField
+                  name={`mastershop-product-${index}`}
+                  label="ID producto MasterShop"
+                  type="number"
+                  min={1}
+                  required
+                  value={row.productId}
+                  onChange={(event) => setMappingRows((rows) => rows.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, productId: event.target.value } : item
+                  ))}
+                />
+                {(mappingProduct?.variant_options?.length ?? 0) > 0 && (
+                  <FormField
+                    name={`mastershop-variant-${index}`}
+                    label="ID variante MasterShop"
+                    type="number"
+                    min={1}
+                    required
+                    value={row.variantId}
+                    onChange={(event) => setMappingRows((rows) => rows.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, variantId: event.target.value } : item
+                    ))}
+                  />
+                )}
+                <FormField
+                  name={`mastershop-weight-${index}`}
+                  label="Peso"
+                  type="number"
+                  min={0.001}
+                  step={0.001}
+                  required
+                  value={row.weight}
+                  onChange={(event) => setMappingRows((rows) => rows.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, weight: event.target.value } : item
+                  ))}
+                />
+              </fieldset>
+            ))}
+            <div className="products-page__create-form-actions">
+              <button type="button" className="products-table__action" onClick={() => setMappingProduct(null)}>
+                Cancelar
+              </button>
+              <button type="submit" className="products-table__action products-table__action--primary" disabled={mappingSaving}>
+                {mappingSaving ? "Guardando…" : "Guardar configuración"}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
       <div className="products-page__table-wrap">
         <table className="products-table">
           <thead>
@@ -396,6 +542,13 @@ export function ProductsPage() {
                             Editar landing
                           </Link>
                         )}
+                        <button
+                          type="button"
+                          className="products-table__action"
+                          onClick={() => void openMappings(product)}
+                        >
+                          MasterShop
+                        </button>
                         {product.landing_slug &&
                           (product.status === "active" &&
                           product.landing_status === "published" ? (

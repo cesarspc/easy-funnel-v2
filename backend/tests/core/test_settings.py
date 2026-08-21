@@ -62,6 +62,9 @@ class TestSettingsParsing:
         assert settings.app_version == "0.1.0"
         assert settings.environment == "development"
         assert settings.geoip_update_url is None
+        assert settings.mastershop_api_key is None
+        assert settings.mastershop_orders_url == "https://prod.api.mastershop.com/api/orders"
+        assert settings.mastershop_timeout_seconds == 5
 
     def test_missing_required_variable_raises(self) -> None:
         incomplete = dict(_REQUIRED_ENV)

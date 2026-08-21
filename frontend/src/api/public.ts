@@ -220,10 +220,14 @@ export interface PublicLanding {
 export interface OrderCreateRequest {
   landing_slug: string;
   full_name: string;
+  first_name?: string;
+  last_name?: string;
   phone: string;
   department: string;
   city: string;
   address: string;
+  address1?: string;
+  address2?: string | null;
   quantity: number;
   variant_selections?: Record<string, string>[];
 }
