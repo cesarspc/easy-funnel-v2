@@ -13,7 +13,12 @@ from app.core.auth_dependencies import require_admin
 from app.core.settings import Settings
 from app.db.client import get_prisma
 from app.db.repositories import AuditLogRepository
-from app.domains.products.errors import DuplicateSkuError, ProductValidationError
+from app.domains.products.errors import (
+    DuplicateSkuError,
+    ProductNotFoundError,
+    ProductValidationError,
+    RetiredProductError,
+)
 from app.domains.products.mastershop_mappings import validate_mastershop_mappings
 from app.services.product_lifecycle_service import (
     ProductLifecycleService,
@@ -29,6 +34,13 @@ class ProductCreateRequest(BaseModel):
     description: str = ""
     status: str | None = None
     variant_options: list[dict] = Field(default_factory=list)
+
+
+class ProductUpdateRequest(BaseModel):
+    name: str | None = None
+    sku: str | None = None
+    price: Decimal | None = None
+    description: str | None = None
 
 
 class ProductResponse(BaseModel):
@@ -237,36 +249,44 @@ async def get_product(
 @router.patch("/{product_id}", response_model=ProductResponse)
 async def update_product(
     product_id: int,
-    request: ProductCreateRequest,
+    request: ProductUpdateRequest,
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ):
-    """Update a non-retired product."""
+    """Validate and update supplied fields on a non-retired product."""
     db = get_prisma()
-    product = await db.product.find_unique(where={"id": product_id})
-
-    if product is None:
+    raw = request.model_dump(exclude_unset=True)
+    null_field = next((field for field, value in raw.items() if value is None), None)
+    if null_field is not None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"field": null_field, "message": "This field cannot be null."},
         )
+    updates = cast(dict[str, str | Decimal], raw)
 
-    if product.status == "retired":
+    try:
+        await ProductLifecycleService(db).update_product(
+            product_id,
+            updates=updates,
+            actor=admin_user.subject,
+        )
+    except ProductValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot edit a retired product",
-        )
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"field": exc.field, "message": exc.message},
+        ) from exc
+    except DuplicateSkuError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"field": "sku", "message": str(exc)},
+        ) from exc
+    except ProductNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except RetiredProductError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
-    updated = await db.product.update(
-        where={"id": product_id},
-        data={
-            "name": request.name,
-            "description": request.description,
-            "price": Decimal(str(request.price)),
-            "sku": request.sku,
-        },
-        include={"landing": True},
-    )
-
+    updated = await db.product.find_unique(where={"id": product_id}, include={"landing": True})
+    if updated is None:  # Defensive: the transaction above already established existence.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
     return _to_product_response(updated)
 
 

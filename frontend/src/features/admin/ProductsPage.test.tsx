@@ -16,6 +16,7 @@ vi.mock("../../api", async () => {
       pause: vi.fn(),
       delete: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
       getMastershopMappings: vi.fn(),
       replaceMastershopMappings: vi.fn(),
     },
@@ -89,6 +90,37 @@ describe("ProductsPage", () => {
     const links = await screen.findAllByRole("link", { name: "Editar landing" });
     expect(links[0]).toHaveAttribute("href", "/admin/landings/11");
     expect(links[1]).toHaveAttribute("href", "/admin/landings/12");
+  });
+
+  it("edits a product name and price without replacing the rest of the product", async () => {
+    const user = userEvent.setup();
+    const updated = {
+      ...PAUSED_PRODUCT,
+      name: "Audífonos Pro",
+      price: 99900,
+    };
+    vi.mocked(productsApi.update).mockResolvedValue(updated);
+    renderPage();
+    await screen.findByText("Audífonos inalámbricos");
+
+    await user.click(screen.getByRole("button", {
+      name: "Editar producto Audífonos inalámbricos",
+    }));
+    const name = screen.getByRole("textbox", { name: "Nombre" });
+    await user.clear(name);
+    await user.type(name, "Audífonos Pro");
+    const price = screen.getByRole("spinbutton", { name: "Precio (COP)" });
+    await user.clear(price);
+    await user.type(price, "99900");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(productsApi.update).toHaveBeenCalledWith(1, {
+      name: "Audífonos Pro",
+      price: 99900,
+    }));
+    expect(await screen.findByText("Audífonos Pro")).toBeInTheDocument();
+    expect(screen.getByText(/99\.900/)).toBeInTheDocument();
+    expect(screen.getByText("AUD-001")).toBeInTheDocument();
   });
 
   it("configures the MasterShop catalog mapping without changing the product", async () => {

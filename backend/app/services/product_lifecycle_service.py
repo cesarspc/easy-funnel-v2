@@ -15,6 +15,7 @@ from decimal import Decimal
 
 from prisma import Json, Prisma
 from prisma.models import Landing, Product
+from prisma.types import ProductUpdateInput
 
 from app.db.client import utcnow
 from app.db.repositories import (
@@ -24,7 +25,12 @@ from app.db.repositories import (
     ProductRepository,
 )
 from app.domains.landings.blocks import BLOCK_ANNOUNCEMENT_BAR, validate_block_config
-from app.domains.products.errors import DuplicateSkuError, ProductNotFoundError
+from app.domains.products.errors import (
+    DuplicateSkuError,
+    ProductNotFoundError,
+    ProductValidationError,
+    RetiredProductError,
+)
 from app.domains.products.lifecycle import (
     next_status_on_activate,
     next_status_on_pause,
@@ -141,6 +147,63 @@ class ProductLifecycleService:
             )
 
         return ProductCreationResult(product=product, landing=landing)
+
+    async def update_product(
+        self,
+        product_id: int,
+        *,
+        updates: dict[str, str | Decimal],
+        actor: str,
+    ) -> Product:
+        """Validate and atomically update mutable product catalog fields.
+
+        Variant options and lifecycle status deliberately stay outside this
+        operation. Existing Orders keep their captured unit/total prices, while
+        future landing views and orders use the Product's new catalog price.
+        """
+        allowed_fields = {"name", "sku", "price", "description"}
+        unsupported = set(updates) - allowed_fields
+        if unsupported:
+            raise ProductValidationError(
+                next(iter(sorted(unsupported))), "This product field cannot be edited."
+            )
+        if not updates:
+            raise ProductValidationError("request", "Provide at least one product field to edit.")
+
+        validated: ProductUpdateInput = {}
+        if "name" in updates:
+            validated["name"] = validate_name(str(updates["name"]))
+        if "description" in updates:
+            validated["description"] = validate_description(str(updates["description"]))
+        if "price" in updates:
+            validated["price"] = validate_price(updates["price"])
+        if "sku" in updates:
+            validated["sku"] = validate_sku(str(updates["sku"]))
+
+        async with self._db.tx() as tx:
+            products = ProductRepository(tx)
+            product = await products.get_by_id(product_id)
+            if product is None:
+                raise ProductNotFoundError(product_id)
+            if product.status == "retired":
+                raise RetiredProductError(product_id)
+
+            if "sku" in validated and validated["sku"] != product.sku:
+                existing = await products.get_by_sku(validated["sku"])
+                if existing is not None:
+                    raise DuplicateSkuError(validated["sku"])
+
+            updated = await products.update(product_id, validated)
+            if updated is None:
+                raise ProductNotFoundError(product_id)
+            await AuditLogRepository(tx).record(
+                actor=actor,
+                action="product.update",
+                target_type="product",
+                target_id=str(product_id),
+                result="success",
+            )
+            return updated
 
     async def activate(self, product_id: int, *, actor: str) -> Product:
         return await self._transition(

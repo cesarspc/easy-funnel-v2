@@ -34,6 +34,11 @@ interface CreateFormValues {
   variantOptions: { name: string; values: string }[];
 }
 
+interface EditFormValues {
+  name: string;
+  price: string;
+}
+
 const EMPTY_CREATE_FORM: CreateFormValues = {
   name: "",
   sku: "",
@@ -83,6 +88,11 @@ export function ProductsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createdLandingSlug, setCreatedLandingSlug] = useState<string | null>(null);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [editForm, setEditForm] = useState<EditFormValues>({ name: "", price: "" });
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({});
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const [mappingProduct, setMappingProduct] = useState<Product | null>(null);
   const [mappingRows, setMappingRows] = useState<MappingFormRow[]>([]);
   const [mappingLoading, setMappingLoading] = useState(false);
@@ -117,6 +127,48 @@ export function ProductsPage() {
     setCreateOpen(false);
   }
   const handleModalClose = useCallback(() => setCreateOpen(false), []);
+  const handleEditModalClose = useCallback(() => setEditProduct(null), []);
+
+  function openEditModal(product: Product) {
+    setEditProduct(product);
+    setEditForm({ name: product.name, price: String(product.price) });
+    setEditFieldErrors({});
+    setEditError(null);
+  }
+
+  async function handleEditSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!editProduct) return;
+    setEditError(null);
+    setEditFieldErrors({});
+
+    const price = Number(editForm.price);
+    if (!Number.isFinite(price)) {
+      setEditFieldErrors({ price: "Ingresa un precio válido." });
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      const updated = await productsApi.update(editProduct.id, {
+        name: editForm.name,
+        price,
+      });
+      setProducts((list) => list.map((product) => (
+        product.id === updated.id ? updated : product
+      )));
+      setEditProduct(null);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setEditError(err.message);
+        if (err.fieldErrors) setEditFieldErrors(err.fieldErrors);
+      } else {
+        setEditError("No se pudo actualizar el producto.");
+      }
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   async function handleCreateSubmit(event: FormEvent) {
     event.preventDefault();
@@ -410,6 +462,61 @@ export function ProductsPage() {
       )}
 
       <Modal
+        isOpen={editProduct !== null}
+        onClose={handleEditModalClose}
+        title={`Editar producto · ${editProduct?.name ?? ""}`}
+        subtitle="La landing usará estos datos de inmediato. Los totales de pedidos existentes no cambian."
+      >
+        <form className="products-page__create-form" onSubmit={handleEditSubmit} noValidate>
+          {editError && (
+            <p className="products-page__error" role="alert">
+              {editError}
+            </p>
+          )}
+          <FormField
+            name="edit-product-name"
+            label="Nombre"
+            value={editForm.name}
+            onChange={(event) => setEditForm((form) => ({ ...form, name: event.target.value }))}
+            error={editFieldErrors.name}
+            maxLength={160}
+            required
+            autoComplete="off"
+          />
+          <FormField
+            name="edit-product-price"
+            label="Precio (COP)"
+            type="number"
+            inputMode="decimal"
+            min={0.01}
+            max={999999999.99}
+            step={0.01}
+            value={editForm.price}
+            onChange={(event) => setEditForm((form) => ({ ...form, price: event.target.value }))}
+            error={editFieldErrors.price}
+            required
+          />
+          <div className="products-page__create-form-actions">
+            <button
+              type="button"
+              className="products-table__action"
+              onClick={handleEditModalClose}
+              disabled={editSaving}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="products-table__action products-table__action--primary"
+              disabled={editSaving}
+            >
+              {editSaving ? "Guardando…" : "Guardar cambios"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
         isOpen={mappingProduct !== null}
         onClose={() => setMappingProduct(null)}
         title={`MasterShop · ${mappingProduct?.name ?? ""}`}
@@ -534,6 +641,14 @@ export function ProductsPage() {
                       </span>
                     ) : (
                       <span className="products-table__actions-row">
+                        <button
+                          type="button"
+                          className="products-table__action"
+                          onClick={() => openEditModal(product)}
+                          aria-label={`Editar producto ${product.name}`}
+                        >
+                          Editar producto
+                        </button>
                         {product.landing_id && (
                           <Link
                             className="products-table__action products-table__action--primary"

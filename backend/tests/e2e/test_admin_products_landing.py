@@ -124,6 +124,74 @@ async def test_get_product_includes_landing_slug_and_status(
         await _cleanup_product(cod_flow, product_id=product_id)
 
 
+async def test_patch_product_edits_only_name_and_price(
+    cod_flow: CodFlowHarness,
+) -> None:
+    sku = _unique_sku()
+    created = await cod_flow.client.post(
+        "/api/admin/products",
+        json={
+            "name": "Nombre original",
+            "sku": sku,
+            "price": 50000,
+            "description": "Descripción conservada",
+            "variant_options": [{"name": "Color", "values": ["Negro"]}],
+        },
+        headers=cod_flow.admin_headers(),
+    )
+    product_id = created.json()["id"]
+
+    try:
+        response = await cod_flow.client.patch(
+            f"/api/admin/products/{product_id}",
+            json={"name": "Nombre actualizado", "price": 64900},
+            headers=cod_flow.admin_headers(),
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["name"] == "Nombre actualizado"
+        assert body["price"] == 64900
+        assert body["sku"] == sku
+        assert body["description"] == "Descripción conservada"
+        assert body["variant_options"] == [{"name": "Color", "values": ["Negro"]}]
+        assert body["landing_id"] == created.json()["landing_id"]
+
+        audit_entries = await cod_flow.db.auditlog.find_many(
+            where={"targetType": "product", "targetId": str(product_id)}
+        )
+        assert any(entry.action == "product.update" for entry in audit_entries)
+    finally:
+        await _cleanup_product(cod_flow, product_id=product_id)
+
+
+async def test_invalid_product_patch_does_not_change_stored_values(
+    cod_flow: CodFlowHarness,
+) -> None:
+    created = await cod_flow.client.post(
+        "/api/admin/products",
+        json={"name": "Producto estable", "sku": _unique_sku(), "price": 50000},
+        headers=cod_flow.admin_headers(),
+    )
+    product_id = created.json()["id"]
+
+    try:
+        response = await cod_flow.client.patch(
+            f"/api/admin/products/{product_id}",
+            json={"name": "Nombre que no debe guardarse", "price": 0},
+            headers=cod_flow.admin_headers(),
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"]["field"] == "price"
+        stored = await cod_flow.db.product.find_unique(where={"id": product_id})
+        assert stored is not None
+        assert stored.name == "Producto estable"
+        assert stored.price == 50000
+    finally:
+        await _cleanup_product(cod_flow, product_id=product_id)
+
+
 async def test_activate_and_pause_preserve_landing_slug(cod_flow: CodFlowHarness) -> None:
     sku = _unique_sku()
     created = await cod_flow.client.post(

@@ -34,7 +34,9 @@ export interface ProductCreateRequest {
   variant_options?: ProductVariantOption[];
 }
 
-export type ProductUpdateRequest = Partial<ProductCreateRequest>;
+export type ProductUpdateRequest = Partial<
+  Pick<ProductCreateRequest, "name" | "sku" | "price" | "description">
+>;
 
 export interface ProductListResponse {
   products: Product[];
