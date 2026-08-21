@@ -109,6 +109,7 @@ export function OrdersPage() {
   const [fulfillmentForm, setFulfillmentForm] = useState<FulfillmentForm | null>(null);
   const [savingFulfillment, setSavingFulfillment] = useState(false);
   const [retryingSync, setRetryingSync] = useState(false);
+  const [reviewingFraud, setReviewingFraud] = useState(false);
 
   const params = useMemo(() => buildParams(filters), [filters]);
 
@@ -218,6 +219,24 @@ export function OrdersPage() {
       setDetailError(err instanceof ApiError ? err.message : "No se pudo reintentar la sincronización.");
     } finally {
       setRetryingSync(false);
+    }
+  }
+
+  async function approveFlaggedOrder() {
+    if (!detailOrder || detailOrder.status !== "flagged_fraud") return;
+    setReviewingFraud(true);
+    setDetailError(null);
+    try {
+      await ordersApi.transition(detailOrder.id, { to_status: "pending" });
+      // The backend attempts MasterShop immediately after approval. Reload the
+      // complete order so the dialog shows success or exposes Retry on failure.
+      const updated = await ordersApi.get(detailOrder.id);
+      setDetailOrder(updated);
+      setOrders((current) => current.map((order) => order.id === updated.id ? updated : order));
+    } catch (err) {
+      setDetailError(err instanceof ApiError ? err.message : "No se pudo aprobar el pedido.");
+    } finally {
+      setReviewingFraud(false);
     }
   }
 
@@ -471,6 +490,22 @@ export function OrdersPage() {
 
             <section className="order-detail__section">
               <h3>Fraude</h3>
+              {detailOrder.status === "flagged_fraud" && (
+                <div className="order-detail__fraud-review">
+                  <p>
+                    Revisa las alertas y corrige los datos de entrega arriba si es necesario.
+                    Al aprobar, el pedido pasa a pendiente y se intenta enviar a MasterShop.
+                  </p>
+                  <button
+                    type="button"
+                    className="orders-page__export"
+                    onClick={() => void approveFlaggedOrder()}
+                    disabled={reviewingFraud || savingFulfillment}
+                  >
+                    {reviewingFraud ? "Aprobando…" : "Aprobar y sincronizar"}
+                  </button>
+                </div>
+              )}
               {(detailOrder.fraud_flags ?? []).length > 0 ? (
                 <ul className="order-detail__flags">
                   {(detailOrder.fraud_flags ?? []).map((flag, index) => (

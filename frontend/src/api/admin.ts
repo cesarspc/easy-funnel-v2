@@ -164,6 +164,11 @@ export interface OrderTransitionRequest {
   to_status: "confirmed" | "shipped" | "delivered" | "cancelled" | "pending";
 }
 
+export interface OrderTransitionResponse {
+  order_id: number;
+  status: Order["status"];
+}
+
 export const ordersApi = {
   list: async (params?: {
     status?: string;
@@ -185,8 +190,11 @@ export const ordersApi = {
     return apiClient.get<Order>(`/admin/orders/${id}`);
   },
 
-  transition: async (id: number, request: OrderTransitionRequest): Promise<Order> => {
-    return apiClient.post<Order>(`/admin/orders/${id}/transition`, request);
+  transition: async (
+    id: number,
+    request: OrderTransitionRequest,
+  ): Promise<OrderTransitionResponse> => {
+    return apiClient.post<OrderTransitionResponse>(`/admin/orders/${id}/transition`, request);
   },
 
   updateFulfillment: async (

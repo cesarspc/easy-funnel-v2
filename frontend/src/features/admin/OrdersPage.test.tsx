@@ -13,6 +13,7 @@ vi.mock("../../api", async () => {
       list: vi.fn(),
       get: vi.fn(),
       export: vi.fn(),
+      transition: vi.fn(),
       updateFulfillment: vi.fn(),
       retryMastershop: vi.fn(),
     },
@@ -67,6 +68,7 @@ describe("OrdersPage", () => {
       fraud_flags: [],
     });
     vi.mocked(ordersApi.export).mockResolvedValue(new Blob(["csv"], { type: "text/csv" }));
+    vi.mocked(ordersApi.transition).mockResolvedValue({ order_id: 101, status: "pending" });
     vi.mocked(ordersApi.updateFulfillment).mockResolvedValue(SAMPLE_ORDER);
     vi.mocked(ordersApi.retryMastershop).mockResolvedValue({
       order_id: SAMPLE_ORDER.id,
@@ -157,5 +159,35 @@ describe("OrdersPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Reintentar sincronización" }));
     await waitFor(() => expect(ordersApi.retryMastershop).toHaveBeenCalledWith(101));
+  });
+
+  it("approves a fraud-flagged order and exposes retry when synchronization fails", async () => {
+    const user = userEvent.setup();
+    const flagged: Order = {
+      ...SAMPLE_ORDER,
+      status: "flagged_fraud",
+      mastershop_sync: { ...SAMPLE_ORDER.mastershop_sync!, status: "waiting_review" },
+      fraud_flags: [{ flag_type: "duplicate", detail: { matched_fields: ["phone"] } }],
+    };
+    const approved: Order = {
+      ...flagged,
+      status: "pending",
+      mastershop_sync: { ...SAMPLE_ORDER.mastershop_sync!, status: "failed" },
+    };
+    vi.mocked(ordersApi.list).mockResolvedValue({ orders: [flagged], count: 1 });
+    vi.mocked(ordersApi.get)
+      .mockResolvedValueOnce(flagged)
+      .mockResolvedValueOnce(approved);
+
+    render(<OrdersPage />);
+    await screen.findByText("María Gómez");
+    await user.click(screen.getByRole("button", { name: /todos los detalles.*#101/i }));
+    await user.click(await screen.findByRole("button", { name: "Aprobar y sincronizar" }));
+
+    await waitFor(() =>
+      expect(ordersApi.transition).toHaveBeenCalledWith(101, { to_status: "pending" }),
+    );
+    expect(await screen.findByRole("button", { name: "Reintentar sincronización" }))
+      .toBeInTheDocument();
   });
 });
