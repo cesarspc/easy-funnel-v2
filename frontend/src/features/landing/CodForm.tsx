@@ -115,6 +115,7 @@ function fitVariantSelections(
   quantity: number,
   existing: Record<string, string>[] = [],
 ): Record<string, string>[] {
+  if (options.length === 0) return [];
   return Array.from({ length: quantity }, (_, index) =>
     Object.fromEntries(
       options.map((option) => [

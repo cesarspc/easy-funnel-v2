@@ -99,6 +99,7 @@ describe("COD form frontend-only fields", () => {
     expect(payload.address).toBe("Calle 10 # 43-25 Torre 3, apto 302");
     expect(payload.address1).toBe("Calle 10 # 43-25");
     expect(payload.address2).toBe("Torre 3, apto 302");
+    expect(payload.variant_selections).toEqual([]);
   });
 
   it("submits only the trimmed address when Dirección 2 is left blank", async () => {

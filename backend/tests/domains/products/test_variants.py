@@ -34,3 +34,7 @@ def test_rejects_unsupported_values_and_selections_on_variant_free_products() ->
         validate_variant_selections([{"Color": "Azul", "Talla": "M"}], options=OPTIONS, quantity=1)
     with pytest.raises(OrderValidationError):
         validate_variant_selections([{"Color": "Gris"}], options=[], quantity=1)
+
+
+def test_normalizes_legacy_empty_selections_for_variant_free_products() -> None:
+    assert validate_variant_selections([{}], options=[], quantity=1) == []

@@ -63,7 +63,10 @@ def validate_variant_selections(
 ) -> list[dict[str, str]]:
     selections = raw_selections or []
     if not options:
-        if selections:
+        # Rolling-deploy compatibility: the previous SPA represented a
+        # variant-free unit as an empty object. Normalize those placeholders
+        # away while continuing to reject any actual option selection.
+        if any(selection for selection in selections):
             raise OrderValidationError("variant_selections", "This product has no options.")
         return []
     if len(selections) != quantity:
