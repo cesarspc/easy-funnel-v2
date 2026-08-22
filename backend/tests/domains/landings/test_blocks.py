@@ -25,6 +25,7 @@ from app.domains.landings.blocks import (
     BLOCK_MAIN_PROBLEM,
     BLOCK_MOMENT,
     BLOCK_OFFER_PRICE,
+    BLOCK_OFFERS_PRICE,
     BLOCK_PRICE_SUMMARY,
     BLOCK_PURCHASE_BENEFITS,
     BLOCK_REVIEWS,
@@ -53,6 +54,7 @@ SUPPORTED_KEYS = {
     BLOCK_BENEFITS: {"title", "items", "accent_color", "dark_mode"},
     BLOCK_OFFER_PRICE: {"compare_at_price", "note", "accent_color", "dark_mode"},
     BLOCK_PRICE_SUMMARY: {"compare_at_price", "accent_color", "dark_mode"},
+    BLOCK_OFFERS_PRICE: {"title", "image_banner_ids", "accent_color", "dark_mode"},
     BLOCK_STORE_TRUST: {"accent_color", "dark_mode"},
     BLOCK_PURCHASE_BENEFITS: {"note", "accent_color", "dark_mode"},
     BLOCK_SPACER: {"accent_color", "dark_mode"},
@@ -104,8 +106,8 @@ class TestVocabulary:
     def test_every_type_has_a_validator_and_key_set(self) -> None:
         assert set(SUPPORTED_KEYS) == set(ALLOWED_BLOCK_TYPES)
 
-    def test_nineteen_types_exist(self) -> None:
-        assert len(ALLOWED_BLOCK_TYPES) == 19
+    def test_twenty_types_exist(self) -> None:
+        assert len(ALLOWED_BLOCK_TYPES) == 20
 
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_known_type_is_accepted(self, block_type: str) -> None:
@@ -243,6 +245,26 @@ class TestContentValidation:
             "dark_mode": None,
         }
 
+    def test_offers_price_keeps_only_optional_landing_image_references(self) -> None:
+        result = validate_block_config(
+            BLOCK_OFFERS_PRICE,
+            {
+                "title": "  Elige tu oferta  ",
+                "image_banner_ids": {"1": 12, "2": None, "3": 27},
+                "manual_price": 1,
+            },
+        )
+        assert result == {
+            "title": "Elige tu oferta",
+            "image_banner_ids": {"1": 12, "3": 27},
+            "accent_color": None,
+            "dark_mode": None,
+        }
+
+        with pytest.raises(LandingValidationError) as excinfo:
+            validate_block_config(BLOCK_OFFERS_PRICE, {"image_banner_ids": {"4": 9}})
+        assert excinfo.value.field == "image_banner_ids"
+
     @pytest.mark.parametrize(
         ("block_type", "config"),
         [
@@ -277,6 +299,7 @@ class TestContentValidation:
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
             BLOCK_PRICE_SUMMARY: {},
+            BLOCK_OFFERS_PRICE: {},
             BLOCK_STORE_TRUST: {},
             BLOCK_PURCHASE_BENEFITS: {},
             BLOCK_SPACER: {},
@@ -326,6 +349,7 @@ class TestContentValidation:
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
             BLOCK_PRICE_SUMMARY: {},
+            BLOCK_OFFERS_PRICE: {},
             BLOCK_STORE_TRUST: {},
             BLOCK_PURCHASE_BENEFITS: {},
             BLOCK_SPACER: {},
@@ -362,6 +386,7 @@ class TestContentValidation:
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
             BLOCK_PRICE_SUMMARY: {},
+            BLOCK_OFFERS_PRICE: {},
             BLOCK_STORE_TRUST: {},
             BLOCK_PURCHASE_BENEFITS: {},
             BLOCK_SPACER: {},

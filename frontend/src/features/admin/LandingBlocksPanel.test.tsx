@@ -9,6 +9,7 @@
 
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LandingBlocksPanel } from "./LandingBlocksPanel";
 import { ApiError, landingsApi } from "../../api";
@@ -76,12 +77,17 @@ const ASSURANCE: LandingBlock = {
   config: { note: "Cobertura nacional" },
 };
 
-function renderPanel() {
+function renderPanel({ offerCount = 3, banners = [] }: Partial<Pick<
+  ComponentProps<typeof LandingBlocksPanel>,
+  "offerCount" | "banners"
+>> = {}) {
   return render(
     <LandingBlocksPanel
       landingId={7}
       sequenceSignature="3:1,2,3"
       defaultAccentColor="#1a7a4c"
+      offerCount={offerCount}
+      banners={banners}
     />,
   );
 }
@@ -111,9 +117,10 @@ describe("LandingBlocksPanel", () => {
     renderPanel();
 
     const typeSelect = await screen.findByLabelText("Componente");
-    expect(typeSelect.querySelectorAll("option")).toHaveLength(18);
+    expect(typeSelect.querySelectorAll("option")).toHaveLength(19);
     expect(screen.getByRole("option", { name: "Botón CTA" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Carrusel de videos" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Ofertas y precios" })).toBeInTheDocument();
     expect(screen.getByText(/Quita el miedo a pagar por adelantado/)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Problema principal" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Presentación de solución" })).toBeInTheDocument();
@@ -175,6 +182,28 @@ describe("LandingBlocksPanel", () => {
     await waitFor(() => expect(landingsApi.createBlock).toHaveBeenCalled());
     const payload = vi.mocked(landingsApi.createBlock).mock.calls[0][1];
     expect((payload.config.items as unknown[]).length).toBe(1);
+  });
+
+  it("offers one optional landing-image selector per visible offer", async () => {
+    const user = userEvent.setup();
+    renderPanel({
+      offerCount: 2,
+      banners: [
+        {
+          id: 91,
+          alt_text: "Combo familiar",
+          order_index: 0,
+          image_asset_id: 8,
+          image_status: "complete",
+          variants: [],
+        },
+      ],
+    });
+
+    await user.selectOptions(await screen.findByLabelText("Componente"), "offers_price");
+    expect(screen.getByLabelText("Oferta de 1 unidad")).toHaveTextContent("Combo familiar");
+    expect(screen.getByLabelText("Oferta de 2 unidades")).toHaveTextContent("Combo familiar");
+    expect(screen.queryByLabelText("Oferta de 3 unidades")).not.toBeInTheDocument();
   });
 
   it("creates the standard spacer without editable presentation values", async () => {

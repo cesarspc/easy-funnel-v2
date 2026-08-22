@@ -95,6 +95,49 @@ describe("conversion components on the landing", () => {
     expect(document.querySelectorAll(".cblock")).toHaveLength(0);
   });
 
+  it("renders configured offers, calculated discounts, and an optional landing image", async () => {
+    const landing = makeLanding([
+      block({
+        block_type: "offers_price",
+        config: { title: "Escoge tu combo", image_banner_ids: { "2": 1 } },
+      }),
+    ]);
+    landing.offers = [
+      {
+        quantity: 1,
+        label: "Una unidad",
+        sublabel: null,
+        discount_percent: 0,
+        unit_price: 89900,
+        gross: 89900,
+        total: 89900,
+        savings: 0,
+        compare_at_price: null,
+      },
+      {
+        quantity: 2,
+        label: "Combo x2",
+        sublabel: "El más elegido",
+        discount_percent: 10,
+        unit_price: 89900,
+        gross: 179800,
+        total: 161820,
+        savings: 17980,
+        compare_at_price: null,
+      },
+    ];
+    vi.mocked(publicApi.getLanding).mockResolvedValue(landing);
+    renderPage();
+
+    await screen.findByText("Escoge tu combo");
+    expect(screen.getByText("Una unidad")).toBeInTheDocument();
+    expect(screen.getByText("Combo x2")).toBeInTheDocument();
+    expect(screen.getByText("-10%")).toBeInTheDocument();
+    expect(screen.getByText(/Ahorras/)).toHaveTextContent("17.980");
+    expect(screen.getAllByAltText("Banner 1")).toHaveLength(2);
+    expect(document.querySelectorAll(".cblock__offer-card")).toHaveLength(2);
+  });
+
   it("renders an inserted CTA, records its click, and opens the shared COD form", async () => {
     const user = userEvent.setup();
     vi.mocked(publicApi.getLanding).mockResolvedValue(

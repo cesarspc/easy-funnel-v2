@@ -52,6 +52,7 @@ export type ConversionBlockType =
   | "cod_assurance"
   | "benefits"
   | "offer_price"
+  | "offers_price"
   | "price_summary"
   | "store_trust"
   | "purchase_benefits"

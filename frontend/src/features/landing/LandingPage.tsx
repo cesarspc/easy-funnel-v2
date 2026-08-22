@@ -183,6 +183,7 @@ export function LandingPage(): JSX.Element {
   }
 
   const sortedBanners = [...landing.banners].sort((a, b) => a.order_index - b.order_index);
+  const visibleOffers = landing.offers ?? [];
   // Conversion components in render order. Absent on payloads cached before the
   // feature existed, and re-sorted defensively so a client never depends on the
   // server's ordering to place them correctly.
@@ -376,6 +377,8 @@ export function LandingPage(): JSX.Element {
         key={block.id}
         block={block}
         productPrice={productPrice}
+        offers={visibleOffers}
+        banners={sortedBanners}
         ctaLabel={ctaLabel}
         ctaAnimation={ctaAnimation}
         onActivateCta={handleActivateCta}
@@ -449,6 +452,8 @@ export function LandingPage(): JSX.Element {
             key={block.id}
             block={block}
             productPrice={productPrice}
+            offers={visibleOffers}
+            banners={sortedBanners}
             ctaLabel={ctaLabel}
             ctaAnimation={ctaAnimation}
             onActivateCta={handleActivateCta}

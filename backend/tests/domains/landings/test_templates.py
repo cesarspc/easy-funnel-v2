@@ -26,6 +26,7 @@ from app.domains.landings.blocks import (
     BLOCK_COD_ASSURANCE,
     BLOCK_FAQ,
     BLOCK_GUARANTEE,
+    BLOCK_OFFERS_PRICE,
     MAX_BLOCKS_PER_LANDING,
     MAX_ORDER_INDEX,
 )
@@ -310,6 +311,17 @@ class TestBlockSnapshot:
 
     def test_empty_landing_snapshots_an_empty_list(self) -> None:
         assert snapshot_blocks([]) == []
+
+    def test_snapshot_drops_offer_images_because_templates_exclude_banners(self) -> None:
+        payload = snapshot_blocks(
+            [
+                block_row(
+                    blockType=BLOCK_OFFERS_PRICE,
+                    config={"title": "Elige", "image_banner_ids": {"1": 44}},
+                )
+            ]
+        )
+        assert payload[0]["config"] == {"title": "Elige"}
 
     def test_round_trip_preserves_type_placement_and_enabled_state(self) -> None:
         rows = [

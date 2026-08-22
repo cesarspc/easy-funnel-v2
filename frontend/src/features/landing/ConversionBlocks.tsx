@@ -42,6 +42,8 @@
  *   money-amount pill, the two most legible ways to say "you're saving"
  *   on a small screen. The selling price always comes from the product, so
  *   it cannot disagree with what the order charges.
+ * - `offers_price` — compares the Landing's complete one-to-three server-priced
+ *   offer list, with optional responsive artwork selected from its banners.
  * - `spacer` — inserts one fixed vertical rhythm unit between components.
  * - `included_benefits` — what's included in the purchase, with optional value
  *   and tag per item, because showing the total value the buyer gets drives
@@ -60,7 +62,13 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties, type JSX } from "react";
-import type { AccentPalette, ConversionBlock, ConversionBlockConfig } from "../../api";
+import type {
+  AccentPalette,
+  Banner,
+  ConversionBlock,
+  ConversionBlockConfig,
+  PublicLandingOffer,
+} from "../../api";
 import { Cta } from "../../components/Cta";
 import { safeColor } from "../../utils";
 import "./ConversionBlocks.css";
@@ -75,6 +83,10 @@ export interface ConversionBlockViewProps {
   block: ConversionBlock;
   /** Product price, used by `offer_price` so it can never disagree with the order. */
   productPrice: number;
+  /** Resolved server-priced quantity offers used by `offers_price`. */
+  offers?: PublicLandingOffer[];
+  /** Landing images referenced by optional per-offer banner IDs. */
+  banners?: Banner[];
   /** Landing-level dark mode default. Individual blocks override via config.dark_mode. */
   blocksDarkMode?: boolean;
   /** Landing-level block accent. A block's own palette overrides it. */
@@ -1357,9 +1369,106 @@ function Guarantee({
  * Renders one placed component. An unknown type renders nothing rather than
  * throwing, so a payload from a newer backend degrades to the page without it.
  */
+function OfferArtwork({ banner }: { banner: Banner }): JSX.Element | null {
+  const variants = [...banner.variants].sort((a, b) => a.width - b.width);
+  const webp = variants.filter((variant) => variant.format === "webp");
+  const jpeg = variants.filter((variant) => variant.format === "jpeg");
+  const fallback = jpeg[jpeg.length - 1] ?? variants[variants.length - 1];
+  if (!fallback) return null;
+  const webpSrcSet = webp.map((variant) => `${variant.url} ${variant.width}w`).join(", ");
+  const jpegSrcSet = jpeg.map((variant) => `${variant.url} ${variant.width}w`).join(", ");
+  return (
+    <picture className="cblock__offers-artwork">
+      {webpSrcSet && (
+        <source type="image/webp" srcSet={webpSrcSet} sizes="(max-width: 479px) 100vw, 220px" />
+      )}
+      <img
+        src={fallback.url}
+        srcSet={jpegSrcSet || undefined}
+        sizes="(max-width: 479px) 100vw, 220px"
+        alt={banner.alt_text}
+        width={fallback.width}
+        height={fallback.height}
+        loading="lazy"
+        decoding="async"
+      />
+    </picture>
+  );
+}
+
+function OffersPrice({
+  config,
+  offers,
+  banners,
+  palette,
+}: {
+  config: ConversionBlockConfig;
+  offers: PublicLandingOffer[];
+  banners: Banner[];
+  palette: AccentPalette | null;
+}): JSX.Element | null {
+  const visibleOffers = offers.filter((offer) => offer.quantity >= 1 && offer.quantity <= 3);
+  if (visibleOffers.length === 0) return null;
+  const rawImageIds = (config as LooseConfig).image_banner_ids;
+  const imageIds =
+    typeof rawImageIds === "object" && rawImageIds !== null
+      ? (rawImageIds as Record<string, unknown>)
+      : {};
+
+  return (
+    <section className="cblock cblock--offers-price" style={accentStyle(palette)} aria-label="Ofertas y precios">
+      <BlockHeading title={asOptionalString(config.title) ?? "Elige la oferta ideal para ti"} />
+      <div className={`cblock__offers-grid cblock__offers-grid--${visibleOffers.length}`}>
+        {visibleOffers.map((offer) => {
+          const bannerId = imageIds[String(offer.quantity)];
+          const banner =
+            typeof bannerId === "number" ? banners.find((item) => item.id === bannerId) : undefined;
+          const reference =
+            offer.compare_at_price && offer.compare_at_price > offer.total
+              ? offer.compare_at_price
+              : offer.savings > 0
+                ? offer.gross
+                : null;
+          return (
+            <article
+              className={`cblock__offer-card${banner ? " cblock__offer-card--with-image" : ""}`}
+              key={offer.quantity}
+            >
+              {banner && <OfferArtwork banner={banner} />}
+              <div className="cblock__offer-body">
+                <div className="cblock__offer-heading">
+                  <h3>{offer.label}</h3>
+                  {offer.discount_percent > 0 && (
+                    <span className="cblock__offer-discount">-{offer.discount_percent}%</span>
+                  )}
+                </div>
+                {offer.sublabel && <p className="cblock__offer-sublabel">{offer.sublabel}</p>}
+                {reference !== null && (
+                  <p className="cblock__offer-reference">
+                    <span className="sr-only">Antes </span>{CURRENCY.format(reference)}
+                  </p>
+                )}
+                <p className="cblock__offer-total">{CURRENCY.format(offer.total)}</p>
+                <p className="cblock__offer-unit">
+                  {CURRENCY.format(offer.total / offer.quantity)} por unidad
+                </p>
+                {offer.savings > 0 && (
+                  <p className="cblock__offer-savings">Ahorras {CURRENCY.format(offer.savings)}</p>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export function ConversionBlockView({
   block,
   productPrice,
+  offers = [],
+  banners = [],
   blocksDarkMode = false,
   blocksAccentPalette = null,
   ctaLabel,
@@ -1402,6 +1511,9 @@ export function ConversionBlockView({
       break;
     case "offer_price":
       content = <OfferPrice config={config} productPrice={productPrice} palette={palette} />;
+      break;
+    case "offers_price":
+      content = <OffersPrice config={config} offers={offers} banners={banners} palette={palette} />;
       break;
     case "price_summary":
       content = (

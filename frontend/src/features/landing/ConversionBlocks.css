@@ -650,6 +650,123 @@
   background: var(--lp-bg);
 }
 
+/* --- Automatic offer comparison -----------------------------------------
+   Prices are API-resolved. Cards stay vertically scannable on narrow phones
+   and become a compact comparison row only when each offer has enough room. */
+.cblock--offers-price {
+  background: var(--lp-bg);
+}
+
+.cblock__offers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.cblock__offer-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--lp-hairline);
+  border-radius: 14px;
+  background: var(--lp-surface);
+  box-shadow: 0 8px 24px rgba(20, 24, 31, 0.08);
+}
+
+.cblock__offers-artwork {
+  display: block;
+  margin: 8px 8px 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--lp-hairline);
+  aspect-ratio: 4 / 3;
+}
+
+.cblock__offers-artwork img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cblock__offer-body {
+  padding: 14px;
+}
+
+.cblock__offer-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cblock__offer-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.cblock__offer-discount,
+.cblock__offer-savings {
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
+  background: var(--lp-form-action, var(--lp-action));
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.cblock__offer-discount {
+  flex: none;
+  padding: 3px 7px;
+  font-size: 0.75rem;
+}
+
+.cblock__offer-sublabel,
+.cblock__offer-unit {
+  margin: 5px 0 0;
+  color: var(--lp-ink-quiet);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.cblock__offer-reference {
+  margin: 14px 0 0;
+  color: var(--lp-ink-quiet);
+  font-size: 0.8125rem;
+  text-decoration: line-through;
+}
+
+.cblock__offer-total {
+  margin: 2px 0 0;
+  color: var(--lp-ink);
+  font-size: clamp(1.35rem, 5vw, 1.8rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.cblock__offer-savings {
+  display: inline-flex;
+  margin: 10px 0 0;
+  padding: 4px 9px;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 479px) {
+  .cblock__offers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cblock__offer-card--with-image {
+    display: grid;
+    grid-template-columns: minmax(112px, 38%) minmax(0, 1fr);
+  }
+
+  .cblock__offers-artwork {
+    height: calc(100% - 16px);
+    margin: 8px 0 8px 8px;
+    aspect-ratio: auto;
+  }
+}
+
 /* --- Story blocks ---------------------------------------------------------
    These long-form blocks use the Price component's visual grammar: decisive
    type hierarchy, one raised surface, quiet hairlines, restrained accent and

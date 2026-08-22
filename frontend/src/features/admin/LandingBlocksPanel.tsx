@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { ApiError, landingsApi } from "../../api";
-import type { ConversionBlockType, LandingBlock } from "../../api";
+import type { ConversionBlockType, LandingBanner, LandingBlock } from "../../api";
 import "./LandingBlocksPanel.css";
 
 export interface LandingBlocksPanelProps {
@@ -27,6 +27,10 @@ export interface LandingBlocksPanelProps {
   sequenceSignature: string;
   /** Resolved landing-level block accent, used when a block has no override. */
   defaultAccentColor: string;
+  /** Visible quantity count, used only to show the matching image selectors. */
+  offerCount: number;
+  /** Existing R2-backed Landing images available as optional offer artwork. */
+  banners: LandingBanner[];
 }
 
 interface BlockTypeMeta {
@@ -59,6 +63,10 @@ const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
   offer_price: {
     label: "Precio completo (compatibilidad)",
     purpose: "Bloque combinado conservado para landings existentes.",
+  },
+  offers_price: {
+    label: "Ofertas y precios",
+    purpose: "Compara automáticamente las 1–3 ofertas configuradas, con una imagen opcional por oferta.",
   },
   price_summary: {
     label: "Precio y ahorro",
@@ -118,6 +126,7 @@ const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
   "announcement_bar",
   "cod_assurance",
   "price_summary",
+  "offers_price",
   "store_trust",
   "purchase_benefits",
   "spacer",
@@ -152,6 +161,8 @@ function defaultDraft(type: ConversionBlockType): Draft {
       return { title: "", items: ["", ""], accent_color: "" };
     case "offer_price":
       return { compare_at_price: "", note: "", accent_color: "" };
+    case "offers_price":
+      return { title: "Elige la oferta ideal para ti", image_banner_ids: {}, accent_color: "" };
     case "price_summary":
       return { compare_at_price: "", accent_color: "" };
     case "store_trust":
@@ -274,6 +285,8 @@ interface EditorProps {
   fieldErrors: Record<string, string>;
   /** Current form accent color for the color picker default. */
   defaultAccentColor: string;
+  offerCount: number;
+  banners: LandingBanner[];
 }
 
 function FieldError({ id, message }: { id: string; message?: string }): JSX.Element | null {
@@ -434,6 +447,8 @@ function ContentEditor({
   idPrefix,
   fieldErrors,
   defaultAccentColor,
+  offerCount,
+  banners,
 }: EditorProps): JSX.Element {
   function set(key: string, value: unknown) {
     onChange({ ...draft, [key]: value });
@@ -1016,6 +1031,64 @@ function ContentEditor({
         </div>
       );
 
+    case "offers_price": {
+      const selected =
+        typeof draft.image_banner_ids === "object" && draft.image_banner_ids !== null
+          ? (draft.image_banner_ids as Record<string, unknown>)
+          : {};
+      return (
+        <div className="lblocks__editor">
+          <p className="landings-page__muted">
+            Las etiquetas, precios, descuentos y ahorros se toman automáticamente de las ofertas
+            configuradas en esta landing.
+          </p>
+          {titleField}
+          <fieldset className="lblocks__fieldset">
+            <legend className="landings-field__label">Imagen opcional por oferta</legend>
+            {Array.from({ length: offerCount }, (_, index) => index + 1).map((quantity) => (
+              <div className="landings-field" key={quantity}>
+                <label
+                  className="landings-field__label"
+                  htmlFor={`${idPrefix}-offer-image-${quantity}`}
+                >
+                  Oferta de {quantity} {quantity === 1 ? "unidad" : "unidades"}
+                </label>
+                <select
+                  id={`${idPrefix}-offer-image-${quantity}`}
+                  className="landings-field__input"
+                  value={typeof selected[String(quantity)] === "number" ? String(selected[String(quantity)]) : ""}
+                  onChange={(event) => {
+                    const next = { ...selected };
+                    if (event.target.value) next[String(quantity)] = Number(event.target.value);
+                    else delete next[String(quantity)];
+                    set("image_banner_ids", next);
+                  }}
+                >
+                  <option value="">Sin imagen</option>
+                  {banners.map((banner, index) => (
+                    <option key={banner.id} value={banner.id}>
+                      Imagen {index + 1}: {banner.alt_text}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            {banners.length === 0 && (
+              <p className="landings-page__muted">
+                Sube al menos una imagen a la landing para poder asociarla a una oferta.
+              </p>
+            )}
+            <FieldError
+              id={`${idPrefix}-image-banner-ids-error`}
+              message={fieldErrors.image_banner_ids}
+            />
+          </fieldset>
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+    }
+
     case "price_summary":
       return (
         <div className="lblocks__editor">
@@ -1334,6 +1407,8 @@ export function LandingBlocksPanel({
   landingId,
   sequenceSignature,
   defaultAccentColor,
+  offerCount,
+  banners,
 }: LandingBlocksPanelProps): JSX.Element {
   const [blocks, setBlocks] = useState<LandingBlock[]>([]);
   const [slots, setSlots] = useState<string[]>([]);
@@ -1647,6 +1722,8 @@ export function LandingBlocksPanel({
                     // the same problem twice.
                     fieldErrors={editingId === block.id ? fieldErrors : {}}
                     defaultAccentColor={defaultAccentColor}
+                    offerCount={offerCount}
+                    banners={banners}
                   />
                   <button
                     type="button"
@@ -1725,6 +1802,8 @@ export function LandingBlocksPanel({
           idPrefix="new-block"
           fieldErrors={editingId === null ? fieldErrors : {}}
           defaultAccentColor={defaultAccentColor}
+          offerCount={offerCount}
+          banners={banners}
         />
 
         <button

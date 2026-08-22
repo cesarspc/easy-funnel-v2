@@ -49,10 +49,11 @@ class TestPlacement:
         assert len(body["slots"]) == 7
         assert body["slots"][1].startswith("1-2")
         assert body["slots"][2].startswith("2-3")
-        assert len(body["allowed_block_types"]) == 19
+        assert len(body["allowed_block_types"]) == 20
         assert "cta" in body["allowed_block_types"]
         assert "video_carousel" in body["allowed_block_types"]
         assert "price_summary" in body["allowed_block_types"]
+        assert "offers_price" in body["allowed_block_types"]
         assert "store_trust" in body["allowed_block_types"]
         assert "purchase_benefits" in body["allowed_block_types"]
         assert "spacer" in body["allowed_block_types"]

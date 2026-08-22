@@ -1481,6 +1481,8 @@ export function LandingEditorPage() {
         defaultAccentColor={
           config.blocksAccentColor || config.formAccentColor || config.accentColor
         }
+        offerCount={config.offerCount}
+        banners={banners}
       />
     </div>
   );
