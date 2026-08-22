@@ -50,6 +50,10 @@ function response(blocks: LandingBlock[]): LandingBlockListResponse {
       "cod_assurance",
       "benefits",
       "offer_price",
+      "price_summary",
+      "store_trust",
+      "purchase_benefits",
+      "spacer",
       "included_benefits",
       "reviews",
       "faq",
@@ -107,12 +111,17 @@ describe("LandingBlocksPanel", () => {
     renderPanel();
 
     const typeSelect = await screen.findByLabelText("Componente");
-    expect(typeSelect.querySelectorAll("option")).toHaveLength(15);
+    expect(typeSelect.querySelectorAll("option")).toHaveLength(18);
     expect(screen.getByRole("option", { name: "Botón CTA" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Carrusel de videos" })).toBeInTheDocument();
     expect(screen.getByText(/Quita el miedo a pagar por adelantado/)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Problema principal" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Presentación de solución" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Precio y ahorro" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Tienda certificada" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Envío, pago y garantía" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Espacio" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /compatibilidad/i })).not.toBeInTheDocument();
   });
 
   it("exposes only the accent color as presentation, nothing else", async () => {
@@ -166,6 +175,22 @@ describe("LandingBlocksPanel", () => {
     await waitFor(() => expect(landingsApi.createBlock).toHaveBeenCalled());
     const payload = vi.mocked(landingsApi.createBlock).mock.calls[0][1];
     expect((payload.config.items as unknown[]).length).toBe(1);
+  });
+
+  it("creates the standard spacer without editable presentation values", async () => {
+    vi.mocked(landingsApi.createBlock).mockResolvedValue(response([]));
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.selectOptions(await screen.findByLabelText("Componente"), "spacer");
+    expect(screen.getByText(/No tiene contenido ni tamaño configurable/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Agregar componente" }));
+
+    await waitFor(() => expect(landingsApi.createBlock).toHaveBeenCalledWith(7, {
+      block_type: "spacer",
+      slot_index: 1,
+      config: {},
+    }));
   });
 
   it("lets the administrator add problem cards before creating the block", async () => {

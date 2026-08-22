@@ -48,6 +48,8 @@ const CURRENCY_FORMATTER = new Intl.NumberFormat("es-CO", {
 type LoadState = "loading" | "ready" | "not-found" | "error";
 type FormState = "closed" | "open";
 
+const PRICE_FLOW_TYPES = ["price_summary", "store_trust", "purchase_benefits"] as const;
+
 export function LandingPage(): JSX.Element {
   const { slug } = useParams<{ slug: string }>();
   const [landing, setLanding] = useState<PublicLanding | null>(null);
@@ -187,6 +189,31 @@ export function LandingPage(): JSX.Element {
   const placedBlocks: ConversionBlock[] = [...(landing.blocks ?? [])].sort(
     (a, b) => a.slot_index - b.slot_index || a.order_index - b.order_index,
   );
+
+  function priceFlowJoins(block: ConversionBlock): {
+    joinPriceBefore: boolean;
+    joinPriceAfter: boolean;
+  } {
+    const flowIndex = PRICE_FLOW_TYPES.indexOf(
+      block.block_type as (typeof PRICE_FLOW_TYPES)[number],
+    );
+    if (flowIndex < 0) return { joinPriceBefore: false, joinPriceAfter: false };
+    const index = placedBlocks.indexOf(block);
+    const previous = placedBlocks[index - 1];
+    const next = placedBlocks[index + 1];
+    return {
+      joinPriceBefore: Boolean(
+        flowIndex > 0 &&
+        previous?.slot_index === block.slot_index &&
+        previous.block_type === PRICE_FLOW_TYPES[flowIndex - 1],
+      ),
+      joinPriceAfter: Boolean(
+        flowIndex < PRICE_FLOW_TYPES.length - 1 &&
+        next?.slot_index === block.slot_index &&
+        next.block_type === PRICE_FLOW_TYPES[flowIndex + 1],
+      ),
+    };
+  }
   // `cta_positions` is 1-based (see backend cta_placement.compute_cta_positions),
   // so a trailing CTA is needed only when the last banner's position is absent.
   const showTrailingCta = !ctaPositionSet.has(sortedBanners.length);
@@ -343,8 +370,9 @@ export function LandingPage(): JSX.Element {
   function renderBlocks(slot: number) {
     const group = blocksBySlot.get(slot);
     if (!group) return null;
-    return group.map((block) => (
-      <ConversionBlockView
+    return group.map((block) => {
+      const joins = priceFlowJoins(block);
+      return <ConversionBlockView
         key={block.id}
         block={block}
         productPrice={productPrice}
@@ -353,8 +381,9 @@ export function LandingPage(): JSX.Element {
         onActivateCta={handleActivateCta}
         blocksDarkMode={blocksDarkMode}
         blocksAccentPalette={blocksAccentPalette}
-      />
-    ));
+        {...joins}
+      />;
+    });
   }
 
   // A component placed beyond the current sequence (the merchant shortened the
@@ -425,6 +454,7 @@ export function LandingPage(): JSX.Element {
             onActivateCta={handleActivateCta}
             blocksDarkMode={landing.blocks_dark_mode}
             blocksAccentPalette={blocksAccentPalette}
+            {...priceFlowJoins(block)}
           />
         ))}
       </div>

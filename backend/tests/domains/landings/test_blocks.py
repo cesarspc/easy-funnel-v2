@@ -25,8 +25,12 @@ from app.domains.landings.blocks import (
     BLOCK_MAIN_PROBLEM,
     BLOCK_MOMENT,
     BLOCK_OFFER_PRICE,
+    BLOCK_PRICE_SUMMARY,
+    BLOCK_PURCHASE_BENEFITS,
     BLOCK_REVIEWS,
     BLOCK_SOLUTION_PRESENTATION,
+    BLOCK_SPACER,
+    BLOCK_STORE_TRUST,
     BLOCK_VIDEO_CAROUSEL,
     MAX_BLOCKS_PER_LANDING,
     MAX_SLOT_INDEX,
@@ -48,6 +52,10 @@ SUPPORTED_KEYS = {
     BLOCK_COD_ASSURANCE: {"note", "accent_color", "dark_mode"},
     BLOCK_BENEFITS: {"title", "items", "accent_color", "dark_mode"},
     BLOCK_OFFER_PRICE: {"compare_at_price", "note", "accent_color", "dark_mode"},
+    BLOCK_PRICE_SUMMARY: {"compare_at_price", "accent_color", "dark_mode"},
+    BLOCK_STORE_TRUST: {"accent_color", "dark_mode"},
+    BLOCK_PURCHASE_BENEFITS: {"note", "accent_color", "dark_mode"},
+    BLOCK_SPACER: {"accent_color", "dark_mode"},
     BLOCK_INCLUDED_BENEFITS: {"title", "items", "accent_color", "dark_mode"},
     BLOCK_REVIEWS: {"title", "items", "accent_color", "dark_mode"},
     BLOCK_FAQ: {"title", "items", "accent_color", "dark_mode"},
@@ -96,8 +104,8 @@ class TestVocabulary:
     def test_every_type_has_a_validator_and_key_set(self) -> None:
         assert set(SUPPORTED_KEYS) == set(ALLOWED_BLOCK_TYPES)
 
-    def test_fifteen_types_exist(self) -> None:
-        assert len(ALLOWED_BLOCK_TYPES) == 15
+    def test_nineteen_types_exist(self) -> None:
+        assert len(ALLOWED_BLOCK_TYPES) == 19
 
     @pytest.mark.parametrize("block_type", ALLOWED_BLOCK_TYPES)
     def test_known_type_is_accepted(self, block_type: str) -> None:
@@ -217,6 +225,24 @@ class TestContentValidation:
         )
         assert result == {"note": "Envío a todo el país", "accent_color": None, "dark_mode": None}
 
+    def test_split_price_components_keep_only_their_own_content(self) -> None:
+        assert validate_block_config(
+            BLOCK_PRICE_SUMMARY, {"compare_at_price": "79900", "note": "ignored"}
+        ) == {"compare_at_price": 79900.0, "accent_color": None, "dark_mode": None}
+        assert validate_block_config(BLOCK_STORE_TRUST, {"title": "ignored"}) == {
+            "accent_color": None,
+            "dark_mode": None,
+        }
+        assert validate_block_config(BLOCK_PURCHASE_BENEFITS, {"note": "  Compra más  "}) == {
+            "note": "Compra más",
+            "accent_color": None,
+            "dark_mode": None,
+        }
+        assert validate_block_config(BLOCK_SPACER, {"height": 999}) == {
+            "accent_color": None,
+            "dark_mode": None,
+        }
+
     @pytest.mark.parametrize(
         ("block_type", "config"),
         [
@@ -250,6 +276,10 @@ class TestContentValidation:
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
+            BLOCK_PRICE_SUMMARY: {},
+            BLOCK_STORE_TRUST: {},
+            BLOCK_PURCHASE_BENEFITS: {},
+            BLOCK_SPACER: {},
             BLOCK_INCLUDED_BENEFITS: {"items": [{"name": "a"}, {"name": "b"}]},
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
@@ -295,6 +325,10 @@ class TestContentValidation:
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
+            BLOCK_PRICE_SUMMARY: {},
+            BLOCK_STORE_TRUST: {},
+            BLOCK_PURCHASE_BENEFITS: {},
+            BLOCK_SPACER: {},
             BLOCK_INCLUDED_BENEFITS: {"items": [{"name": "a"}, {"name": "b"}]},
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},
@@ -327,6 +361,10 @@ class TestContentValidation:
             BLOCK_COD_ASSURANCE: {},
             BLOCK_BENEFITS: {"items": ["a", "b"]},
             BLOCK_OFFER_PRICE: {},
+            BLOCK_PRICE_SUMMARY: {},
+            BLOCK_STORE_TRUST: {},
+            BLOCK_PURCHASE_BENEFITS: {},
+            BLOCK_SPACER: {},
             BLOCK_INCLUDED_BENEFITS: {"items": [{"name": "a"}, {"name": "b"}]},
             BLOCK_REVIEWS: {"items": [{"name": "Ana", "text": "ok"}]},
             BLOCK_FAQ: {"items": [{"question": "¿Y?", "answer": "Así."}]},

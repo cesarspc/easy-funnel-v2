@@ -34,11 +34,15 @@
  * - `benefits` — "why this, not the generic thing": a two-column
  *   comparison table (`rows`) when the merchant has written one, or the
  *   original scannable checklist (`items`) otherwise.
- * - `offer_price` — states price and, when the merchant declares a
+ * - `offer_price` — preserves the original combined price/trust/logistics
+ *   presentation for existing landings. New landings compose the identical
+ *   visual from `price_summary`, `store_trust`, and `purchase_benefits`.
+ * - `price_summary` — states price and, when the merchant declares a
  *   reference price, the saving — as a badge next to the number and a
  *   money-amount pill, the two most legible ways to say "you're saving"
  *   on a small screen. The selling price always comes from the product, so
  *   it cannot disagree with what the order charges.
+ * - `spacer` — inserts one fixed vertical rhythm unit between components.
  * - `included_benefits` — what's included in the purchase, with optional value
  *   and tag per item, because showing the total value the buyer gets drives
  *   conversions for COD bundles.
@@ -79,6 +83,9 @@ export interface ConversionBlockViewProps {
   ctaLabel: string;
   ctaAnimation?: "slide" | "shake" | null;
   onActivateCta: () => void;
+  /** Collapse outer padding only when modular price parts are consecutive. */
+  joinPriceBefore?: boolean;
+  joinPriceAfter?: boolean;
 }
 
 /**
@@ -694,10 +701,16 @@ function OfferPrice({
   config,
   productPrice,
   palette,
+  mode = "combined",
+  joinBefore = false,
+  joinAfter = false,
 }: {
   config: ConversionBlockConfig;
   productPrice: number;
   palette: AccentPalette | null;
+  mode?: "combined" | "price" | "trust" | "benefits";
+  joinBefore?: boolean;
+  joinAfter?: boolean;
 }): JSX.Element {
   const loose = config as LooseConfig;
   const compareAt =
@@ -719,10 +732,23 @@ function OfferPrice({
   const deliveryTo = asOptionalString(loose.delivery_to);
   const bestseller = asOptionalString(loose.bestseller_label);
 
+  const modularClass = mode === "combined"
+    ? "cblock cblock--price"
+    : [
+        "cblock",
+        "cblock--price-module",
+        `cblock--price-${mode}`,
+        joinBefore ? "cblock--price-joined-before" : "",
+        joinAfter ? "cblock--price-joined-after" : "",
+      ].filter(Boolean).join(" ");
+
   return (
-    <section className="cblock cblock--price" style={accentStyle(palette)} aria-label="Precio">
+    <section className={modularClass} style={accentStyle(palette)} aria-label={
+      mode === "price" ? "Precio" : mode === "trust" ? "Tienda certificada" :
+      mode === "benefits" ? "Envío, pago y garantía" : "Precio"
+    }>
       {/* ──── Part 1: Price card ──── */}
-      <div className="cblock__price-card">
+      {(mode === "combined" || mode === "price") && <div className="cblock__price-card">
         <p className="cblock__price-eyebrow">{config.title || "Precio:"}</p>
         {compareAt !== null && (
           <p className="cblock__price-was">
@@ -750,10 +776,10 @@ function OfferPrice({
             {CURRENCY.format(savings)} de descuento
           </p>
         )}
-      </div>
+      </div>}
 
       {/* ──── Part 2: Trust badge ──── */}
-      <div className="cblock__trust-badge">
+      {(mode === "combined" || mode === "trust") && <div className="cblock__trust-badge">
         <div className="cblock__trust-topbar" aria-hidden="true" />
 
         <div className="cblock__trust-header">
@@ -784,10 +810,10 @@ function OfferPrice({
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ──── Part 3: Shipping, COD & guarantee info card ──── */}
-      <div className="cblock__price-info">
+      {(mode === "combined" || mode === "benefits") && <div className="cblock__price-info">
         <div className="cblock__info-row cblock__info-row--shipping">
           <svg className="cblock__info-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4h2l.4 2M7 13h6l4-8H5.4M7 13L5.4 6M7 13l-1.7 2" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
@@ -836,9 +862,13 @@ function OfferPrice({
         )}
 
         {config.note && <p className="cblock__price-note">{config.note}</p>}
-      </div>
+      </div>}
     </section>
   );
+}
+
+function Spacer(): JSX.Element {
+  return <div className="cblock cblock--spacer" aria-hidden="true" />;
 }
 
 interface BenefitItem {
@@ -1335,6 +1365,8 @@ export function ConversionBlockView({
   ctaLabel,
   ctaAnimation = null,
   onActivateCta,
+  joinPriceBefore = false,
+  joinPriceAfter = false,
 }: ConversionBlockViewProps): JSX.Element | null {
   const { config, accent_palette: blockPalette } = block;
   const palette = blockPalette ?? blocksAccentPalette;
@@ -1370,6 +1402,45 @@ export function ConversionBlockView({
       break;
     case "offer_price":
       content = <OfferPrice config={config} productPrice={productPrice} palette={palette} />;
+      break;
+    case "price_summary":
+      content = (
+        <OfferPrice
+          config={config}
+          productPrice={productPrice}
+          palette={palette}
+          mode="price"
+          joinBefore={joinPriceBefore}
+          joinAfter={joinPriceAfter}
+        />
+      );
+      break;
+    case "store_trust":
+      content = (
+        <OfferPrice
+          config={config}
+          productPrice={productPrice}
+          palette={palette}
+          mode="trust"
+          joinBefore={joinPriceBefore}
+          joinAfter={joinPriceAfter}
+        />
+      );
+      break;
+    case "purchase_benefits":
+      content = (
+        <OfferPrice
+          config={config}
+          productPrice={productPrice}
+          palette={palette}
+          mode="benefits"
+          joinBefore={joinPriceBefore}
+          joinAfter={joinPriceAfter}
+        />
+      );
+      break;
+    case "spacer":
+      content = <Spacer />;
       break;
     case "included_benefits":
       content = <IncludedBenefits config={config} palette={palette} />;

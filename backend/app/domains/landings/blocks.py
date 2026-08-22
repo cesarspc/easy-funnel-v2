@@ -3,11 +3,11 @@ elements (Requirements 3.27-3.31).
 
 Two ideas own this module:
 
-**A fixed vocabulary, not a page builder.** Fifteen component types exist,
+**A fixed vocabulary, not a page builder.** Nineteen component types exist,
 each one a device that measurably moves cold cash-on-delivery traffic in this
 market: a top-of-page announcement bar, the COD assurance strip, benefit
 bullets, the price/saving statement, the included benefits list,
-customer reviews, the FAQ objection handler, and the guarantee. A merchant
+customer reviews, the FAQ objection handler, a fixed spacer, and the guarantee. A merchant
 chooses a type, writes its content, and places it. Almost nothing else is
 configurable — spacing, type scale, layout, order of elements inside the
 component, mobile behavior are already decided in the Landing chrome for
@@ -57,6 +57,10 @@ BLOCK_AUDIENCE = "audience"
 BLOCK_MOMENT = "moment"
 BLOCK_CTA = "cta"
 BLOCK_VIDEO_CAROUSEL = "video_carousel"
+BLOCK_PRICE_SUMMARY = "price_summary"
+BLOCK_STORE_TRUST = "store_trust"
+BLOCK_PURCHASE_BENEFITS = "purchase_benefits"
+BLOCK_SPACER = "spacer"
 
 # Mirrors the `landing_blocks_type_allowed` database check.
 ALLOWED_BLOCK_TYPES = (
@@ -75,6 +79,10 @@ ALLOWED_BLOCK_TYPES = (
     BLOCK_MOMENT,
     BLOCK_CTA,
     BLOCK_VIDEO_CAROUSEL,
+    BLOCK_PRICE_SUMMARY,
+    BLOCK_STORE_TRUST,
+    BLOCK_PURCHASE_BENEFITS,
+    BLOCK_SPACER,
 )
 
 # 15 banners + one CTA band each is the longest sequence the page can render,
@@ -359,6 +367,41 @@ def _validate_offer_price(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "compare_at_price": compare_at_price,
         "note": _optional_text(config.get("note"), field="note", label="Note", maximum=_NOTE_MAX),
+        "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
+    }
+
+
+def _validate_price_summary(config: dict[str, Any]) -> dict[str, Any]:
+    """Modular price statement; shares the legacy price calculation fields."""
+    validated = _validate_offer_price(config)
+    return {
+        "compare_at_price": validated["compare_at_price"],
+        "accent_color": validated["accent_color"],
+        "dark_mode": validated["dark_mode"],
+    }
+
+
+def _validate_store_trust(config: dict[str, Any]) -> dict[str, Any]:
+    """Certified-store badge. Its claims and layout are fixed platform copy."""
+    return {
+        "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
+    }
+
+
+def _validate_purchase_benefits(config: dict[str, Any]) -> dict[str, Any]:
+    """Shipping, COD and guarantee facts with one optional merchant note."""
+    return {
+        "note": _optional_text(config.get("note"), field="note", label="Note", maximum=_NOTE_MAX),
+        "accent_color": _optional_accent_color(config),
+        "dark_mode": _optional_dark_mode(config),
+    }
+
+
+def _validate_spacer(config: dict[str, Any]) -> dict[str, Any]:
+    """A fixed standard gap: it intentionally accepts no presentation input."""
+    return {
         "accent_color": _optional_accent_color(config),
         "dark_mode": _optional_dark_mode(config),
     }
@@ -800,6 +843,10 @@ def _validate_moment(config: dict[str, Any]) -> dict[str, Any]:
 _VALIDATORS = {
     BLOCK_CTA: _validate_cta,
     BLOCK_VIDEO_CAROUSEL: _validate_video_carousel,
+    BLOCK_PRICE_SUMMARY: _validate_price_summary,
+    BLOCK_STORE_TRUST: _validate_store_trust,
+    BLOCK_PURCHASE_BENEFITS: _validate_purchase_benefits,
+    BLOCK_SPACER: _validate_spacer,
     BLOCK_COD_ASSURANCE: _validate_cod_assurance,
     BLOCK_BENEFITS: _validate_benefits,
     BLOCK_OFFER_PRICE: _validate_offer_price,

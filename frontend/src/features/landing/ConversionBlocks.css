@@ -342,6 +342,30 @@
   gap: 16px;
 }
 
+/* Modular replacements for the three children of the legacy price block.
+   Standalone parts keep normal component padding. When the editor places
+   price → trust → benefits consecutively, LandingPage marks the boundaries
+   so their outer rhythm collapses to the legacy block's exact 24/16/24px
+   frame with 16px between parts. */
+.cblock--price-module {
+  display: flex;
+  flex-direction: column;
+}
+
+.cblock--price-joined-before {
+  padding-top: 16px;
+}
+
+.cblock--price-joined-after {
+  padding-bottom: 0;
+}
+
+.cblock--spacer {
+  height: var(--lp-space-lg);
+  padding: 0;
+  background: var(--lp-bg);
+}
+
 /* ── Part 1: Price card ── */
 
 .cblock__price-card {

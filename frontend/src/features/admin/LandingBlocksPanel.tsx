@@ -57,8 +57,24 @@ const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
     purpose: "De 2 a 5 razones cortas para comprar, en una sola pasada de lectura.",
   },
   offer_price: {
+    label: "Precio completo (compatibilidad)",
+    purpose: "Bloque combinado conservado para landings existentes.",
+  },
+  price_summary: {
     label: "Precio y ahorro",
-    purpose: "Muestra el precio del producto y, si indicas el precio anterior, el ahorro.",
+    purpose: "Muestra únicamente el precio actual, el anterior y el ahorro.",
+  },
+  store_trust: {
+    label: "Tienda certificada",
+    purpose: "Muestra por separado el sello visual de confianza de Bodega Premium.",
+  },
+  purchase_benefits: {
+    label: "Envío, pago y garantía",
+    purpose: "Muestra por separado envío gratis, pago contraentrega y compra garantizada.",
+  },
+  spacer: {
+    label: "Espacio",
+    purpose: "Añade una separación vertical estándar entre componentes.",
   },
   included_benefits: {
     label: "Incluido en tu pedido",
@@ -101,7 +117,10 @@ const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
 const BLOCK_TYPE_ORDER: ConversionBlockType[] = [
   "announcement_bar",
   "cod_assurance",
-  "offer_price",
+  "price_summary",
+  "store_trust",
+  "purchase_benefits",
+  "spacer",
   "cta",
   "video_carousel",
   "benefits",
@@ -133,6 +152,14 @@ function defaultDraft(type: ConversionBlockType): Draft {
       return { title: "", items: ["", ""], accent_color: "" };
     case "offer_price":
       return { compare_at_price: "", note: "", accent_color: "" };
+    case "price_summary":
+      return { compare_at_price: "", accent_color: "" };
+    case "store_trust":
+      return { accent_color: "" };
+    case "purchase_benefits":
+      return { note: "", accent_color: "" };
+    case "spacer":
+      return {};
     case "included_benefits":
       return {
         title: "",
@@ -986,6 +1013,81 @@ function ContentEditor({
           />
           {accentColorField}
           {darkModeField}
+        </div>
+      );
+
+    case "price_summary":
+      return (
+        <div className="lblocks__editor">
+          <p className="landings-page__muted">
+            El precio de venta se toma del producto. Colócalo antes de Tienda certificada y
+            Envío, pago y garantía para reconstruir el bloque completo.
+          </p>
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor={`${idPrefix}-compare`}>
+              Precio anterior (opcional)
+            </label>
+            <input
+              id={`${idPrefix}-compare`}
+              className="landings-field__input"
+              type="number"
+              min={1}
+              value={textValue(draft, "compare_at_price")}
+              onChange={(event) => set("compare_at_price", event.target.value)}
+            />
+            <FieldError
+              id={`${idPrefix}-compare-error`}
+              message={fieldErrors.compare_at_price}
+            />
+          </div>
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "store_trust":
+      return (
+        <div className="lblocks__editor">
+          <p className="landings-page__muted">
+            El sello, el medidor y el texto de tienda certificada mantienen contenido y diseño
+            estándar para no debilitar la señal de confianza.
+          </p>
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "purchase_benefits":
+      return (
+        <div className="lblocks__editor">
+          <p className="landings-page__muted">
+            Envío gratis, pago contraentrega y compra garantizada son mensajes fijos.
+          </p>
+          <div className="landings-field">
+            <label className="landings-field__label" htmlFor={`${idPrefix}-note`}>
+              Nota adicional (opcional)
+            </label>
+            <input
+              id={`${idPrefix}-note`}
+              className="landings-field__input"
+              value={textValue(draft, "note")}
+              maxLength={140}
+              placeholder="Escoge más unidades para obtener descuento"
+              onChange={(event) => set("note", event.target.value)}
+            />
+            <FieldError id={`${idPrefix}-note-error`} message={fieldErrors.note} />
+          </div>
+          {accentColorField}
+          {darkModeField}
+        </div>
+      );
+
+    case "spacer":
+      return (
+        <div className="lblocks__editor">
+          <p className="landings-page__muted">
+            Separación vertical estándar. No tiene contenido ni tamaño configurable.
+          </p>
         </div>
       );
 

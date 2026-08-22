@@ -392,6 +392,67 @@ describe("conversion components on the landing", () => {
     expect(screen.queryByText(/Ahorras/)).not.toBeInTheDocument();
   });
 
+  it("rebuilds the legacy price block exactly from three consecutive modular components", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([
+        block({
+          id: 1,
+          block_type: "offer_price",
+          slot_index: 1,
+          config: { compare_at_price: 129900, note: "Escoge más unidades" },
+        }),
+        block({
+          id: 2,
+          block_type: "price_summary",
+          slot_index: 2,
+          order_index: 0,
+          config: { compare_at_price: 129900 },
+        }),
+        block({ id: 3, block_type: "store_trust", slot_index: 2, order_index: 1 }),
+        block({
+          id: 4,
+          block_type: "purchase_benefits",
+          slot_index: 2,
+          order_index: 2,
+          config: { note: "Escoge más unidades" },
+        }),
+      ]),
+    );
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+    const legacy = document.querySelector(".cblock--price");
+    const price = document.querySelector(".cblock--price-price");
+    const trust = document.querySelector(".cblock--price-trust");
+    const benefits = document.querySelector(".cblock--price-benefits");
+    expect(legacy).not.toBeNull();
+    expect(price).toHaveClass("cblock--price-joined-after");
+    expect(trust).toHaveClass("cblock--price-joined-before", "cblock--price-joined-after");
+    expect(benefits).toHaveClass("cblock--price-joined-before");
+    expect(price?.querySelector(".cblock__price-card")?.innerHTML).toBe(
+      legacy?.querySelector(".cblock__price-card")?.innerHTML,
+    );
+    expect(trust?.querySelector(".cblock__trust-badge")?.innerHTML).toBe(
+      legacy?.querySelector(".cblock__trust-badge")?.innerHTML,
+    );
+    expect(benefits?.querySelector(".cblock__price-info")?.innerHTML).toBe(
+      legacy?.querySelector(".cblock__price-info")?.innerHTML,
+    );
+  });
+
+  it("renders the standard spacer as an empty standalone component", async () => {
+    vi.mocked(publicApi.getLanding).mockResolvedValue(
+      makeLanding([block({ block_type: "spacer", slot_index: 1 })]),
+    );
+    renderPage();
+
+    await screen.findByAltText("Banner 1");
+    const spacer = document.querySelector(".cblock--spacer");
+    expect(spacer).toBeInTheDocument();
+    expect(spacer).toBeEmptyDOMElement();
+    expect(spacer).toHaveAttribute("aria-hidden", "true");
+  });
+
   it("renders FAQ answers in collapsed native disclosures", async () => {
     vi.mocked(publicApi.getLanding).mockResolvedValue(
       makeLanding([
