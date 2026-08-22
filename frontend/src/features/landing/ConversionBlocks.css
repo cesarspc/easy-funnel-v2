@@ -361,7 +361,7 @@
 }
 
 .cblock--spacer {
-  height: var(--lp-space-lg);
+  height: 60px;
   padding: 0;
   background: var(--lp-bg);
 }
