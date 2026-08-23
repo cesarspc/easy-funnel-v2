@@ -465,7 +465,7 @@ export function LandingPage(): JSX.Element {
       <Modal
         isOpen={formState === "open"}
         onClose={() => setFormState("closed")}
-        title="Completa tu pedido"
+        title="Completa tu pedido - Envio GRATIS"
         subtitle="Paga cuando recibas"
         style={formAccentStyle}
       >
