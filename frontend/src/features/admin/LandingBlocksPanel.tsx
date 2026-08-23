@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { ApiError, landingsApi } from "../../api";
-import type { ConversionBlockType, LandingBanner, LandingBlock } from "../../api";
+import type { ConversionBlockType, LandingBlock } from "../../api";
 import "./LandingBlocksPanel.css";
 
 export interface LandingBlocksPanelProps {
@@ -27,10 +27,8 @@ export interface LandingBlocksPanelProps {
   sequenceSignature: string;
   /** Resolved landing-level block accent, used when a block has no override. */
   defaultAccentColor: string;
-  /** Visible quantity count, used only to show the matching image selectors. */
+  /** Visible quantity count, used only to show the matching upload rows. */
   offerCount: number;
-  /** Existing R2-backed Landing images available as optional offer artwork. */
-  banners: LandingBanner[];
 }
 
 interface BlockTypeMeta {
@@ -162,7 +160,7 @@ function defaultDraft(type: ConversionBlockType): Draft {
     case "offer_price":
       return { compare_at_price: "", note: "", accent_color: "" };
     case "offers_price":
-      return { title: "Elige la oferta ideal para ti", image_banner_ids: {}, accent_color: "" };
+      return { title: "Elige la oferta ideal para ti", accent_color: "" };
     case "price_summary":
       return { compare_at_price: "", accent_color: "" };
     case "store_trust":
@@ -285,8 +283,6 @@ interface EditorProps {
   fieldErrors: Record<string, string>;
   /** Current form accent color for the color picker default. */
   defaultAccentColor: string;
-  offerCount: number;
-  banners: LandingBanner[];
 }
 
 function FieldError({ id, message }: { id: string; message?: string }): JSX.Element | null {
@@ -447,8 +443,6 @@ function ContentEditor({
   idPrefix,
   fieldErrors,
   defaultAccentColor,
-  offerCount,
-  banners,
 }: EditorProps): JSX.Element {
   function set(key: string, value: unknown) {
     onChange({ ...draft, [key]: value });
@@ -1032,10 +1026,6 @@ function ContentEditor({
       );
 
     case "offers_price": {
-      const selected =
-        typeof draft.image_banner_ids === "object" && draft.image_banner_ids !== null
-          ? (draft.image_banner_ids as Record<string, unknown>)
-          : {};
       return (
         <div className="lblocks__editor">
           <p className="landings-page__muted">
@@ -1043,46 +1033,10 @@ function ContentEditor({
             configuradas en esta landing.
           </p>
           {titleField}
-          <fieldset className="lblocks__fieldset">
-            <legend className="landings-field__label">Imagen opcional por oferta</legend>
-            {Array.from({ length: offerCount }, (_, index) => index + 1).map((quantity) => (
-              <div className="landings-field" key={quantity}>
-                <label
-                  className="landings-field__label"
-                  htmlFor={`${idPrefix}-offer-image-${quantity}`}
-                >
-                  Oferta de {quantity} {quantity === 1 ? "unidad" : "unidades"}
-                </label>
-                <select
-                  id={`${idPrefix}-offer-image-${quantity}`}
-                  className="landings-field__input"
-                  value={typeof selected[String(quantity)] === "number" ? String(selected[String(quantity)]) : ""}
-                  onChange={(event) => {
-                    const next = { ...selected };
-                    if (event.target.value) next[String(quantity)] = Number(event.target.value);
-                    else delete next[String(quantity)];
-                    set("image_banner_ids", next);
-                  }}
-                >
-                  <option value="">Sin imagen</option>
-                  {banners.map((banner, index) => (
-                    <option key={banner.id} value={banner.id}>
-                      Imagen {index + 1}: {banner.alt_text}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-            {banners.length === 0 && (
-              <p className="landings-page__muted">
-                Sube al menos una imagen a la landing para poder asociarla a una oferta.
-              </p>
-            )}
-            <FieldError
-              id={`${idPrefix}-image-banner-ids-error`}
-              message={fieldErrors.image_banner_ids}
-            />
-          </fieldset>
+          <p className="landings-page__muted">
+            Después de agregar el componente podrás subir una imagen independiente para cada
+            oferta. Todas se recortan y optimizan automáticamente a 500 × 500 px.
+          </p>
           {accentColorField}
           {darkModeField}
         </div>
@@ -1403,12 +1357,127 @@ function VideoAssetsEditor({
   );
 }
 
+function OfferImagesEditor({
+  landingId,
+  block,
+  offerCount,
+  onChanged,
+  onError,
+}: {
+  landingId: number;
+  block: LandingBlock;
+  offerCount: number;
+  onChanged: (blocks: LandingBlock[]) => void;
+  onError: (message: string) => void;
+}): JSX.Element {
+  const [files, setFiles] = useState<Record<number, File | null>>({});
+  const [busyQuantity, setBusyQuantity] = useState<number | null>(null);
+  const images = block.offer_images ?? [];
+
+  async function upload(event: React.FormEvent, quantity: number) {
+    event.preventDefault();
+    const file = files[quantity];
+    if (!file) return;
+    setBusyQuantity(quantity);
+    try {
+      const response = await landingsApi.uploadBlockOfferImage(
+        landingId,
+        block.id,
+        quantity,
+        file,
+      );
+      onChanged(response.blocks);
+      setFiles((current) => ({ ...current, [quantity]: null }));
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : "No se pudo subir la imagen.");
+    } finally {
+      setBusyQuantity(null);
+    }
+  }
+
+  async function remove(quantity: number) {
+    setBusyQuantity(quantity);
+    try {
+      const response = await landingsApi.deleteBlockOfferImage(landingId, block.id, quantity);
+      onChanged(response.blocks);
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : "No se pudo eliminar la imagen.");
+    } finally {
+      setBusyQuantity(null);
+    }
+  }
+
+  return (
+    <div className="lblocks__offer-images">
+      <p className="landings-field__label">Imágenes de ofertas</p>
+      <p className="landings-page__muted">
+        Una por oferta · JPEG, PNG o WebP · máximo 10 MB. Se recorta al centro y se optimiza a
+        500 × 500 px. Estas imágenes no se incluyen en plantillas.
+      </p>
+      <div className="lblocks__offer-image-list">
+        {Array.from({ length: offerCount }, (_, index) => index + 1).map((quantity) => {
+          const image = images.find((item) => item.quantity === quantity);
+          const busy = busyQuantity === quantity;
+          return (
+            <form key={quantity} onSubmit={(event) => void upload(event, quantity)}>
+              {image ? (
+                <img
+                  src={image.url}
+                  alt={`Vista previa oferta de ${quantity} ${quantity === 1 ? "unidad" : "unidades"}`}
+                  width={image.width}
+                  height={image.height}
+                />
+              ) : (
+                <div className="lblocks__offer-image-placeholder" aria-hidden="true">500 × 500</div>
+              )}
+              <div>
+                <strong>Oferta de {quantity} {quantity === 1 ? "unidad" : "unidades"}</strong>
+                <input
+                  className="landings-field__input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={busyQuantity !== null}
+                  aria-label={`Imagen para oferta de ${quantity} ${quantity === 1 ? "unidad" : "unidades"}`}
+                  onChange={(event) =>
+                    setFiles((current) => ({
+                      ...current,
+                      [quantity]: event.target.files?.[0] ?? null,
+                    }))
+                  }
+                />
+              </div>
+              <div className="lblocks__offer-image-actions">
+                <button
+                  type="submit"
+                  className="landings-table__action landings-table__action--primary"
+                  disabled={busyQuantity !== null || !files[quantity]}
+                >
+                  {busy ? "Optimizando…" : image ? "Reemplazar" : "Subir"}
+                </button>
+                {image && (
+                  <button
+                    type="button"
+                    className="landings-table__action landings-table__action--danger"
+                    disabled={busyQuantity !== null}
+                    onClick={() => void remove(quantity)}
+                  >
+                    Eliminar
+                  </button>
+                )}
+              </div>
+            </form>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function LandingBlocksPanel({
   landingId,
   sequenceSignature,
   defaultAccentColor,
   offerCount,
-  banners,
 }: LandingBlocksPanelProps): JSX.Element {
   const [blocks, setBlocks] = useState<LandingBlock[]>([]);
   const [slots, setSlots] = useState<string[]>([]);
@@ -1722,8 +1791,6 @@ export function LandingBlocksPanel({
                     // the same problem twice.
                     fieldErrors={editingId === block.id ? fieldErrors : {}}
                     defaultAccentColor={defaultAccentColor}
-                    offerCount={offerCount}
-                    banners={banners}
                   />
                   <button
                     type="button"
@@ -1737,6 +1804,15 @@ export function LandingBlocksPanel({
                     <VideoAssetsEditor
                       landingId={landingId}
                       block={block}
+                      onChanged={setBlocks}
+                      onError={setError}
+                    />
+                  )}
+                  {block.block_type === "offers_price" && (
+                    <OfferImagesEditor
+                      landingId={landingId}
+                      block={block}
+                      offerCount={offerCount}
                       onChanged={setBlocks}
                       onError={setError}
                     />
@@ -1802,8 +1878,6 @@ export function LandingBlocksPanel({
           idPrefix="new-block"
           fieldErrors={editingId === null ? fieldErrors : {}}
           defaultAccentColor={defaultAccentColor}
-          offerCount={offerCount}
-          banners={banners}
         />
 
         <button

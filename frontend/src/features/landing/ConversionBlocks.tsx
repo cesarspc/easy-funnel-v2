@@ -43,7 +43,7 @@
  *   on a small screen. The selling price always comes from the product, so
  *   it cannot disagree with what the order charges.
  * - `offers_price` — compares the Landing's complete one-to-three server-priced
- *   offer list, with optional responsive artwork selected from its banners.
+ *   offer list, with an optional dedicated 500×500 image per quantity.
  * - `spacer` — inserts one fixed vertical rhythm unit between components.
  * - `included_benefits` — what's included in the purchase, with optional value
  *   and tag per item, because showing the total value the buyer gets drives
@@ -64,9 +64,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type JSX } from "react";
 import type {
   AccentPalette,
-  Banner,
   ConversionBlock,
   ConversionBlockConfig,
+  OfferImageAsset,
   PublicLandingOffer,
 } from "../../api";
 import { Cta } from "../../components/Cta";
@@ -85,8 +85,6 @@ export interface ConversionBlockViewProps {
   productPrice: number;
   /** Resolved server-priced quantity offers used by `offers_price`. */
   offers?: PublicLandingOffer[];
-  /** Landing images referenced by optional per-offer banner IDs. */
-  banners?: Banner[];
   /** Landing-level dark mode default. Individual blocks override via config.dark_mode. */
   blocksDarkMode?: boolean;
   /** Landing-level block accent. A block's own palette overrides it. */
@@ -1369,60 +1367,40 @@ function Guarantee({
  * Renders one placed component. An unknown type renders nothing rather than
  * throwing, so a payload from a newer backend degrades to the page without it.
  */
-function OfferArtwork({ banner }: { banner: Banner }): JSX.Element | null {
-  const variants = [...banner.variants].sort((a, b) => a.width - b.width);
-  const webp = variants.filter((variant) => variant.format === "webp");
-  const jpeg = variants.filter((variant) => variant.format === "jpeg");
-  const fallback = jpeg[jpeg.length - 1] ?? variants[variants.length - 1];
-  if (!fallback) return null;
-  const webpSrcSet = webp.map((variant) => `${variant.url} ${variant.width}w`).join(", ");
-  const jpegSrcSet = jpeg.map((variant) => `${variant.url} ${variant.width}w`).join(", ");
+function OfferArtwork({ image, alt }: { image: OfferImageAsset; alt: string }): JSX.Element {
   return (
-    <picture className="cblock__offers-artwork">
-      {webpSrcSet && (
-        <source type="image/webp" srcSet={webpSrcSet} sizes="(max-width: 479px) 100vw, 220px" />
-      )}
+    <div className="cblock__offers-artwork">
       <img
-        src={fallback.url}
-        srcSet={jpegSrcSet || undefined}
-        sizes="(max-width: 479px) 100vw, 220px"
-        alt={banner.alt_text}
-        width={fallback.width}
-        height={fallback.height}
+        src={image.url}
+        alt={alt}
+        width={image.width}
+        height={image.height}
         loading="lazy"
         decoding="async"
       />
-    </picture>
+    </div>
   );
 }
 
 function OffersPrice({
   config,
   offers,
-  banners,
+  images,
   palette,
 }: {
   config: ConversionBlockConfig;
   offers: PublicLandingOffer[];
-  banners: Banner[];
+  images: OfferImageAsset[];
   palette: AccentPalette | null;
 }): JSX.Element | null {
   const visibleOffers = offers.filter((offer) => offer.quantity >= 1 && offer.quantity <= 3);
   if (visibleOffers.length === 0) return null;
-  const rawImageIds = (config as LooseConfig).image_banner_ids;
-  const imageIds =
-    typeof rawImageIds === "object" && rawImageIds !== null
-      ? (rawImageIds as Record<string, unknown>)
-      : {};
-
   return (
     <section className="cblock cblock--offers-price" style={accentStyle(palette)} aria-label="Ofertas y precios">
       <BlockHeading title={asOptionalString(config.title) ?? "Elige la oferta ideal para ti"} />
       <div className={`cblock__offers-grid cblock__offers-grid--${visibleOffers.length}`}>
         {visibleOffers.map((offer) => {
-          const bannerId = imageIds[String(offer.quantity)];
-          const banner =
-            typeof bannerId === "number" ? banners.find((item) => item.id === bannerId) : undefined;
+          const image = images.find((item) => item.quantity === offer.quantity);
           const reference =
             offer.compare_at_price && offer.compare_at_price > offer.total
               ? offer.compare_at_price
@@ -1431,10 +1409,10 @@ function OffersPrice({
                 : null;
           return (
             <article
-              className={`cblock__offer-card${banner ? " cblock__offer-card--with-image" : ""}`}
+              className={`cblock__offer-card${image ? " cblock__offer-card--with-image" : ""}`}
               key={offer.quantity}
             >
-              {banner && <OfferArtwork banner={banner} />}
+              {image && <OfferArtwork image={image} alt={offer.label} />}
               <div className="cblock__offer-body">
                 <div className="cblock__offer-heading">
                   <h3>{offer.label}</h3>
@@ -1468,7 +1446,6 @@ export function ConversionBlockView({
   block,
   productPrice,
   offers = [],
-  banners = [],
   blocksDarkMode = false,
   blocksAccentPalette = null,
   ctaLabel,
@@ -1513,7 +1490,14 @@ export function ConversionBlockView({
       content = <OfferPrice config={config} productPrice={productPrice} palette={palette} />;
       break;
     case "offers_price":
-      content = <OffersPrice config={config} offers={offers} banners={banners} palette={palette} />;
+      content = (
+        <OffersPrice
+          config={config}
+          offers={offers}
+          images={block.offer_images ?? []}
+          palette={palette}
+        />
+      );
       break;
     case "price_summary":
       content = (

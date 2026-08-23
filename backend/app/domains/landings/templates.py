@@ -38,7 +38,6 @@ from typing import Any
 from app.domains.landings.accent_color import normalize_accent_color
 from app.domains.landings.banner_ordering import MAX_BANNERS_PER_LANDING
 from app.domains.landings.blocks import (
-    BLOCK_OFFERS_PRICE,
     MAX_BLOCKS_PER_LANDING,
     MAX_ORDER_INDEX,
     validate_block_config,
@@ -187,11 +186,6 @@ def snapshot_blocks(blocks: list[Any]) -> list[dict[str, Any]]:
     payload: list[dict[str, Any]] = []
     for block in blocks:
         config = block.config if isinstance(block.config, dict) else {}
-        # Offer artwork points at banner rows owned by this Landing. Templates
-        # intentionally exclude images, so carrying those ids could attach an
-        # unrelated target banner that happens to reuse the same database id.
-        if block.blockType == BLOCK_OFFERS_PRICE:
-            config = {key: value for key, value in config.items() if key != "image_banner_ids"}
         payload.append(
             {
                 "block_type": block.blockType,

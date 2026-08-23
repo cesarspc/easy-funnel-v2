@@ -106,6 +106,7 @@ class ConversionBlockResponse(BaseModel):
     config: dict
     accent_palette: AccentPaletteResponse | None = None
     videos: list[dict] = []
+    offer_images: list[dict] = []
 
 
 class LandingOfferResponse(BaseModel):
@@ -222,7 +223,10 @@ async def get_public_landing(
             "blocks": {
                 "where": {"enabled": True},
                 "order_by": [{"slotIndex": "asc"}, {"orderIndex": "asc"}],
-                "include": {"videos": {"order_by": {"orderIndex": "asc"}}},
+                "include": {
+                    "videos": {"order_by": {"orderIndex": "asc"}},
+                    "offerImages": {"order_by": {"quantity": "asc"}},
+                },
             },
             "banners": {
                 "include": {
@@ -361,6 +365,16 @@ async def get_public_landing(
                     "caption": video.caption,
                 }
                 for video in (getattr(block, "videos", None) or [])
+            ],
+            offer_images=[
+                {
+                    "id": image.id,
+                    "quantity": image.quantity,
+                    "url": object_public_url(settings.r2_public_host, image.imageObjectKey),
+                    "width": image.width,
+                    "height": image.height,
+                }
+                for image in (getattr(block, "offerImages", None) or [])
             ],
         )
         # Prisma relations are opt-in; `or []` keeps a payload without the

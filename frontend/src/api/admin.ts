@@ -7,6 +7,7 @@ import type {
   ConversionBlockType,
   CtaBandStyle,
   CtaColorMode,
+  OfferImageAsset,
   ProductVariantOption,
 } from "./public";
 
@@ -504,6 +505,7 @@ export interface LandingBlock {
   enabled: boolean;
   config: Record<string, unknown>;
   videos?: LandingBlockVideo[];
+  offer_images?: OfferImageAsset[];
 }
 
 export interface LandingBlockVideo {
@@ -701,6 +703,30 @@ export const landingsApi = {
   ): Promise<LandingBlockListResponse> => {
     return apiClient.delete<LandingBlockListResponse>(
       `/admin/landings/${id}/blocks/${blockId}/videos/${videoId}`,
+    );
+  },
+
+  uploadBlockOfferImage: async (
+    id: number,
+    blockId: number,
+    quantity: number,
+    file: File,
+  ): Promise<LandingBlockListResponse> => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient.postForm<LandingBlockListResponse>(
+      `/admin/landings/${id}/blocks/${blockId}/offer-images/${quantity}`,
+      form,
+    );
+  },
+
+  deleteBlockOfferImage: async (
+    id: number,
+    blockId: number,
+    quantity: number,
+  ): Promise<LandingBlockListResponse> => {
+    return apiClient.delete<LandingBlockListResponse>(
+      `/admin/landings/${id}/blocks/${blockId}/offer-images/${quantity}`,
     );
   },
 };

@@ -108,6 +108,15 @@ export interface ConversionBlock {
    */
   accent_palette: AccentPalette | null;
   videos?: VideoAsset[];
+  offer_images?: OfferImageAsset[];
+}
+
+export interface OfferImageAsset {
+  id: number;
+  quantity: number;
+  url: string;
+  width: number;
+  height: number;
 }
 
 export interface VideoAsset {

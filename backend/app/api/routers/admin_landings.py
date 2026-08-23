@@ -53,6 +53,10 @@ from app.services.landing_template_service import (
     LandingTemplateService,
     TemplateNotFoundError,
 )
+from app.services.offer_image_upload_service import (
+    OfferImageNotFoundError,
+    OfferImageUploadService,
+)
 from app.services.video_upload_service import VideoNotFoundError, VideoUploadService
 from app.storage.dependencies import get_r2_client
 from app.storage.r2_client import R2Client, object_public_url, variant_public_url
@@ -189,6 +193,14 @@ class BannerOrderRequest(BaseModel):
     banner_ids: list[int]
 
 
+class OfferImageResponse(BaseModel):
+    id: int
+    quantity: int
+    url: str
+    width: int
+    height: int
+
+
 class LandingBlockResponse(BaseModel):
     """One placed conversion component.
 
@@ -204,6 +216,7 @@ class LandingBlockResponse(BaseModel):
     enabled: bool
     config: dict
     videos: list[VideoAssetResponse] = []
+    offer_images: list[OfferImageResponse] = []
 
 
 class VideoAssetResponse(BaseModel):
@@ -674,14 +687,20 @@ async def load_landing_template(
     db = get_prisma()
     service = LandingTemplateService(db)
     current_blocks = await db.landingblock.find_many(
-        where={"landingId": landing_id}, include={"videos": True}
+        where={"landingId": landing_id}, include={"videos": True, "offerImages": True}
     )
-    replaced_video_keys = [
+    replaced_media_keys = [
         key
         for block in current_blocks
         for video in (getattr(block, "videos", None) or [])
         for key in (video.videoObjectKey, video.posterObjectKey)
     ]
+    replaced_media_keys.extend(
+        key
+        for block in current_blocks
+        for image in (getattr(block, "offerImages", None) or [])
+        for key in (image.sourceObjectKey, image.imageObjectKey)
+    )
     try:
         await service.load_template(landing_id, request.template_id, actor=admin_user.subject)
     except LandingNotFoundError as exc:
@@ -691,7 +710,7 @@ async def load_landing_template(
     except LandingValidationError as exc:
         raise _field_error(exc.field, exc.message) from exc
 
-    for key in replaced_video_keys:
+    for key in replaced_media_keys:
         with contextlib.suppress(Exception):
             await r2.delete(key)
 
@@ -739,6 +758,18 @@ def _to_block_response(block, public_host: str) -> LandingBlockResponse:  # type
                 getattr(block, "videos", None) or [], key=lambda item: item.orderIndex
             )
         ],
+        offer_images=[
+            OfferImageResponse(
+                id=image.id,
+                quantity=image.quantity,
+                url=object_public_url(public_host, image.imageObjectKey),
+                width=image.width,
+                height=image.height,
+            )
+            for image in sorted(
+                getattr(block, "offerImages", None) or [], key=lambda item: item.quantity
+            )
+        ],
     )
 
 
@@ -747,7 +778,7 @@ async def _block_list(landing_id: int) -> LandingBlockListResponse:
     service = LandingBlockService(db)
     blocks = await db.landingblock.find_many(
         where={"landingId": landing_id},
-        include={"videos": True},
+        include={"videos": True, "offerImages": True},
         order=[{"slotIndex": "asc"}, {"orderIndex": "asc"}],
     )
     settings = get_settings()
@@ -850,6 +881,66 @@ async def create_landing_block(
     return await _block_list(landing_id)
 
 
+@router.post(
+    "/{landing_id}/blocks/{block_id}/offer-images/{quantity}",
+    response_model=LandingBlockListResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_block_offer_image(
+    landing_id: int,
+    block_id: int,
+    quantity: int,
+    file: UploadFile = File(...),  # noqa: B008
+    r2: R2Client = Depends(get_r2_client),  # noqa: B008
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
+) -> LandingBlockListResponse:
+    raw_bytes = await file.read(SOURCE_MAX_BYTES + 1)
+    if len(raw_bytes) > SOURCE_MAX_BYTES:
+        raise _field_error(
+            "file", f"File exceeds the maximum size of {SOURCE_MAX_BYTES} bytes (10 MiB)."
+        )
+    try:
+        await OfferImageUploadService(get_prisma(), r2).upload(
+            landing_id,
+            block_id,
+            quantity,
+            raw_bytes=raw_bytes,
+            actor=admin_user.subject,
+        )
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing or component not found") from exc
+    except (LandingValidationError, ImageValidationError) as exc:
+        raise _field_error(exc.field, exc.message) from exc
+    except (ImagePipelineUnavailableError, OpaqueKeyGenerationError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_UPLOAD_UNAVAILABLE_MESSAGE,
+        ) from exc
+    return await _block_list(landing_id)
+
+
+@router.delete(
+    "/{landing_id}/blocks/{block_id}/offer-images/{quantity}",
+    response_model=LandingBlockListResponse,
+)
+async def delete_block_offer_image(
+    landing_id: int,
+    block_id: int,
+    quantity: int,
+    r2: R2Client = Depends(get_r2_client),  # noqa: B008
+    admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
+) -> LandingBlockListResponse:
+    try:
+        await OfferImageUploadService(get_prisma(), r2).delete(
+            landing_id, block_id, quantity, actor=admin_user.subject
+        )
+    except OfferImageNotFoundError as exc:
+        raise _not_found("Offer image not found") from exc
+    except LandingNotFoundError as exc:
+        raise _not_found("Landing or component not found") from exc
+    return await _block_list(landing_id)
+
+
 @router.patch("/{landing_id}/blocks/order", response_model=LandingBlockListResponse)
 async def reorder_landing_blocks(
     landing_id: int,
@@ -907,12 +998,18 @@ async def delete_landing_block(
     db = get_prisma()
     service = LandingBlockService(db)
     stored = await db.landingblock.find_first(
-        where={"id": block_id, "landingId": landing_id}, include={"videos": True}
+        where={"id": block_id, "landingId": landing_id},
+        include={"videos": True, "offerImages": True},
     )
     removed_video_keys = [
         key
         for video in (getattr(stored, "videos", None) or [])
         for key in (video.videoObjectKey, video.posterObjectKey)
+    ]
+    removed_offer_image_keys = [
+        key
+        for image in (getattr(stored, "offerImages", None) or [])
+        for key in (image.sourceObjectKey, image.imageObjectKey)
     ]
     try:
         await service.delete_block(landing_id, block_id, actor=admin_user.subject)
@@ -921,7 +1018,7 @@ async def delete_landing_block(
     except BlockNotFoundError as exc:
         raise _not_found("Conversion component not found") from exc
 
-    for key in removed_video_keys:
+    for key in [*removed_video_keys, *removed_offer_image_keys]:
         with contextlib.suppress(Exception):
             await r2.delete(key)
 

@@ -378,7 +378,6 @@ export function LandingPage(): JSX.Element {
         block={block}
         productPrice={productPrice}
         offers={visibleOffers}
-        banners={sortedBanners}
         ctaLabel={ctaLabel}
         ctaAnimation={ctaAnimation}
         onActivateCta={handleActivateCta}
@@ -453,7 +452,6 @@ export function LandingPage(): JSX.Element {
             block={block}
             productPrice={productPrice}
             offers={visibleOffers}
-            banners={sortedBanners}
             ctaLabel={ctaLabel}
             ctaAnimation={ctaAnimation}
             onActivateCta={handleActivateCta}

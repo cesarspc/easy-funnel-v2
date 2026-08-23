@@ -384,47 +384,12 @@ def _validate_price_summary(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _validate_offer_image_banner_ids(value: Any) -> dict[str, int]:
-    """Normalize optional offer-to-banner references for quantities 1 through 3.
-
-    The image itself remains owned by the Landing's existing R2 image pipeline.
-    A missing/deleted banner is harmless: the public client simply renders that
-    offer without an image.
-    """
-    if value is None:
-        return {}
-    if not isinstance(value, dict):
-        raise LandingValidationError(
-            "image_banner_ids", "Offer images must be selected by quantity."
-        )
-    normalized: dict[str, int] = {}
-    for raw_quantity, raw_banner_id in value.items():
-        quantity = str(raw_quantity)
-        if quantity not in {"1", "2", "3"}:
-            raise LandingValidationError(
-                "image_banner_ids", "Offer images only support quantities 1 through 3."
-            )
-        if raw_banner_id in (None, ""):
-            continue
-        if (
-            isinstance(raw_banner_id, bool)
-            or not isinstance(raw_banner_id, int)
-            or raw_banner_id <= 0
-        ):
-            raise LandingValidationError(
-                "image_banner_ids", "Each offer image must reference a valid landing image."
-            )
-        normalized[quantity] = raw_banner_id
-    return normalized
-
-
 def _validate_offers_price(config: dict[str, Any]) -> dict[str, Any]:
     """Automatic one-to-three offer comparison sourced from Landing pricing."""
     return {
         "title": _optional_text(
             config.get("title"), field="title", label="Title", maximum=_TITLE_MAX
         ),
-        "image_banner_ids": _validate_offer_image_banner_ids(config.get("image_banner_ids")),
         "accent_color": _optional_accent_color(config),
         "dark_mode": _optional_dark_mode(config),
     }

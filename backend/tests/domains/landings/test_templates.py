@@ -312,16 +312,18 @@ class TestBlockSnapshot:
     def test_empty_landing_snapshots_an_empty_list(self) -> None:
         assert snapshot_blocks([]) == []
 
-    def test_snapshot_drops_offer_images_because_templates_exclude_banners(self) -> None:
+    def test_snapshot_drops_relational_offer_images(self) -> None:
         payload = snapshot_blocks(
             [
                 block_row(
                     blockType=BLOCK_OFFERS_PRICE,
-                    config={"title": "Elige", "image_banner_ids": {"1": 44}},
+                    config={"title": "Elige"},
+                    offerImages=[SimpleNamespace(quantity=1, imageObjectKey="private.webp")],
                 )
             ]
         )
         assert payload[0]["config"] == {"title": "Elige"}
+        assert "offer_images" not in payload[0]
 
     def test_round_trip_preserves_type_placement_and_enabled_state(self) -> None:
         rows = [

@@ -163,6 +163,7 @@ model LandingBlock {
 
   landing    Landing      @relation(fields: [landingId], references: [id])
   videos     VideoAsset[]
+  offerImages OfferImageAsset[]
 
   @@unique([landingId, slotIndex, orderIndex], map: "idx_landing_blocks_slot")
   @@index([landingId, slotIndex, orderIndex], map: "idx_landing_blocks_render")
@@ -173,8 +174,8 @@ model LandingBlock {
 /// Administrator can apply a funnel that already converts to the next product
 /// instead of re-entering every field.
 ///
-/// **Images are deliberately not part of a template.** Banners are the one
-/// piece of a landing that is genuinely per-product, and they are also what
+/// **Images are deliberately not part of a template.** Banners and offer-card
+/// uploads are per-product; banners are also what
 /// `config`'s CTA positions and `blocks`' slot indices are indices *into*: the
 /// public page renders banners with CTA bands interleaved, so the same
 /// `slot_index` means a different place in a sequence of a different length.
@@ -255,6 +256,30 @@ model ImageVariant {
 
   @@unique([imageAssetId, width, format], map: "idx_variants_asset")
   @@map("image_variants")
+}
+
+/// One independently uploaded image for a visible quantity in an
+/// `offers_price` block. The public output is always a center-cropped 500×500
+/// WebP; the private source is retained in R2 for the image lifecycle. Because
+/// this relation is not block config, Landing templates never copy it.
+model OfferImageAsset {
+  id              BigInt   @id @default(autoincrement())
+  landingBlockId  BigInt   @map("landing_block_id")
+  quantity        Int
+  opaqueKey       String   @unique @map("opaque_key")
+  sourceObjectKey String   @map("source_object_key")
+  imageObjectKey  String   @map("image_object_key")
+  width           Int      @default(500)
+  height          Int      @default(500)
+  byteSize        BigInt   @map("byte_size")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  landingBlock LandingBlock @relation(fields: [landingBlockId], references: [id], onDelete: Cascade)
+
+  @@unique([landingBlockId, quantity], map: "idx_offer_images_block_quantity")
+  @@index([landingBlockId, quantity], map: "idx_offer_images_render")
+  @@map("offer_image_assets")
 }
 
 // ---------------------------------------------------------------------------

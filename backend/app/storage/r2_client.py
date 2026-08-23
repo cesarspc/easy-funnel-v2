@@ -4,6 +4,7 @@ Reads connection settings from `app.core.settings.Settings`. Object key
 layout follows design.md -> Deployment and Operations Design:
     /originals/{opaque_key}.{ext}
     /variants/{opaque_key}/{width}.{webp|jpg}
+    /offer-images/{opaque_key}/500.webp
 """
 
 from __future__ import annotations
@@ -58,6 +59,10 @@ def video_object_key(opaque_key: str) -> str:
 
 def video_poster_object_key(opaque_key: str) -> str:
     return f"videos/{opaque_key}/poster.webp"
+
+
+def offer_image_object_key(opaque_key: str) -> str:
+    return f"offer-images/{opaque_key}/500.webp"
 
 
 def object_public_url(public_host: str, object_key: str) -> str:

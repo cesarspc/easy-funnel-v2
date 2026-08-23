@@ -678,7 +678,7 @@
   overflow: hidden;
   border-radius: 10px;
   background: var(--lp-hairline);
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1;
 }
 
 .cblock__offers-artwork img {
@@ -761,9 +761,10 @@
   }
 
   .cblock__offers-artwork {
-    height: calc(100% - 16px);
+    align-self: start;
+    height: auto;
     margin: 8px 0 8px 8px;
-    aspect-ratio: auto;
+    aspect-ratio: 1;
   }
 }
 

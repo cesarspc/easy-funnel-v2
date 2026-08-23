@@ -9,7 +9,6 @@
 
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LandingBlocksPanel } from "./LandingBlocksPanel";
 import { ApiError, landingsApi } from "../../api";
@@ -25,6 +24,8 @@ vi.mock("../../api", async () => {
       updateBlock: vi.fn(),
       reorderBlocks: vi.fn(),
       deleteBlock: vi.fn(),
+      uploadBlockOfferImage: vi.fn(),
+      deleteBlockOfferImage: vi.fn(),
     },
   };
 });
@@ -77,17 +78,13 @@ const ASSURANCE: LandingBlock = {
   config: { note: "Cobertura nacional" },
 };
 
-function renderPanel({ offerCount = 3, banners = [] }: Partial<Pick<
-  ComponentProps<typeof LandingBlocksPanel>,
-  "offerCount" | "banners"
->> = {}) {
+function renderPanel({ offerCount = 3 }: { offerCount?: number } = {}) {
   return render(
     <LandingBlocksPanel
       landingId={7}
       sequenceSignature="3:1,2,3"
       defaultAccentColor="#1a7a4c"
       offerCount={offerCount}
-      banners={banners}
     />,
   );
 }
@@ -184,26 +181,36 @@ describe("LandingBlocksPanel", () => {
     expect((payload.config.items as unknown[]).length).toBe(1);
   });
 
-  it("offers one optional landing-image selector per visible offer", async () => {
+  it("offers one dedicated upload per visible offer after the block exists", async () => {
     const user = userEvent.setup();
-    renderPanel({
-      offerCount: 2,
-      banners: [
-        {
-          id: 91,
-          alt_text: "Combo familiar",
-          order_index: 0,
-          image_asset_id: 8,
-          image_status: "complete",
-          variants: [],
-        },
-      ],
+    const offersBlock: LandingBlock = {
+      id: 77,
+      block_type: "offers_price",
+      slot_index: 1,
+      order_index: 0,
+      enabled: true,
+      config: { title: "Elige tu oferta" },
+      offer_images: [],
+    };
+    vi.mocked(landingsApi.listBlocks).mockResolvedValue(response([offersBlock]));
+    vi.mocked(landingsApi.uploadBlockOfferImage).mockResolvedValue({
+      ...response([{ ...offersBlock, offer_images: [
+        { id: 9, quantity: 1, url: "https://images.test/9.webp", width: 500, height: 500 },
+      ] }]),
     });
+    renderPanel({ offerCount: 2 });
 
-    await user.selectOptions(await screen.findByLabelText("Componente"), "offers_price");
-    expect(screen.getByLabelText("Oferta de 1 unidad")).toHaveTextContent("Combo familiar");
-    expect(screen.getByLabelText("Oferta de 2 unidades")).toHaveTextContent("Combo familiar");
-    expect(screen.queryByLabelText("Oferta de 3 unidades")).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Editar contenido" }));
+    const first = screen.getByLabelText("Imagen para oferta de 1 unidad");
+    expect(screen.getByLabelText("Imagen para oferta de 2 unidades")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Imagen para oferta de 3 unidades")).not.toBeInTheDocument();
+
+    const file = new File(["image"], "combo.png", { type: "image/png" });
+    await user.upload(first, file);
+    await user.click(screen.getAllByRole("button", { name: "Subir" })[0]);
+    await waitFor(() =>
+      expect(landingsApi.uploadBlockOfferImage).toHaveBeenCalledWith(7, 77, 1, file),
+    );
   });
 
   it("creates the standard spacer without editable presentation values", async () => {

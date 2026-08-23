@@ -95,11 +95,20 @@ describe("conversion components on the landing", () => {
     expect(document.querySelectorAll(".cblock")).toHaveLength(0);
   });
 
-  it("renders configured offers, calculated discounts, and an optional landing image", async () => {
+  it("renders configured offers, calculated discounts, and a dedicated offer image", async () => {
     const landing = makeLanding([
       block({
         block_type: "offers_price",
-        config: { title: "Escoge tu combo", image_banner_ids: { "2": 1 } },
+        config: { title: "Escoge tu combo" },
+        offer_images: [
+          {
+            id: 44,
+            quantity: 2,
+            url: "https://images.example.test/offers/44/500.webp",
+            width: 500,
+            height: 500,
+          },
+        ],
       }),
     ]);
     landing.offers = [
@@ -134,7 +143,11 @@ describe("conversion components on the landing", () => {
     expect(screen.getByText("Combo x2")).toBeInTheDocument();
     expect(screen.getByText("-10%")).toBeInTheDocument();
     expect(screen.getByText(/Ahorras/)).toHaveTextContent("17.980");
-    expect(screen.getAllByAltText("Banner 1")).toHaveLength(2);
+    expect(screen.getByAltText("Combo x2")).toHaveAttribute(
+      "src",
+      "https://images.example.test/offers/44/500.webp",
+    );
+    expect(screen.queryByAltText("Una unidad")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".cblock__offer-card")).toHaveLength(2);
   });
 

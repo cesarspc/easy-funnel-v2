@@ -10,9 +10,13 @@ disabled component never reaches a visitor.
 
 from __future__ import annotations
 
+import io
+
 import pytest
 from app.domains.videos import OptimizedVideo
+from PIL import Image
 
+from tests.domains.images.conftest import make_image_bytes
 from tests.e2e.conftest import CodFlowHarness
 
 pytestmark = pytest.mark.e2e
@@ -127,6 +131,59 @@ class TestPlacement:
         )
         assert deleted.status_code == 200
         assert deleted.json()["blocks"][0]["videos"] == []
+        assert cod_flow.r2.objects == {}
+
+    async def test_uploads_replaces_serves_and_deletes_one_image_per_offer(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        landing = await _seed_three_banner_landing(cod_flow)
+        headers = cod_flow.admin_headers()
+        created = await cod_flow.client.post(
+            f"/api/admin/landings/{landing.landing_id}/blocks",
+            json={
+                "block_type": "offers_price",
+                "slot_index": 2,
+                "config": {"title": "Elige tu combo"},
+            },
+            headers=headers,
+        )
+        block_id = created.json()["blocks"][0]["id"]
+
+        first = await cod_flow.client.post(
+            f"/api/admin/landings/{landing.landing_id}/blocks/{block_id}/offer-images/2",
+            files={"file": ("wide.png", make_image_bytes(1200, 480, format_="PNG"), "image/png")},
+            headers=headers,
+        )
+
+        assert first.status_code == 201
+        image = first.json()["blocks"][0]["offer_images"][0]
+        assert image["quantity"] == 2
+        assert (image["width"], image["height"]) == (500, 500)
+        output_key = next(key for key in cod_flow.r2.objects if key.startswith("offer-images/"))
+        decoded = Image.open(io.BytesIO(cod_flow.r2.objects[output_key]))
+        decoded.load()
+        assert decoded.format == "WEBP"
+        assert decoded.size == (500, 500)
+        old_keys = set(cod_flow.r2.objects)
+
+        replaced = await cod_flow.client.post(
+            f"/api/admin/landings/{landing.landing_id}/blocks/{block_id}/offer-images/2",
+            files={"file": ("tall.jpg", make_image_bytes(480, 900), "image/jpeg")},
+            headers=headers,
+        )
+        assert replaced.status_code == 201
+        assert len(replaced.json()["blocks"][0]["offer_images"]) == 1
+        assert old_keys.isdisjoint(cod_flow.r2.objects)
+
+        public = await cod_flow.client.get(f"/api/public/landings/{landing.slug}")
+        assert public.json()["blocks"][0]["offer_images"][0]["quantity"] == 2
+
+        deleted = await cod_flow.client.delete(
+            f"/api/admin/landings/{landing.landing_id}/blocks/{block_id}/offer-images/2",
+            headers=headers,
+        )
+        assert deleted.status_code == 200
+        assert deleted.json()["blocks"][0]["offer_images"] == []
         assert cod_flow.r2.objects == {}
 
     async def test_places_components_in_two_slots_and_reports_them_in_render_order(
