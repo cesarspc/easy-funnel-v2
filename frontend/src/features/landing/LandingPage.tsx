@@ -175,7 +175,7 @@ export function LandingPage(): JSX.Element {
           <p className="lp-page__state-title">¡Pedido recibido!</p>
           <p className="lp-page__state-text">
             Pagas en efectivo cuando el mensajero entregue tu pedido. Te contactaremos
-            para confirmar la entrega.
+            para confirmar la entrega. 
           </p>
         </div>
       </div>

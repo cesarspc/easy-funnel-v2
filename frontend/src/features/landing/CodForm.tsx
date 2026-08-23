@@ -150,7 +150,7 @@ function validateField(field: keyof CodFormValues, raw: string): string | undefi
       const digits = value.replace(/\D/g, "").replace(/^57/, "");
       if (!digits) return "Escribe tu número de celular para coordinar la entrega.";
       if (digits.length !== 10 || !digits.startsWith("3")) {
-        return "El celular debe tener 10 dígitos y empezar por 3. Ejemplo: 300 123 4567.";
+        return "El celular debe tener 10 dígitos y empezar por 3. Ejemplo: 3001234567.";
       }
       return undefined;
     }
@@ -493,14 +493,14 @@ export function CodForm({
 
       <FormField
         name="phone"
-        label="Número de celular"
+        label="Celular / WhatsApp"
         description=""
         type="tel"
         inputMode="numeric"
         autoComplete="tel-national"
         enterKeyHint="next"
         prefixText="+57"
-        placeholder="300 123 4567"
+        placeholder="Ej. 3001234567"
         maxLength={14}
         required
         value={values.phone}
@@ -566,7 +566,7 @@ export function CodForm({
         description=""
         autoComplete="address-line1"
         enterKeyHint="next"
-        placeholder="Calle 10 # 43-25, barrio Poblado"
+        placeholder="Ej. Calle 10 # 43-25"
         required
         minLength={5}
         maxLength={250}
@@ -583,7 +583,7 @@ export function CodForm({
         description="Apto, interior o referencia para el mensajero"
         autoComplete="address-line2"
         enterKeyHint="done"
-        placeholder="Torre 3, apto 302"
+        placeholder="Ej. Barrio, Int 302 (Opcional)"
         maxLength={250}
         value={values.address2}
         onChange={(e) => update("address2", e.target.value)}

@@ -25,6 +25,13 @@ def _mapping_by_key(mappings: list[Any]) -> dict[str, Any]:
     return {mapping.selectionKey: mapping for mapping in mappings}
 
 
+def _mastershop_location(department: str, city: str) -> tuple[str, str]:
+    """Translate the one Bogotá location pair MasterShop represents differently."""
+    if department == "BOGOTÁ D.C." and city == "BOGOTÁ D.C.":
+        return "CUNDINAMARCA", "BOGOTA"
+    return department.title(), city.title()
+
+
 def build_order_payload(
     *,
     order: Any,
@@ -79,8 +86,7 @@ def build_order_payload(
     national_phone = order.phoneNormalizedKey
     shipping_phone = order.phoneE164.lstrip("+")
     address2 = details.address2.strip() if details.address2 else None
-    state = order.department.title()
-    city = order.city.title()
+    state, city = _mastershop_location(order.department, order.city)
 
     address = {
         "country": "CO",

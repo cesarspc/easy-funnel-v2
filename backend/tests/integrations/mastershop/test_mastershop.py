@@ -10,7 +10,13 @@ from app.integrations.mastershop.payload import MastershopPayloadError, build_or
 from app.integrations.mastershop.service import MastershopSyncService
 
 
-def _order(*, selections=None, quantity: int = 1):
+def _order(
+    *,
+    selections=None,
+    quantity: int = 1,
+    department: str = "ANTIOQUIA",
+    city: str = "MEDELLÍN",
+):
     return SimpleNamespace(
         id=9,
         quantity=quantity,
@@ -18,8 +24,8 @@ def _order(*, selections=None, quantity: int = 1):
         totalPrice=Decimal("59900"),
         phoneNormalizedKey="3222615532",
         phoneE164="+573222615532",
-        department="ANTIOQUIA",
-        city="MEDELLÍN",
+        department=department,
+        city=city,
         product=SimpleNamespace(sku="24", name="Jogger"),
     )
 
@@ -75,6 +81,25 @@ def test_builds_the_documented_mastershop_payload() -> None:
             "price": 59900,
         }
     ]
+
+
+def test_maps_only_bogota_to_mastershops_cundinamarca_bogota_pair() -> None:
+    bogota = build_order_payload(
+        order=_order(department="BOGOTÁ D.C.", city="BOGOTÁ D.C."),
+        details=_details(),
+        mappings=[_mapping()],
+    )
+
+    assert bogota["shipping_address"]["state"] == "CUNDINAMARCA"
+    assert bogota["shipping_address"]["city"] == "BOGOTA"
+    assert bogota["billing_address"]["state"] == "CUNDINAMARCA"
+    assert bogota["billing_address"]["city"] == "BOGOTA"
+
+    medellin = build_order_payload(
+        order=_order(), details=_details(), mappings=[_mapping()]
+    )
+    assert medellin["shipping_address"]["state"] == "Antioquia"
+    assert medellin["shipping_address"]["city"] == "Medellín"
 
 
 def test_groups_equal_variants_and_requires_every_mapping() -> None:
