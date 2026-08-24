@@ -35,6 +35,7 @@ import type {
   PublicLanding,
 } from "../../api";
 import { safeColor } from "../../utils";
+import { trackInitiateCheckout, trackPurchase } from "../../analytics/metaCommerce";
 import { CodForm } from "./CodForm";
 import { ConversionBlockView } from "./ConversionBlocks";
 import "./LandingPage.css";
@@ -125,10 +126,23 @@ export function LandingPage(): JSX.Element {
   function handleActivateCta() {
     if (!slug || !landing) return;
     void publicApi.recordCtaClick(slug);
+    trackInitiateCheckout(landing);
     setFormState("open");
   }
 
-  function handleOrderSuccess(result: OrderCreateResponse) {
+  function handleOrderSuccess(
+    result: OrderCreateResponse,
+    purchase: { firstName: string; lastName: string; phone: string; quantity: number },
+  ) {
+    // A fraud-flagged submission is persisted for review but must not teach
+    // Meta's optimizer that fraudulent traffic is a successful purchase.
+    if (result.status === "pending" && landing) {
+      trackPurchase(landing, {
+        ...purchase,
+        orderId: result.order_id,
+        value: result.total_price,
+      });
+    }
     setOrder(result);
     setFormState("closed");
   }

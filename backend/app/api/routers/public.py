@@ -507,6 +507,7 @@ class OrderCreateRequest(BaseModel):
 class OrderCreateResponse(BaseModel):
     order_id: int
     status: str
+    total_price: float
 
 
 @router.post(
@@ -576,7 +577,11 @@ async def create_order(
                 extra={"order_id": result.order_id},
             )
 
-    return OrderCreateResponse(order_id=result.order_id, status=result.status)
+    return OrderCreateResponse(
+        order_id=result.order_id,
+        status=result.status,
+        total_price=float(result.total_price),
+    )
 
 
 class CityResponse(BaseModel):

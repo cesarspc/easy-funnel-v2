@@ -31,6 +31,7 @@ import type {
   ProductVariantOption,
   PublicLandingOffer,
 } from "../../api";
+import type { PurchaseCustomerData } from "../../analytics/metaCommerce";
 import "./CodForm.css";
 
 export interface CodFormValues {
@@ -107,7 +108,10 @@ export interface CodFormProps {
   defaultOfferQuantity?: number;
   variantOptions?: ProductVariantOption[];
   departments: ColombianDepartment[];
-  onSuccess: (result: OrderCreateResponse) => void;
+  onSuccess: (
+    result: OrderCreateResponse,
+    purchase: PurchaseCustomerData & { quantity: number },
+  ) => void;
 }
 
 function fitVariantSelections(
@@ -330,7 +334,12 @@ export function CodForm({
           variantSelections,
         ),
       });
-      onSuccess(result);
+      onSuccess(result, {
+        firstName: values.first_name.trim(),
+        lastName: values.last_name.trim(),
+        phone: values.phone.trim(),
+        quantity: safeQuantity,
+      });
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors) {
         const { full_name: fullNameError, ...fieldErrors } = err.fieldErrors;

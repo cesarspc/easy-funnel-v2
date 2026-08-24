@@ -15,3 +15,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  /** Google Tag Manager queue, initialized by the production container snippet. */
+  dataLayer?: Record<string, unknown>[];
+}

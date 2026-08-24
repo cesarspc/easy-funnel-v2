@@ -71,6 +71,7 @@ function renderAtSlug(slug: string) {
 
 describe("LandingPage", () => {
   beforeEach(() => {
+    window.dataLayer = [];
     vi.mocked(publicApi.getLanding).mockResolvedValue(SAMPLE_LANDING);
   });
 
@@ -100,6 +101,9 @@ describe("LandingPage", () => {
     await user.click(screen.getAllByRole("button", { name: /Pedir ahora/i })[0]);
 
     expect(publicApi.recordCtaClick).toHaveBeenCalledWith("audifonos-bluetooth");
+    expect(window.dataLayer).toContainEqual(
+      expect.objectContaining({ event: "begin_checkout" }),
+    );
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
@@ -169,14 +173,18 @@ describe("LandingPage", () => {
   });
 
   it("submits the COD form and shows the confirmation state", async () => {
-    vi.mocked(publicApi.createOrder).mockResolvedValue({ order_id: 42, status: "pending" });
+    vi.mocked(publicApi.createOrder).mockResolvedValue({
+      order_id: 42,
+      status: "pending",
+      total_price: 89900,
+    });
     const user = userEvent.setup();
     renderAtSlug("audifonos-bluetooth");
 
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
     await user.type(screen.getByLabelText("Nombre"), "María");
     await user.type(screen.getByLabelText("Apellido"), "Gómez");
-    await user.type(screen.getByLabelText("Número de celular"), "3001234567");
+    await user.type(screen.getByLabelText("Celular / WhatsApp"), "3001234567");
     await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
     await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
     await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 #20-30");
@@ -186,6 +194,41 @@ describe("LandingPage", () => {
     expect(publicApi.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({ landing_slug: "audifonos-bluetooth", full_name: "María Gómez" }),
     );
+    expect(window.dataLayer).toContainEqual({
+      event: "purchase",
+      ecommerce: expect.objectContaining({
+        transaction_id: "42",
+        currency: "COP",
+        value: 89900,
+      }),
+      user_data: expect.objectContaining({
+        phone: "+573001234567",
+        first_name: "María",
+        last_name: "Gómez",
+      }),
+    });
+  });
+
+  it("does not report a fraud-flagged submission as a Meta purchase", async () => {
+    vi.mocked(publicApi.createOrder).mockResolvedValue({
+      order_id: 43,
+      status: "flagged_fraud",
+      total_price: 89900,
+    });
+    const user = userEvent.setup();
+    renderAtSlug("audifonos-bluetooth");
+
+    await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
+    await user.type(screen.getByLabelText("Nombre"), "María");
+    await user.type(screen.getByLabelText("Apellido"), "Gómez");
+    await user.type(screen.getByLabelText("Celular / WhatsApp"), "3001234567");
+    await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
+    await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
+    await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 #20-30");
+    await user.click(screen.getByRole("button", { name: /Confirmar pedido/i }));
+
+    expect(await screen.findByText("¡Pedido recibido!")).toBeInTheDocument();
+    expect(window.dataLayer?.some((entry) => entry.event === "purchase")).toBe(false);
   });
 
   it("maps a 422 field error from the backend onto the corresponding control", async () => {
@@ -198,7 +241,7 @@ describe("LandingPage", () => {
     await user.click((await screen.findAllByRole("button", { name: /Pedir ahora/i }))[0]);
     await user.type(screen.getByLabelText("Nombre"), "María");
     await user.type(screen.getByLabelText("Apellido"), "Gómez");
-    await user.type(screen.getByLabelText("Número de celular"), "3009999999");
+    await user.type(screen.getByLabelText("Celular / WhatsApp"), "3009999999");
     await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
     await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
     await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 #20-30");

@@ -249,6 +249,8 @@ export interface OrderCreateRequest {
 export interface OrderCreateResponse {
   order_id: number;
   status: "pending" | "flagged_fraud";
+  /** Authoritative amount captured on the persisted order, in COP. */
+  total_price: number;
 }
 
 export const publicApi = {

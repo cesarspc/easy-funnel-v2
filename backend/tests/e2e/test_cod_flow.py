@@ -89,6 +89,7 @@ async def test_e2e_cod_flow_clean_order(cod_flow: CodFlowHarness) -> None:
     body = order_response.json()
     assert body["status"] == "pending"
     assert isinstance(body["order_id"], int)
+    assert body["total_price"] > 0
 
     # 5. The order and its (absent) flags are readable by the admin data layer,
     #    with the attribution and request metadata captured (Requirement 5.9).
@@ -96,6 +97,7 @@ async def test_e2e_cod_flow_clean_order(cod_flow: CodFlowHarness) -> None:
     assert len(orders) == 1
     stored = orders[0]
     assert stored.id == body["order_id"]
+    assert body["total_price"] == float(stored.totalPrice)
     assert stored.status == "pending"
     assert stored.fraudFlags == []
     assert stored.landingSlug == landing.slug

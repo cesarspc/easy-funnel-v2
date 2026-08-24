@@ -68,7 +68,7 @@ async function openForm(landing: PublicLanding = makeLanding()) {
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Nombre"), "Ana");
   await user.type(screen.getByLabelText("Apellido"), "Gómez");
-  await user.type(screen.getByLabelText(/Número de celular/), "3001234567");
+  await user.type(screen.getByLabelText(/Celular \/ WhatsApp/), "3001234567");
   await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
   await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
   await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 # 43-25");
@@ -76,8 +76,13 @@ async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
 
 describe("COD form frontend-only fields", () => {
   beforeEach(() => {
+    window.dataLayer = [];
     vi.clearAllMocks();
-    vi.mocked(publicApi.createOrder).mockResolvedValue({ order_id: 1, status: "pending" });
+    vi.mocked(publicApi.createOrder).mockResolvedValue({
+      order_id: 1,
+      status: "pending",
+      total_price: 89900,
+    });
   });
 
   it("renders the field right after the address field", async () => {
@@ -137,7 +142,7 @@ describe("COD form frontend-only fields", () => {
     const user = await openForm();
     await user.type(screen.getByLabelText("Nombre"), "  Ana María  ");
     await user.type(screen.getByLabelText("Apellido"), "  Gómez Ruiz  ");
-    await user.type(screen.getByLabelText(/Número de celular/), "3001234567");
+    await user.type(screen.getByLabelText(/Celular \/ WhatsApp/), "3001234567");
     await user.selectOptions(screen.getByLabelText("Departamento"), "ANTIOQUIA");
     await user.selectOptions(screen.getByLabelText("Ciudad o municipio"), "MEDELLÍN");
     await user.type(screen.getByLabelText("Dirección de entrega"), "Calle 10 # 43-25");

@@ -20,6 +20,7 @@ The order is persisted exactly once, never partially.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, cast
 
 from prisma import Json, Prisma
@@ -98,6 +99,7 @@ class OrderSubmissionResult:
 
     order_id: int
     status: str
+    total_price: Decimal
     fraud_flags: list[FraudFlag]
 
 
@@ -348,5 +350,6 @@ class OrderSubmissionService:
         return OrderSubmissionResult(
             order_id=order.id,
             status=order_status,
+            total_price=pricing.total,
             fraud_flags=all_flags,
         )
