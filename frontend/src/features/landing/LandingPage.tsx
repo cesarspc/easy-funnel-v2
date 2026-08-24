@@ -35,7 +35,11 @@ import type {
   PublicLanding,
 } from "../../api";
 import { safeColor } from "../../utils";
-import { trackInitiateCheckout, trackPurchase } from "../../analytics/metaCommerce";
+import {
+  trackInitiateCheckout,
+  trackPurchase,
+  type PurchaseCustomerData,
+} from "../../analytics/metaCommerce";
 import { CodForm } from "./CodForm";
 import { ConversionBlockView } from "./ConversionBlocks";
 import "./LandingPage.css";
@@ -132,11 +136,12 @@ export function LandingPage(): JSX.Element {
 
   function handleOrderSuccess(
     result: OrderCreateResponse,
-    purchase: { firstName: string; lastName: string; phone: string; quantity: number },
+    purchase: PurchaseCustomerData & { quantity: number },
   ) {
-    // A fraud-flagged submission is persisted for review but must not teach
-    // Meta's optimizer that fraudulent traffic is a successful purchase.
-    if (result.status === "pending" && landing) {
+    // Both pending and fraud-flagged submissions are durable COD orders. For
+    // now, report both as purchases; fraud filtering can be added later if its
+    // observed rate is high enough to justify excluding flagged traffic.
+    if (landing) {
       trackPurchase(landing, {
         ...purchase,
         orderId: result.order_id,

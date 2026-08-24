@@ -338,6 +338,8 @@ export function CodForm({
         firstName: values.first_name.trim(),
         lastName: values.last_name.trim(),
         phone: values.phone.trim(),
+        city: values.city.trim(),
+        state: values.department.trim(),
         quantity: safeQuantity,
       });
     } catch (err) {

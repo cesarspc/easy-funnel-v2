@@ -205,11 +205,14 @@ describe("LandingPage", () => {
         phone: "+573001234567",
         first_name: "María",
         last_name: "Gómez",
+        city: "MEDELLÍN",
+        state: "ANTIOQUIA",
+        country: "co",
       }),
     });
   });
 
-  it("does not report a fraud-flagged submission as a Meta purchase", async () => {
+  it("reports a persisted fraud-flagged submission as a Meta purchase", async () => {
     vi.mocked(publicApi.createOrder).mockResolvedValue({
       order_id: 43,
       status: "flagged_fraud",
@@ -228,7 +231,20 @@ describe("LandingPage", () => {
     await user.click(screen.getByRole("button", { name: /Confirmar pedido/i }));
 
     expect(await screen.findByText("¡Pedido recibido!")).toBeInTheDocument();
-    expect(window.dataLayer?.some((entry) => entry.event === "purchase")).toBe(false);
+    expect(window.dataLayer).toContainEqual({
+      event: "purchase",
+      ecommerce: expect.objectContaining({
+        transaction_id: "43",
+        currency: "COP",
+        value: 89900,
+      }),
+      user_data: expect.objectContaining({
+        phone: "+573001234567",
+        city: "MEDELLÍN",
+        state: "ANTIOQUIA",
+        country: "co",
+      }),
+    });
   });
 
   it("maps a 422 field error from the backend onto the corresponding control", async () => {

@@ -77,6 +77,8 @@ describe("Meta commerce dataLayer contract", () => {
       firstName: " Ana María ",
       lastName: " Gómez ",
       phone: "+57 300 123 4567",
+      city: " Medellín ",
+      state: " Antioquia ",
     });
 
     expect(window.dataLayer?.[1]).toEqual({
@@ -99,6 +101,9 @@ describe("Meta commerce dataLayer contract", () => {
         phone: "+573001234567",
         first_name: "Ana María",
         last_name: "Gómez",
+        city: "Medellín",
+        state: "Antioquia",
+        country: "co",
         billing_phone: "+573001234567",
         billing_first_name: "Ana María",
         billing_last_name: "Gómez",

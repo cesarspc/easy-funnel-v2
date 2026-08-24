@@ -20,6 +20,8 @@ export interface PurchaseCustomerData {
   firstName: string;
   lastName: string;
   phone: string;
+  city: string;
+  state: string;
 }
 
 export interface PurchaseEventData extends PurchaseCustomerData {
@@ -86,12 +88,14 @@ export function trackInitiateCheckout(landing: PublicLanding): void {
   });
 }
 
-/** Successful, non-fraud COD order: GTM emits Meta Purchase via Pixel + CAPI. */
+/** Persisted COD order: GTM emits Meta Purchase via Pixel + CAPI. */
 export function trackPurchase(landing: PublicLanding, purchase: PurchaseEventData): void {
   const normalizedPhone = purchase.phone.replace(/\D/g, "").replace(/^57/, "");
   const phone = `+57${normalizedPhone}`;
   const firstName = purchase.firstName.trim();
   const lastName = purchase.lastName.trim();
+  const city = purchase.city.trim();
+  const state = purchase.state.trim();
 
   pushCommerceEvent({
     event: "purchase",
@@ -108,6 +112,9 @@ export function trackPurchase(landing: PublicLanding, purchase: PurchaseEventDat
       phone,
       first_name: firstName,
       last_name: lastName,
+      city,
+      state,
+      country: "co",
       billing_phone: phone,
       billing_first_name: firstName,
       billing_last_name: lastName,
