@@ -52,8 +52,8 @@ async def test_first_event_of_next_day_persists_and_acknowledges_previous_day() 
     redis = FakeRedis()
     service = _service(redis)
 
-    await service.record_view(9, now=datetime(2026, 8, 15, 23, tzinfo=UTC))
-    await service.record_view(9, now=datetime(2026, 8, 16, 0, 1, tzinfo=UTC))
+    await service.record_view(9, now=datetime(2026, 8, 16, 4, 59, tzinfo=UTC))
+    await service.record_view(9, now=datetime(2026, 8, 16, 5, 1, tzinfo=UTC))
 
     service._views.persist_redis_snapshot.assert_awaited_once_with(  # type: ignore[attr-defined]
         9,
@@ -71,8 +71,8 @@ async def test_failed_persistence_keeps_previous_day_pending_without_expiry() ->
     service = _service(redis)
     service._views.persist_redis_snapshot.side_effect = RuntimeError("database unavailable")  # type: ignore[attr-defined]
 
-    await service.record_view(11, now=datetime(2026, 8, 15, 23, tzinfo=UTC))
-    await service.record_view(11, now=datetime(2026, 8, 16, 1, tzinfo=UTC))
+    await service.record_view(11, now=datetime(2026, 8, 16, 4, 59, tzinfo=UTC))
+    await service.record_view(11, now=datetime(2026, 8, 16, 5, 1, tzinfo=UTC))
 
     assert await redis.ttl(_day_key(11, "2026-08-15")) == -1
     assert await redis.smembers(_days_key(11)) == ["2026-08-15", "2026-08-16"]

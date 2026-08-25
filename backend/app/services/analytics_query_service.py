@@ -39,20 +39,20 @@ _logger = logging.getLogger("app.analytics.query")
 # `query_raw` sends parameters as text, so the timestamp bounds are cast
 # explicitly; without the cast PostgreSQL rejects `timestamptz >= text`.
 _ORDERS_PER_DAY_SQL = """
-    SELECT DATE("created_at") AS day, COUNT(*) AS count
+    SELECT DATE("created_at" AT TIME ZONE 'America/Bogota') AS day, COUNT(*) AS count
     FROM "orders"
     WHERE "created_at" >= $1::timestamptz AND "created_at" <= $2::timestamptz
-    GROUP BY DATE("created_at")
+    GROUP BY DATE("created_at" AT TIME ZONE 'America/Bogota')
     ORDER BY day DESC
 """
 
 _FRAUD_PER_DAY_SQL = """
-    SELECT DATE("created_at") AS day,
+    SELECT DATE("created_at" AT TIME ZONE 'America/Bogota') AS day,
            COUNT(*) AS total_orders,
            COUNT(*) FILTER (WHERE "status" = $3) AS flagged_orders
     FROM "orders"
     WHERE "created_at" >= $1::timestamptz AND "created_at" <= $2::timestamptz
-    GROUP BY DATE("created_at")
+    GROUP BY DATE("created_at" AT TIME ZONE 'America/Bogota')
     ORDER BY day DESC
 """
 

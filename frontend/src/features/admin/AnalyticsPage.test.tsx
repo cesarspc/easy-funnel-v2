@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsPage } from "./AnalyticsPage";
@@ -79,31 +79,24 @@ describe("AnalyticsPage", () => {
   });
 
   it("loads all three analytics queries from seven days ago through today by default", async () => {
-    const expectedDateTo = new Date().toISOString().slice(0, 10);
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
-    const expectedDateFrom = sevenDaysAgo.toISOString().slice(0, 10);
+    vi.useFakeTimers();
+    // In Colombia this instant is still August 25, although UTC is already August 26.
+    vi.setSystemTime(new Date("2026-08-26T02:30:00Z"));
 
     render(<AnalyticsPage />);
 
-    expect(screen.getByLabelText("Desde")).toHaveValue(expectedDateFrom);
-    expect(screen.getByLabelText("Hasta")).toHaveValue(expectedDateTo);
+    expect(screen.getByLabelText("Desde")).toHaveValue("2026-08-18");
+    expect(screen.getByLabelText("Hasta")).toHaveValue("2026-08-25");
 
-    await waitFor(() =>
-      expect(analyticsApi.getOrdersPerDay).toHaveBeenCalledWith(
-        expectedDateFrom,
-        expectedDateTo,
-      ),
-    );
-    expect(analyticsApi.getLandingAnalytics).toHaveBeenCalledWith(
-      expectedDateFrom,
-      expectedDateTo,
-    );
-    expect(analyticsApi.getFraudAnalytics).toHaveBeenCalledWith(
-      expectedDateFrom,
-      expectedDateTo,
-    );
+    expect(analyticsApi.getOrdersPerDay).toHaveBeenCalledWith("2026-08-18", "2026-08-25");
+    expect(analyticsApi.getLandingAnalytics).toHaveBeenCalledWith("2026-08-18", "2026-08-25");
+    expect(analyticsApi.getFraudAnalytics).toHaveBeenCalledWith("2026-08-18", "2026-08-25");
     expect(landingsApi.list).toHaveBeenCalledWith(true);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
   });
 
   it("renders orders-per-day rows newest first without recomputing the count", async () => {

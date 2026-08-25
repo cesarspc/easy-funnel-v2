@@ -1,12 +1,8 @@
 """Inclusive dashboard date-range parsing (Requirement 8.11-8.13).
 
 Every analytics query is bounded by a selected range that the requirements
-describe as inclusive. A date-only bound therefore covers the whole calendar
-day: `date_to=2026-07-24` includes an order created at 2026-07-24 18:30 UTC,
-which a naive `<= 2026-07-24T00:00:00` comparison would drop.
-
-Bounds are interpreted in UTC, matching the `timestamptz` columns the counts
-are read from (docs/backend.md -> Money and Time).
+describe as inclusive. Date-only bounds are Colombia business days (UTC-5),
+while timestamps remain stored and compared as timezone-aware instants.
 """
 
 from __future__ import annotations
@@ -14,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 
+from app.core.business_time import COLOMBIA_TIME_ZONE
 from app.domains.analytics.errors import AnalyticsValidationError
 
 _DATE_FORMAT_MESSAGE = "Use an ISO 8601 date (YYYY-MM-DD) or date-time (YYYY-MM-DDTHH:MM:SS) value."
@@ -65,11 +62,11 @@ def parse_date_range(date_from: str, date_to: str) -> DateRange:
     end = _as_utc(_parse_bound(raw_to, field="date_to"))
 
     if _is_date_only(raw_from):
-        start = datetime.combine(start.date(), time.min, tzinfo=UTC)
+        start = datetime.combine(start.date(), time.min, tzinfo=COLOMBIA_TIME_ZONE)
     if _is_date_only(raw_to):
         # Inclusive upper bound: everything stored on that calendar day, taken
         # as "just before the next midnight" so no fractional second is lost.
-        end = datetime.combine(end.date(), time.min, tzinfo=UTC) + timedelta(
+        end = datetime.combine(end.date(), time.min, tzinfo=COLOMBIA_TIME_ZONE) + timedelta(
             days=1, microseconds=-1
         )
 

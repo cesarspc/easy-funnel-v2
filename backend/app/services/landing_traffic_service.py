@@ -1,7 +1,7 @@
 """High-throughput Landing traffic counters backed by Redis and PostgreSQL.
 
 The live request path performs one atomic Redis operation. Absolute Redis
-snapshots are persisted idempotently when a UTC day closes and whenever the
+snapshots are persisted idempotently when a Colombia business day closes and whenever the
 administrator reads Landing analytics. A historical Redis key receives its
 48-hour TTL only after PostgreSQL acknowledges the snapshot.
 
@@ -13,11 +13,12 @@ key has no expiry, so an idle Landing cannot lose its last day of traffic.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 
 from prisma import Prisma
 from upstash_redis import AsyncRedis
 
+from app.core.business_time import colombia_today
 from app.db.repositories import CtaClickRepository, LandingViewRepository
 
 _logger = logging.getLogger("app.analytics.traffic")
@@ -71,7 +72,7 @@ class LandingTrafficService:
         await self._record(landing_id, field="cta_clicks", now=now)
 
     async def _record(self, landing_id: int, *, field: str, now: datetime | None) -> None:
-        today = (now or datetime.now(UTC)).astimezone(UTC).date()
+        today = colombia_today(now=now)
         today_iso = today.isoformat()
         try:
             result = await self._redis.eval(
@@ -105,7 +106,7 @@ class LandingTrafficService:
         include_current: bool = True,
     ) -> bool:
         """Persist pending snapshots; return false when Redis/DB was unavailable."""
-        current_day = today or datetime.now(UTC).date()
+        current_day = today or colombia_today()
         try:
             raw_days = await self._redis.smembers(_days_key(landing_id))
         except Exception:

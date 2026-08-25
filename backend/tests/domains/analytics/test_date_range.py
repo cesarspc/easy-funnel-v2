@@ -13,9 +13,15 @@ class TestParseDateRange:
     def test_date_only_range_covers_whole_calendar_days(self) -> None:
         date_range = parse_date_range("2026-07-01", "2026-07-24")
 
-        assert date_range.start == datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
+        assert date_range.start == datetime(2026, 7, 1, 5, 0, 0, tzinfo=UTC)
         # The upper bound must include an order created late on the final day.
-        assert date_range.end == datetime(2026, 7, 24, 23, 59, 59, 999999, tzinfo=UTC)
+        assert date_range.end == datetime(2026, 7, 25, 4, 59, 59, 999999, tzinfo=UTC)
+
+    def test_colombia_evening_does_not_roll_into_the_next_analytics_day(self) -> None:
+        date_range = parse_date_range("2026-07-24", "2026-07-24")
+        order_created_at = datetime(2026, 7, 25, 2, 30, tzinfo=UTC)
+
+        assert date_range.start <= order_created_at <= date_range.end
 
     def test_single_day_range_is_not_empty(self) -> None:
         date_range = parse_date_range("2026-07-24", "2026-07-24")

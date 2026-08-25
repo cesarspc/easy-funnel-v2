@@ -26,11 +26,13 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
   day: "2-digit",
   month: "short",
   year: "numeric",
+  timeZone: "America/Bogota",
 });
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("es-CO", {
   dateStyle: "medium",
   timeStyle: "short",
+  timeZone: "America/Bogota",
 });
 
 const CURRENCY = new Intl.NumberFormat("es-CO", {

@@ -341,7 +341,10 @@ class LandingViewRepository:
                 "landing_id", "event_date", "view_count", "cta_click_count",
                 "fallback_view_count", "fallback_cta_click_count", "updated_at"
             )
-            VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date, 0, 0, 1, 0, CURRENT_TIMESTAMP)
+            VALUES (
+                $1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Bogota')::date,
+                0, 0, 1, 0, CURRENT_TIMESTAMP
+            )
             ON CONFLICT ("landing_id", "event_date") DO UPDATE
             SET "fallback_view_count" =
                     "landing_analytics_daily"."fallback_view_count" + 1,
@@ -360,7 +363,7 @@ class LandingViewRepository:
         views: int,
         cta_clicks: int,
     ) -> None:
-        """Persist monotonic absolute Redis totals for one UTC day.
+        """Persist monotonic absolute Redis totals for one Colombia business day.
 
         `GREATEST` makes concurrent or retried snapshots idempotent: an older
         snapshot can never replace a newer one. Fallback columns are untouched.
@@ -414,7 +417,10 @@ class CtaClickRepository:
                 "landing_id", "event_date", "view_count", "cta_click_count",
                 "fallback_view_count", "fallback_cta_click_count", "updated_at"
             )
-            VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date, 0, 0, 0, 1, CURRENT_TIMESTAMP)
+            VALUES (
+                $1, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Bogota')::date,
+                0, 0, 0, 1, CURRENT_TIMESTAMP
+            )
             ON CONFLICT ("landing_id", "event_date") DO UPDATE
             SET "fallback_cta_click_count" =
                     "landing_analytics_daily"."fallback_cta_click_count" + 1,

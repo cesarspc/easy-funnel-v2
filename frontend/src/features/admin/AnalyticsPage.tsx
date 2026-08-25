@@ -24,18 +24,33 @@ const PERCENT_FORMATTER = new Intl.NumberFormat("es-CO", {
 const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
   day: "2-digit",
   month: "short",
+  timeZone: "UTC",
 });
 
 const DEFAULT_RANGE_DAYS = 7;
+const ANALYTICS_TIME_ZONE = "America/Bogota";
+
+function dateInAnalyticsTimeZone(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: ANALYTICS_TIME_ZONE,
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
 
 function isoDaysAgo(days: number): string {
-  const date = new Date();
+  const [year, month, day] = dateInAnalyticsTimeZone(new Date()).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
   date.setUTCDate(date.getUTCDate() - days);
   return date.toISOString().slice(0, 10);
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dateInAnalyticsTimeZone(new Date());
 }
 
 interface RangeForm {

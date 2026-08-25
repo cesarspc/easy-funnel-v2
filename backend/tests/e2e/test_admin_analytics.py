@@ -15,6 +15,7 @@ import asyncio
 from datetime import UTC, datetime
 
 import app.services.analytics_query_service as analytics_query_module
+from app.core.business_time import colombia_today
 from app.domains.orders.normalization import normalize_colombian_phone_key
 from app.main import app
 from app.redis.client import get_redis
@@ -30,7 +31,7 @@ _USER_AGENT = "Mozilla/5.0 (E2E analytics test)"
 
 
 def _today() -> str:
-    return datetime.now(UTC).date().isoformat()
+    return colombia_today().isoformat()
 
 
 def _order_payload(slug: str, phone: str) -> dict:
@@ -366,6 +367,32 @@ async def test_orders_per_day_returns_no_rows_for_a_past_range(
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+async def test_orders_per_day_groups_colombia_evening_before_utc_midnight(
+    cod_flow: CodFlowHarness,
+) -> None:
+    landing = await cod_flow.seed_landing()
+    submitted = await _submit_order(cod_flow, landing)
+    # 02:30 UTC on January 2 is 21:30 on January 1 in Colombia.
+    await cod_flow.db.order.update(
+        where={"id": submitted["order_id"]},
+        data={"createdAt": datetime(2035, 1, 2, 2, 30, tzinfo=UTC)},
+    )
+
+    colombia_day = await cod_flow.client.get(
+        "/api/admin/analytics/orders-per-day?date_from=2035-01-01&date_to=2035-01-01",
+        headers=cod_flow.admin_headers(),
+    )
+    utc_day = await cod_flow.client.get(
+        "/api/admin/analytics/orders-per-day?date_from=2035-01-02&date_to=2035-01-02",
+        headers=cod_flow.admin_headers(),
+    )
+
+    assert colombia_day.status_code == 200
+    assert colombia_day.json() == [{"date": "2035-01-01", "count": 1}]
+    assert utc_day.status_code == 200
+    assert utc_day.json() == []
 
 
 # --- Fraud analytics ---------------------------------------------------------
