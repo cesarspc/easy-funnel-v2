@@ -485,7 +485,7 @@ export function LandingPage(): JSX.Element {
         isOpen={formState === "open"}
         onClose={() => setFormState("closed")}
         title="Elige tu oferta"
-        subtitle="Todas con envío gratis!"
+        subtitle="Todas con Envío Gratis!"
         style={formAccentStyle}
       >
         <CodForm
