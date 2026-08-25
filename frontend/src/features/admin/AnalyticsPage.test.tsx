@@ -78,12 +78,31 @@ describe("AnalyticsPage", () => {
     vi.clearAllMocks();
   });
 
-  it("loads all three analytics queries for the default 30-day range on mount", async () => {
+  it("loads all three analytics queries from seven days ago through today by default", async () => {
+    const expectedDateTo = new Date().toISOString().slice(0, 10);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+    const expectedDateFrom = sevenDaysAgo.toISOString().slice(0, 10);
+
     render(<AnalyticsPage />);
 
-    await waitFor(() => expect(analyticsApi.getOrdersPerDay).toHaveBeenCalled());
-    expect(analyticsApi.getLandingAnalytics).toHaveBeenCalled();
-    expect(analyticsApi.getFraudAnalytics).toHaveBeenCalled();
+    expect(screen.getByLabelText("Desde")).toHaveValue(expectedDateFrom);
+    expect(screen.getByLabelText("Hasta")).toHaveValue(expectedDateTo);
+
+    await waitFor(() =>
+      expect(analyticsApi.getOrdersPerDay).toHaveBeenCalledWith(
+        expectedDateFrom,
+        expectedDateTo,
+      ),
+    );
+    expect(analyticsApi.getLandingAnalytics).toHaveBeenCalledWith(
+      expectedDateFrom,
+      expectedDateTo,
+    );
+    expect(analyticsApi.getFraudAnalytics).toHaveBeenCalledWith(
+      expectedDateFrom,
+      expectedDateTo,
+    );
     expect(landingsApi.list).toHaveBeenCalledWith(true);
   });
 

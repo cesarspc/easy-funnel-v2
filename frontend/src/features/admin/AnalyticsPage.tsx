@@ -26,6 +26,8 @@ const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
   month: "short",
 });
 
+const DEFAULT_RANGE_DAYS = 7;
+
 function isoDaysAgo(days: number): string {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() - days);
@@ -105,7 +107,7 @@ function TrendChart({
 
 export function AnalyticsPage() {
   const [range, setRange] = useState<RangeForm>({
-    dateFrom: isoDaysAgo(29),
+    dateFrom: isoDaysAgo(DEFAULT_RANGE_DAYS),
     dateTo: todayIso(),
   });
   const [appliedRange, setAppliedRange] = useState<RangeForm>(range);
