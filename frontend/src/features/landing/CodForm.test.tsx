@@ -179,9 +179,10 @@ describe("COD form frontend-only fields", () => {
     );
 
     expect(screen.getByRole("radio", { name: /2 unidades/ })).toBeChecked();
-    expect(screen.getByLabelText("Color, unidad 1")).toHaveValue("Gris");
-    await user.selectOptions(screen.getByLabelText("Color, unidad 2"), "Negro");
-    await user.selectOptions(screen.getByLabelText("Talla, unidad 2"), "L");
+    expect(screen.getByRole("radio", { name: "Color Gris, unidad 1" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Color Gris, unidad 2" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Color Negro, unidad 2" }));
+    await user.click(screen.getByRole("radio", { name: "Talla L, unidad 2" }));
     await fillRequiredFields(user);
     await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
 
@@ -189,6 +190,30 @@ describe("COD form frontend-only fields", () => {
     expect(vi.mocked(publicApi.createOrder).mock.calls[0][0].variant_selections).toEqual([
       { Color: "Gris", Talla: "M" },
       { Color: "Negro", Talla: "L" },
+    ]);
+  });
+
+  it("lets the buyer choose a different talla and color for each jogger", async () => {
+    const user = await openForm(
+      makeLanding({
+        default_offer_quantity: 3,
+        variant_options: [
+          { name: "Color", values: ["Gris", "Negro"] },
+          { name: "Talla", values: ["M", "L"] },
+        ],
+      }),
+    );
+
+    await user.click(screen.getByRole("radio", { name: "Color Negro, unidad 2" }));
+    await user.click(screen.getByRole("radio", { name: "Talla L, unidad 3" }));
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
+
+    await waitFor(() => expect(publicApi.createOrder).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(publicApi.createOrder).mock.calls[0][0].variant_selections).toEqual([
+      { Color: "Gris", Talla: "M" },
+      { Color: "Negro", Talla: "M" },
+      { Color: "Gris", Talla: "L" },
     ]);
   });
 });

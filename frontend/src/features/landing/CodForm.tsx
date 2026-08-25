@@ -435,24 +435,41 @@ export function CodForm({
                     {variantSelections.slice(0, safeQuantity).map((selection, unitIndex) => (
                       <fieldset className="cod-form__variant-unit" key={unitIndex}>
                         <legend>
-                          {safeQuantity === 1 ? "Elige tus opciones" : `Unidad ${unitIndex + 1}`}
+                          {safeQuantity === 1
+                            ? "Elige tus opciones"
+                            : `Unidad ${unitIndex + 1} de ${safeQuantity}`}
                         </legend>
                         <div className="cod-form__variant-fields">
                           {variantOptions.map((option) => (
-                            <label key={option.name}>
-                              <span>{option.name}</span>
-                              <select
-                                aria-label={`${option.name}, unidad ${unitIndex + 1}`}
-                                value={selection[option.name] ?? option.values[0] ?? ""}
-                                onChange={(event) =>
-                                  setVariant(unitIndex, option.name, event.target.value)
-                                }
-                              >
-                                {option.values.map((value) => (
-                                  <option key={value} value={value}>{value}</option>
-                                ))}
-                              </select>
-                            </label>
+                            <fieldset className="cod-form__variant-option" key={option.name}>
+                              <legend>{option.name}</legend>
+                              <div className="cod-form__variant-choices">
+                                {option.values.map((value) => {
+                                  const checked =
+                                    (selection[option.name] ?? option.values[0] ?? "") === value;
+                                  return (
+                                    <label
+                                      className={
+                                        checked
+                                          ? "cod-form__variant-choice cod-form__variant-choice--selected"
+                                          : "cod-form__variant-choice"
+                                      }
+                                      key={value}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`variant-${unitIndex}-${option.name}`}
+                                        value={value}
+                                        checked={checked}
+                                        onChange={() => setVariant(unitIndex, option.name, value)}
+                                        aria-label={`${option.name} ${value}, unidad ${unitIndex + 1}`}
+                                      />
+                                      <span>{value}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </fieldset>
                           ))}
                         </div>
                       </fieldset>

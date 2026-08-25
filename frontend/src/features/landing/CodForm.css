@@ -189,6 +189,11 @@
   border: 0;
 }
 
+.cod-form__variant-unit + .cod-form__variant-unit {
+  padding-top: 10px;
+  border-top: 1px solid var(--lp-hairline);
+}
+
 .cod-form__variant-unit legend {
   margin-bottom: 5px;
   color: var(--lp-ink);
@@ -198,35 +203,63 @@
 
 .cod-form__variant-fields {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
 }
 
-.cod-form__variant-fields label {
+.cod-form__variant-option {
   min-width: 0;
-  color: var(--lp-ink-quiet);
-  font-size: 0.6875rem;
-  font-weight: 600;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-.cod-form__variant-fields select {
-  display: block;
-  width: 100%;
-  min-height: 42px;
-  margin-top: 3px;
-  padding: 8px 28px 8px 10px;
-  border: 1px solid var(--lp-hairline);
+.cod-form__variant-option > legend {
+  margin-bottom: 6px;
+  color: var(--lp-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.cod-form__variant-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.cod-form__variant-choice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--lp-hairline);
   border-radius: var(--lp-radius-sm);
   background: var(--lp-bg);
   color: var(--lp-ink);
-  font: inherit;
-  font-size: 1rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  cursor: pointer;
 }
 
-@media (max-width: 340px) {
-  .cod-form__variant-fields {
-    grid-template-columns: 1fr;
-  }
+.cod-form__variant-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.cod-form__variant-choice--selected {
+  border-color: var(--lp-form-action, var(--lp-action));
+  background: var(--lp-form-action, var(--lp-action));
+  color: var(--lp-form-action-ink, var(--lp-action-ink));
+}
+
+.cod-form__variant-choice:has(input:focus-visible) {
+  outline: 2px solid var(--lp-form-action, var(--lp-action));
+  outline-offset: 2px;
 }
 
 .cod-form__quantity-error {
