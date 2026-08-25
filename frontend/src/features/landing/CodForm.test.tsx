@@ -179,8 +179,10 @@ describe("COD form frontend-only fields", () => {
     );
 
     expect(screen.getByRole("radio", { name: /2 unidades/ })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Color Gris, unidad 1" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Color Gris, unidad 2" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Color Gris, unidad 1" })).not.toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Color Gris, unidad 1" }));
+    await user.click(screen.getByRole("radio", { name: "Talla M, unidad 1" }));
+    await user.click(screen.getByRole("button", { name: "Configurar unidad siguiente" }));
     await user.click(screen.getByRole("radio", { name: "Color Negro, unidad 2" }));
     await user.click(screen.getByRole("radio", { name: "Talla L, unidad 2" }));
     await fillRequiredFields(user);
@@ -204,7 +206,13 @@ describe("COD form frontend-only fields", () => {
       }),
     );
 
+    await user.click(screen.getByRole("radio", { name: "Color Gris, unidad 1" }));
+    await user.click(screen.getByRole("radio", { name: "Talla M, unidad 1" }));
+    await user.click(screen.getByRole("button", { name: "Configurar unidad siguiente" }));
     await user.click(screen.getByRole("radio", { name: "Color Negro, unidad 2" }));
+    await user.click(screen.getByRole("radio", { name: "Talla M, unidad 2" }));
+    await user.click(screen.getByRole("button", { name: "Configurar unidad siguiente" }));
+    await user.click(screen.getByRole("radio", { name: "Color Gris, unidad 3" }));
     await user.click(screen.getByRole("radio", { name: "Talla L, unidad 3" }));
     await fillRequiredFields(user);
     await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
@@ -215,5 +223,51 @@ describe("COD form frontend-only fields", () => {
       { Color: "Negro", Talla: "M" },
       { Color: "Gris", Talla: "L" },
     ]);
+  });
+
+  it("uses a dropdown for properties with five or more values", async () => {
+    const user = await openForm(
+      makeLanding({
+        variant_options: [
+          { name: "Color", values: ["Negro", "Gris", "Azul", "Verde", "Beige"] },
+          { name: "Talla", values: ["S", "M", "L", "XL"] },
+        ],
+      }),
+    );
+
+    expect(screen.getByRole("combobox", { name: "Color, unidad 1" })).toHaveValue("");
+    expect(screen.queryByRole("radio", { name: "Color Negro, unidad 1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Talla M, unidad 1" })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Color, unidad 1" }), "Azul");
+    await user.click(screen.getByRole("radio", { name: "Talla M, unidad 1" }));
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
+
+    await waitFor(() => expect(publicApi.createOrder).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(publicApi.createOrder).mock.calls[0][0].variant_selections).toEqual([
+      { Color: "Azul", Talla: "M" },
+    ]);
+  });
+
+  it("moves to the first incomplete unit and blocks the order", async () => {
+    const user = await openForm(
+      makeLanding({
+        default_offer_quantity: 3,
+        variant_options: [
+          { name: "Color", values: ["Gris", "Negro"] },
+          { name: "Talla", values: ["M", "L"] },
+        ],
+      }),
+    );
+
+    await user.click(screen.getByRole("radio", { name: "Color Gris, unidad 1" }));
+    await user.click(screen.getByRole("radio", { name: "Talla M, unidad 1" }));
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: /Confirmar pedido/ }));
+
+    expect(await screen.findByText("Selecciona color para la unidad 2.")).toBeInTheDocument();
+    expect(screen.getByText("Unidad 2 de 3")).toBeInTheDocument();
+    expect(publicApi.createOrder).not.toHaveBeenCalled();
   });
 });

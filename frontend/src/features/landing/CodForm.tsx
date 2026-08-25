@@ -125,7 +125,6 @@ function fitVariantSelections(
       options.map((option) => [
         option.name,
         option.values.find((value) => value === existing[index]?.[option.name]) ??
-          option.values[0] ??
           "",
       ]),
     ),
@@ -200,6 +199,7 @@ export function CodForm({
   const [variantSelections, setVariantSelections] = useState<Record<string, string>[]>(() =>
     fitVariantSelections(variantOptions, initialQuantity),
   );
+  const [currentVariantUnit, setCurrentVariantUnit] = useState(0);
   const [variantError, setVariantError] = useState<string | undefined>();
   const [errors, setErrors] = useState<Partial<Record<keyof CodFormValues, string>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -271,6 +271,7 @@ export function CodForm({
     const clamped = Math.min(Math.max(next, 1), MAX_QUANTITY);
     update("quantity", String(clamped));
     setVariantSelections((current) => fitVariantSelections(variantOptions, clamped, current));
+    setCurrentVariantUnit((current) => Math.min(current, clamped - 1));
     setVariantError(undefined);
   }
 
@@ -300,6 +301,35 @@ export function CodForm({
     const fullName = [values.first_name.trim(), values.last_name.trim()].join(" ");
     if (!nextErrors.first_name && !nextErrors.last_name && fullName.length > 120) {
       nextErrors.last_name = "El nombre completo no puede superar 120 caracteres.";
+    }
+
+    const missingVariant = Array.from({ length: safeQuantity }, (_, unitIndex) => {
+      const optionIndex = variantOptions.findIndex(
+        (option) => !variantSelections[unitIndex]?.[option.name]?.trim(),
+      );
+      return optionIndex >= 0
+        ? { unitIndex, optionIndex, option: variantOptions[optionIndex] }
+        : null;
+    }).find((missing) => missing !== null);
+
+    if (missingVariant) {
+      setErrors(nextErrors);
+      setCurrentVariantUnit(missingVariant.unitIndex);
+      setVariantError(
+        `Selecciona ${missingVariant.option.name.toLowerCase()} para la unidad ${missingVariant.unitIndex + 1}.`,
+      );
+      // The missing unit may not be mounted until this state update renders.
+      // Focus its first control on the following frame so the correction is
+      // immediate even when the buyer submitted from the sticky footer.
+      requestAnimationFrame(() => {
+        formRef.current
+          ?.querySelector<HTMLElement>(
+            `[data-variant-option-index="${missingVariant.optionIndex}"] input, ` +
+              `[data-variant-option-index="${missingVariant.optionIndex}"] select`,
+          )
+          ?.focus();
+      });
+      return;
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -432,48 +462,100 @@ export function CodForm({
                 </label>
                 {safeQuantity === tier.quantity && variantOptions.length > 0 && (
                   <div className="cod-form__variants" aria-label="Opciones del producto">
-                    {variantSelections.slice(0, safeQuantity).map((selection, unitIndex) => (
-                      <fieldset className="cod-form__variant-unit" key={unitIndex}>
+                    {variantSelections[currentVariantUnit] && (
+                      <fieldset className="cod-form__variant-unit">
                         <legend>
                           {safeQuantity === 1
                             ? "Elige tus opciones"
-                            : `Unidad ${unitIndex + 1} de ${safeQuantity}`}
+                            : `Unidad ${currentVariantUnit + 1} de ${safeQuantity}`}
                         </legend>
                         <div className="cod-form__variant-fields">
-                          {variantOptions.map((option) => (
-                            <fieldset className="cod-form__variant-option" key={option.name}>
-                              <legend>{option.name}</legend>
-                              <div className="cod-form__variant-choices">
-                                {option.values.map((value) => {
-                                  const checked =
-                                    (selection[option.name] ?? option.values[0] ?? "") === value;
-                                  return (
-                                    <label
-                                      className={
-                                        checked
-                                          ? "cod-form__variant-choice cod-form__variant-choice--selected"
-                                          : "cod-form__variant-choice"
-                                      }
-                                      key={value}
-                                    >
-                                      <input
-                                        type="radio"
-                                        name={`variant-${unitIndex}-${option.name}`}
-                                        value={value}
-                                        checked={checked}
-                                        onChange={() => setVariant(unitIndex, option.name, value)}
-                                        aria-label={`${option.name} ${value}, unidad ${unitIndex + 1}`}
-                                      />
-                                      <span>{value}</span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </fieldset>
-                          ))}
+                          {variantOptions.map((option, optionIndex) => {
+                            const selected =
+                              variantSelections[currentVariantUnit]?.[option.name] ?? "";
+                            return (
+                              <fieldset
+                                className="cod-form__variant-option"
+                                data-variant-option-index={optionIndex}
+                                key={option.name}
+                              >
+                                <legend>{option.name}</legend>
+                                {option.values.length >= 5 ? (
+                                  <select
+                                    className="cod-form__variant-select"
+                                    value={selected}
+                                    onChange={(event) =>
+                                      setVariant(currentVariantUnit, option.name, event.target.value)
+                                    }
+                                    aria-label={`${option.name}, unidad ${currentVariantUnit + 1}`}
+                                  >
+                                    <option value="">Elige {option.name.toLowerCase()}</option>
+                                    {option.values.map((value) => (
+                                      <option key={value} value={value}>{value}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <div className="cod-form__variant-choices">
+                                    {option.values.map((value) => {
+                                      const checked = selected === value;
+                                      return (
+                                        <label
+                                          className={
+                                            checked
+                                              ? "cod-form__variant-choice cod-form__variant-choice--selected"
+                                              : "cod-form__variant-choice"
+                                          }
+                                          key={value}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`variant-${currentVariantUnit}-${option.name}`}
+                                            value={value}
+                                            checked={checked}
+                                            onChange={() =>
+                                              setVariant(currentVariantUnit, option.name, value)
+                                            }
+                                            aria-label={`${option.name} ${value}, unidad ${currentVariantUnit + 1}`}
+                                          />
+                                          <span>{value}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </fieldset>
+                            );
+                          })}
                         </div>
                       </fieldset>
-                    ))}
+                    )}
+                    {safeQuantity > 1 && (
+                      <div className="cod-form__variant-nav" aria-label="Navegar entre unidades">
+                        <span className="cod-form__variant-progress" aria-live="polite">
+                          {currentVariantUnit + 1} / {safeQuantity}
+                        </span>
+                        <button
+                          type="button"
+                          className="cod-form__variant-arrow"
+                          onClick={() => setCurrentVariantUnit((unit) => Math.max(0, unit - 1))}
+                          disabled={currentVariantUnit === 0}
+                          aria-label="Configurar unidad anterior"
+                        >
+                          <span aria-hidden="true">←</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="cod-form__variant-arrow"
+                          onClick={() =>
+                            setCurrentVariantUnit((unit) => Math.min(safeQuantity - 1, unit + 1))
+                          }
+                          disabled={currentVariantUnit === safeQuantity - 1}
+                          aria-label="Configurar unidad siguiente"
+                        >
+                          <span aria-hidden="true">→</span>
+                        </button>
+                      </div>
+                    )}
                     {variantError && <p className="cod-form__quantity-error" role="alert">{variantError}</p>}
                   </div>
                 )}

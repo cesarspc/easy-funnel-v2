@@ -189,11 +189,6 @@
   border: 0;
 }
 
-.cod-form__variant-unit + .cod-form__variant-unit {
-  padding-top: 10px;
-  border-top: 1px solid var(--lp-hairline);
-}
-
 .cod-form__variant-unit legend {
   margin-bottom: 5px;
   color: var(--lp-ink);
@@ -260,6 +255,63 @@
 .cod-form__variant-choice:has(input:focus-visible) {
   outline: 2px solid var(--lp-form-action, var(--lp-action));
   outline-offset: 2px;
+}
+
+.cod-form__variant-select {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 34px 9px 11px;
+  border: 1.5px solid var(--lp-hairline);
+  border-radius: var(--lp-radius-sm);
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.cod-form__variant-select:focus-visible {
+  outline: 2px solid var(--lp-form-action, var(--lp-action));
+  outline-offset: 2px;
+}
+
+.cod-form__variant-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cod-form__variant-progress {
+  margin-right: 2px;
+  color: var(--lp-ink-quiet);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cod-form__variant-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1.5px solid var(--lp-form-action, var(--lp-action));
+  border-radius: 999px;
+  background: var(--lp-bg);
+  color: var(--lp-form-action-deep, var(--lp-action-deep));
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cod-form__variant-arrow:disabled {
+  border-color: var(--lp-hairline);
+  color: var(--lp-ink-quiet);
+  opacity: 0.55;
+  cursor: default;
 }
 
 .cod-form__quantity-error {
