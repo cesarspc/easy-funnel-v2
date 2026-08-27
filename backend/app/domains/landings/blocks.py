@@ -57,6 +57,7 @@ BLOCK_AUDIENCE = "audience"
 BLOCK_MOMENT = "moment"
 BLOCK_CTA = "cta"
 BLOCK_VIDEO_CAROUSEL = "video_carousel"
+MAX_VIDEOS_PER_CAROUSEL = 6
 BLOCK_PRICE_SUMMARY = "price_summary"
 BLOCK_OFFERS_PRICE = "offers_price"
 BLOCK_STORE_TRUST = "store_trust"

@@ -8,6 +8,7 @@ import contextlib
 from prisma import Prisma
 
 from app.domains.images.opaque_key import generate_opaque_key
+from app.domains.landings.blocks import MAX_VIDEOS_PER_CAROUSEL
 from app.domains.landings.errors import LandingNotFoundError, LandingValidationError
 from app.domains.videos import (
     OptimizedVideo,
@@ -16,8 +17,6 @@ from app.domains.videos import (
     optimize_video,
 )
 from app.storage.r2_client import R2Client, video_object_key, video_poster_object_key
-
-MAX_VIDEOS_PER_CAROUSEL = 6
 
 
 class VideoNotFoundError(LandingValidationError):

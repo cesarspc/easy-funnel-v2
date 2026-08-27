@@ -20,6 +20,7 @@ import uuid
 import pytest
 
 from tests.conftest import requires_database
+from tests.domains.images.conftest import make_image_bytes
 from tests.e2e.conftest import CodFlowHarness
 
 pytestmark = requires_database
@@ -233,6 +234,175 @@ class TestLoadTemplate:
         placed = blocks.json()["blocks"]
         assert [block["block_type"] for block in placed] == ["cod_assurance", "faq"]
         assert [block["slot_index"] for block in placed] == [1, 2]
+
+
+class TestInstantiateTemplate:
+    async def test_contract_describes_exact_required_media_and_post_publishes(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        source = await cod_flow.seed_landing(landing_status="draft")
+        await cod_flow.seed_banner(source, order_index=0)
+        await cod_flow.seed_banner(source, order_index=1)
+        await configure_source_landing(cod_flow, source.landing_id)
+        await add_block(
+            cod_flow,
+            source.landing_id,
+            block_type="offers_price",
+            slot_index=1,
+            config={"title": "Elige tu oferta"},
+        )
+        saved = await save_template(cod_flow, source.landing_id, template_name())
+        assert saved.status_code == 201, saved.text
+        template_id = cod_flow.track_template(saved.json()["id"])
+
+        contract_response = await cod_flow.client.get(
+            f"/api/admin/landing-templates/{template_id}/creation-contract",
+            headers=cod_flow.admin_headers(),
+        )
+        assert contract_response.status_code == 200, contract_response.text
+        contract = contract_response.json()
+        assert contract["banner_count"] == 2
+        assert contract["media_blocks"] == [
+            {
+                "block_index": 0,
+                "block_type": "offers_price",
+                "offer_images": {"required": True, "quantities": [1, 2]},
+            }
+        ]
+        assert len(contract["expected_payload"]["banners"]) == 2
+
+        staged = {
+            "originals/new-banner-one.png": make_image_bytes(1200, 700, format_="PNG"),
+            "originals/new-banner-two.png": make_image_bytes(1200, 700, format_="PNG"),
+            "originals/offer-one.png": make_image_bytes(700, 900, format_="PNG"),
+            "originals/offer-two.png": make_image_bytes(900, 700, format_="PNG"),
+        }
+        cod_flow.r2.objects.update(staged)
+        public_host = "https://test-images.example.com"
+        suffix = uuid.uuid4().hex[:12]
+        response = await cod_flow.client.post(
+            f"/api/admin/landing-templates/{template_id}/instantiate",
+            json={
+                "template_version": contract["template_version"],
+                "product": {
+                    "name": "Producto desde plantilla",
+                    "sku": f"TPL-{suffix}",
+                    "price": 84900,
+                    "description": "Creado en una sola operación",
+                    "variant_options": [],
+                },
+                "landing": {"slug": f"producto-plantilla-{suffix}"},
+                "banners": [
+                    {
+                        "original_url": f"{public_host}/originals/new-banner-one.png",
+                        "alt_text": "Beneficio principal",
+                    },
+                    {
+                        "original_url": f"{public_host}/originals/new-banner-two.png",
+                        "alt_text": "Cómo funciona",
+                    },
+                ],
+                "block_assets": [
+                    {
+                        "block_index": 0,
+                        "offer_images": [
+                            {
+                                "quantity": 1,
+                                "original_url": f"{public_host}/originals/offer-one.png",
+                            },
+                            {
+                                "quantity": 2,
+                                "original_url": f"{public_host}/originals/offer-two.png",
+                            },
+                        ],
+                    }
+                ],
+            },
+            headers=cod_flow.admin_headers(),
+        )
+
+        assert response.status_code == 201, response.text
+        created = response.json()
+        cod_flow.track_landing(created["product_id"], created["landing_id"], created["slug"])
+        assert created["product_status"] == "active"
+        assert created["landing_status"] == "published"
+        assert created["public_path"] == f"/p/{created['slug']}"
+
+        banners = await cod_flow.db.banner.find_many(
+            where={"landingId": created["landing_id"]}, order={"orderIndex": "asc"}
+        )
+        assert [banner.altText for banner in banners] == ["Beneficio principal", "Cómo funciona"]
+        blocks = await cod_flow.db.landingblock.find_many(
+            where={"landingId": created["landing_id"]}, include={"offerImages": True}
+        )
+        assert len(blocks) == 1
+        assert sorted(image.quantity for image in blocks[0].offerImages or []) == [1, 2]
+        assert all(key in cod_flow.r2.objects for key in staged)
+
+        public = await cod_flow.client.get(f"/api/public/landings/{created['slug']}")
+        assert public.status_code == 200, public.text
+
+    async def test_rejects_incomplete_offer_images_before_creating_product(
+        self, cod_flow: CodFlowHarness
+    ) -> None:
+        source = await cod_flow.seed_landing(landing_status="draft")
+        await cod_flow.seed_banner(source, order_index=0)
+        await add_block(
+            cod_flow,
+            source.landing_id,
+            block_type="offers_price",
+            slot_index=1,
+            config={"title": "Ofertas"},
+        )
+        saved = await save_template(cod_flow, source.landing_id, template_name())
+        template_id = cod_flow.track_template(saved.json()["id"])
+        contract = (
+            await cod_flow.client.get(
+                f"/api/admin/landing-templates/{template_id}/creation-contract",
+                headers=cod_flow.admin_headers(),
+            )
+        ).json()
+        suffix = uuid.uuid4().hex[:12]
+
+        response = await cod_flow.client.post(
+            f"/api/admin/landing-templates/{template_id}/instantiate",
+            json={
+                "template_version": contract["template_version"],
+                "product": {
+                    "name": "No debe crearse",
+                    "sku": f"NO-CREATE-{suffix}",
+                    "price": 10000,
+                },
+                "landing": {"slug": f"no-crear-{suffix}"},
+                "banners": [
+                    {
+                        "original_url": "https://test-images.example.com/originals/banner.png",
+                        "alt_text": "Banner",
+                    }
+                ],
+                "block_assets": [
+                    {
+                        "block_index": 0,
+                        "offer_images": [
+                            {
+                                "quantity": 1,
+                                "original_url": (
+                                    "https://test-images.example.com/originals/offer.png"
+                                ),
+                            }
+                        ],
+                    }
+                ],
+            },
+            headers=cod_flow.admin_headers(),
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"]["field"] == "offer_images"
+        assert await cod_flow.db.product.find_unique(where={"sku": f"NO-CREATE-{suffix}"}) is None
+
+
+class TestLoadTemplateContinued:
 
     async def test_loading_replaces_the_targets_own_components(
         self, cod_flow: CodFlowHarness

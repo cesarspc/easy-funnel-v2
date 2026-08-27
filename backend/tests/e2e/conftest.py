@@ -245,6 +245,12 @@ class CodFlowHarness:
         self._template_ids.append(template_id)
         return template_id
 
+    def track_landing(self, product_id: int, landing_id: int, slug: str) -> SeededLanding:
+        """Register a product/landing created by the endpoint under test."""
+        seeded = SeededLanding(product_id=product_id, landing_id=landing_id, slug=slug)
+        self._landings.append(seeded)
+        return seeded
+
     def admin_headers(self, subject: str = "e2e-admin") -> dict[str, str]:
         """Authorization header for the admin endpoints.
 
@@ -317,12 +323,21 @@ class CodFlowHarness:
             # `landing_blocks` holds a restrict FK to the landing, so placed
             # components (and their audit rows) go before the landing itself.
             stored_blocks = await self.db.landingblock.find_many(
-                where={"landingId": landing.landing_id}
+                where={"landingId": landing.landing_id},
+                include={"videos": True, "offerImages": True},
             )
             for block in stored_blocks:
                 await self.db.auditlog.delete_many(
                     where={"targetType": "landing_block", "targetId": str(block.id)}
                 )
+                for video in block.videos or []:
+                    await self.db.auditlog.delete_many(
+                        where={"targetType": "video_asset", "targetId": str(video.id)}
+                    )
+                for image in block.offerImages or []:
+                    await self.db.auditlog.delete_many(
+                        where={"targetType": "offer_image_asset", "targetId": str(image.id)}
+                    )
             await self.db.landingblock.delete_many(where={"landingId": landing.landing_id})
             await self.db.banner.delete_many(where={"landingId": landing.landing_id})
             for image_asset_id in image_asset_ids:
