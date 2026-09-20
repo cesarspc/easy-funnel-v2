@@ -1,0 +1,12 @@
+# Applies at the Vercel Root Directory (api-docs).
+# Only the three files that make up the site are deployed:
+#   index.html         the API reference at /
+#   architecture.html  the diagram at /architecture
+#   openapi.json       fetched by index.html, and useful on its own
+
+# Repository documentation, not part of the published site.
+README.md
+
+# Cloudflare Pages header file; Vercel uses vercel.json instead and would
+# otherwise serve this as a plain static file.
+_headers

@@ -214,20 +214,6 @@
         "title": "Body_upload_block_video_api_admin_landings__landing_id__blocks__block_id__videos_post",
         "type": "object"
       },
-      "Body_upload_store_asset_api_admin_store_assets__asset_kind__post": {
-        "properties": {
-          "file": {
-            "format": "binary",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_upload_store_asset_api_admin_store_assets__asset_kind__post",
-        "type": "object"
-      },
       "CityResponse": {
         "properties": {
           "code": {
@@ -247,7 +233,7 @@
         "type": "object"
       },
       "ConversionBlockResponse": {
-        "description": "One placed conversion component (Requirements 3.27-3.31).\n\n`slot_index` counts the rendered elements the component follows, so the\nclient inserts it after that many banners/CTA bands. A slot beyond the\nsequence renders at the end rather than disappearing. `config` is content\nonly â€” presentation is fixed in the Landing chrome â€” except for the one\nbounded override every type accepts: `accent_color`. When set,\n`accent_palette` carries its fully derived shades (deep/tint/ink), computed\nserver-side the same way the landing's own accent is, so the client never\nhas to do contrast math and can never end up with unreadable text on a\nmerchant-chosen color. `accent_palette` is `None` when the component has no\noverride, meaning it inherits the form accent already on the page.",
+        "description": "One placed conversion component (Requirements 3.27-3.31).\n\n`slot_index` counts the rendered elements the component follows, so the\nclient inserts it after that many banners/CTA bands. A slot beyond the\nsequence renders at the end rather than disappearing. `config` is content\nonly — presentation is fixed in the Landing chrome — except for the one\nbounded override every type accepts: `accent_color`. When set,\n`accent_palette` carries its fully derived shades (deep/tint/ink), computed\nserver-side the same way the landing's own accent is, so the client never\nhas to do contrast math and can never end up with unreadable text on a\nmerchant-chosen color. `accent_palette` is `None` when the component has no\noverride, meaning it inherits the form accent already on the page.",
         "properties": {
           "accent_palette": {
             "anyOf": [
@@ -802,7 +788,7 @@
         "type": "object"
       },
       "LandingBlockResponse": {
-        "description": "One placed conversion component.\n\n`slot_index` counts the rendered elements the component follows (0 = above\neverything), and `config` carries content only â€” presentation for each type\nis fixed in the Landing chrome.",
+        "description": "One placed conversion component.\n\n`slot_index` counts the rendered elements the component follows (0 = above\neverything), and `config` carries content only — presentation for each type\nis fixed in the Landing chrome.",
         "properties": {
           "block_type": {
             "title": "Block Type",
@@ -1722,10 +1708,18 @@
         "type": "object"
       },
       "LandingTemplateCreationContractResponse": {
+        "description": "The shared creation contract plus a filled-in skeleton of the payload.\n\n`expected_payload` is what the dashboard pastes into its request editor; it\nis dashboard affordance only, which is why the automation contract omits it.",
         "properties": {
           "banner_count": {
             "title": "Banner Count",
             "type": "integer"
+          },
+          "content_blocks": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Content Blocks",
+            "type": "array"
           },
           "expected_payload": {
             "title": "Expected Payload",
@@ -1757,6 +1751,7 @@
           "template_version",
           "banner_count",
           "media_blocks",
+          "content_blocks",
           "expected_payload"
         ],
         "title": "LandingTemplateCreationContractResponse",
@@ -1776,6 +1771,13 @@
               "$ref": "#/components/schemas/TemplateBlockAssetsRequest"
             },
             "title": "Block Assets",
+            "type": "array"
+          },
+          "block_content": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateBlockContentRequest"
+            },
+            "title": "Block Content",
             "type": "array"
           },
           "landing": {
@@ -1853,7 +1855,7 @@
         "type": "object"
       },
       "LandingTemplateResponse": {
-        "description": "One saved template.\n\n`banner_count` is the number of banners the source landing had and the\nnumber a target landing must have for this template to load â€” the dashboard\nshows it next to the name so the merchant can see which templates apply\nbefore opening anything.",
+        "description": "One saved template.\n\n`banner_count` is the number of banners the source landing had and the\nnumber a target landing must have for this template to load — the dashboard\nshows it next to the name so the merchant can see which templates apply\nbefore opening anything.",
         "properties": {
           "banner_count": {
             "title": "Banner Count",
@@ -2120,6 +2122,11 @@
           "phone": {
             "title": "Phone",
             "type": "string"
+          },
+          "priority_dispatch": {
+            "default": false,
+            "title": "Priority Dispatch",
+            "type": "boolean"
           },
           "quantity": {
             "title": "Quantity",
@@ -2534,351 +2541,6 @@
         "title": "SessionResponse",
         "type": "object"
       },
-      "StoreResponse": {
-        "properties": {
-          "favicon_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Favicon Url"
-          },
-          "footer_text": {
-            "title": "Footer Text",
-            "type": "string"
-          },
-          "gtm_container_id": {
-            "title": "Gtm Container Id",
-            "type": "string"
-          },
-          "home_cta_label": {
-            "title": "Home Cta Label",
-            "type": "string"
-          },
-          "home_description": {
-            "title": "Home Description",
-            "type": "string"
-          },
-          "home_eyebrow": {
-            "title": "Home Eyebrow",
-            "type": "string"
-          },
-          "home_headline": {
-            "title": "Home Headline",
-            "type": "string"
-          },
-          "homepage_image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Homepage Image Url"
-          },
-          "legal_name": {
-            "title": "Legal Name",
-            "type": "string"
-          },
-          "logo_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logo Url"
-          },
-          "meta_pixel_id": {
-            "title": "Meta Pixel Id",
-            "type": "string"
-          },
-          "primary_color": {
-            "title": "Primary Color",
-            "type": "string"
-          },
-          "secondary_description": {
-            "title": "Secondary Description",
-            "type": "string"
-          },
-          "secondary_headline": {
-            "title": "Secondary Headline",
-            "type": "string"
-          },
-          "seo_description": {
-            "title": "Seo Description",
-            "type": "string"
-          },
-          "seo_title": {
-            "title": "Seo Title",
-            "type": "string"
-          },
-          "store_name": {
-            "title": "Store Name",
-            "type": "string"
-          },
-          "support_email": {
-            "title": "Support Email",
-            "type": "string"
-          },
-          "trust_items": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Trust Items",
-            "type": "array"
-          },
-          "whatsapp_message": {
-            "title": "Whatsapp Message",
-            "type": "string"
-          },
-          "whatsapp_number": {
-            "title": "Whatsapp Number",
-            "type": "string"
-          }
-        },
-        "required": [
-          "store_name",
-          "legal_name",
-          "primary_color",
-          "logo_url",
-          "favicon_url",
-          "homepage_image_url",
-          "whatsapp_number",
-          "whatsapp_message",
-          "support_email",
-          "home_eyebrow",
-          "home_headline",
-          "home_description",
-          "home_cta_label",
-          "trust_items",
-          "secondary_headline",
-          "secondary_description",
-          "footer_text",
-          "seo_title",
-          "seo_description",
-          "gtm_container_id",
-          "meta_pixel_id"
-        ],
-        "title": "StoreResponse",
-        "type": "object"
-      },
-      "StoreUpdateRequest": {
-        "properties": {
-          "footer_text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Footer Text"
-          },
-          "gtm_container_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gtm Container Id"
-          },
-          "home_cta_label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Home Cta Label"
-          },
-          "home_description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Home Description"
-          },
-          "home_eyebrow": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Home Eyebrow"
-          },
-          "home_headline": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Home Headline"
-          },
-          "legal_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Legal Name"
-          },
-          "meta_pixel_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Meta Pixel Id"
-          },
-          "primary_color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Primary Color"
-          },
-          "secondary_description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Secondary Description"
-          },
-          "secondary_headline": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Secondary Headline"
-          },
-          "seo_description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Seo Description"
-          },
-          "seo_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Seo Title"
-          },
-          "store_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Store Name"
-          },
-          "support_email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Support Email"
-          },
-          "trust_items": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "maxItems": 3,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trust Items"
-          },
-          "whatsapp_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Whatsapp Message"
-          },
-          "whatsapp_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Whatsapp Number"
-          }
-        },
-        "title": "StoreUpdateRequest",
-        "type": "object"
-      },
       "TemplateBlockAssetsRequest": {
         "properties": {
           "block_index": {
@@ -2905,6 +2567,25 @@
           "block_index"
         ],
         "title": "TemplateBlockAssetsRequest",
+        "type": "object"
+      },
+      "TemplateBlockContentRequest": {
+        "properties": {
+          "block_index": {
+            "minimum": 0.0,
+            "title": "Block Index",
+            "type": "integer"
+          },
+          "content": {
+            "title": "Content",
+            "type": "object"
+          }
+        },
+        "required": [
+          "block_index",
+          "content"
+        ],
+        "title": "TemplateBlockContentRequest",
         "type": "object"
       },
       "TemplateLandingCreateRequest": {
@@ -3313,7 +2994,7 @@
     "securitySchemes": {
       "bearerAuth": {
         "bearerFormat": "JWT",
-        "description": "The same session token supplied as `Authorization: Bearer <token>`, for clients that cannot hold cookies. Accepted everywhere the cookie is.",
+        "description": "The same session token supplied as `Authorization: Bearer <token>`, for clients that cannot hold cookies. Accepted everywhere the cookie is, and nowhere the cookie is not.",
         "scheme": "bearer",
         "type": "http"
       },
@@ -3326,8 +3007,8 @@
     }
   },
   "info": {
-    "description": "\nEasy Funnel is a single-merchant, cash-on-delivery (COD) commerce platform for\nthe Colombian market. A buyer arrives on a product landing page â€” usually from a\npaid ad, usually on a phone â€” reads the offer, and submits an order form. No\npayment is taken online: the merchant collects cash when the product is\ndelivered, which is why so much of this API is about deciding whether an order\nis worth dispatching.\n\nThis document describes **the API as deployed**. It is generated from the\nrunning route table rather than written by hand, so an endpoint listed here\nexists and a parameter shown here is the parameter the service reads.\n\n## The two surfaces\n\n**Public** (`/api/public/*`) is what a buyer's browser talks to. It is\nunauthenticated by design: it serves a published landing, records a view or a\ncall-to-action click, lists delivery locations, and accepts an order. Nothing\nhere can read or modify the catalog.\n\n**Administrator** (`/api/admin/*`) is the merchant's operational surface:\nproducts, landings and their conversion components, orders, fraud controls,\nanalytics, and storefront settings. Every one of these requires a session. There\nis exactly one role â€” there is no user management, because the platform is built\nfor one merchant operating their own store.\n\n## Authentication\n\n`POST /api/auth/login` verifies credentials and replies with a `session` cookie:\n`HttpOnly`, `SameSite=Strict`, and `Secure` everywhere except local development.\nA browser needs nothing else â€” send subsequent requests with credentials\nincluded and the cookie authorizes them.\n\nFor non-browser clients the same token is accepted as\n`Authorization: Bearer <token>`.\n\nEvery rejection â€” missing token, expired, tampered, wrong issuer, wrong audience,\nwrong algorithm â€” returns the **same** generic `401` with\n`{\"detail\": \"Authentication required.\"}`. This is deliberate: a caller learns\nthat it is not authorized and nothing further.\n\nLogin is rate limited per client address. Exceeding it returns `429`; the\ncredentials themselves are never revealed to be right or wrong in that state.\n\n## Error format\n\nErrors use a single envelope, and the `detail` value has two shapes.\n\nA plain message, for errors that concern the request as a whole:\n\n```json\n{ \"detail\": \"Authentication required.\" }\n```\n\nA field error, for a value the caller can correct â€” this is what validation\nfailures in business rules return, and it is what lets a client attach the\nmessage to the input that produced it:\n\n```json\n{ \"detail\": { \"field\": \"phone\", \"message\": \"Enter a valid Colombian mobile number.\" } }\n```\n\nSchema-level validation performed before a handler runs (a missing body field, a\nwrong type) returns FastAPI's standard `422` with a `detail` array instead.\n\n## Conventions\n\n**Money** is Colombian pesos (COP). Amounts are exact decimals and are never\nfloats in storage; totals that a buyer owes are always computed server-side and\nreturned ready to display, so a client never adds up a price itself.\n\n**Timestamps** are UTC, ISO-8601. Analytics is the one place that deliberately\ndoes not use UTC: daily figures are bucketed on Colombia's calendar day\n(`America/Bogota`), because a merchant reading yesterday's orders means their\nyesterday.\n\n**Identifiers** are integers. Image and video assets are addressed by an opaque\nrandom key, never by a filename or anything derived from client input.\n\n**Language.** Buyer-facing copy stored through this API is Spanish, and\ndelivery locations come from the bundled Colombian DIVIPOLA catalogue, which is\nauthoritative: a department and municipality must match it exactly, and\n`GET /api/public/locations` is the list a client should populate from.\n\n## Order lifecycle\n\nA submitted order is **never silently rejected**. It is persisted exactly once,\nin a single transaction together with any fraud flags it raised, and it lands in\none of two states:\n\n| Status | Meaning |\n| --- | --- |\n| `pending` | Accepted, awaiting the merchant's confirmation. |\n| `flagged_fraud` | Accepted and held for review; one or more fraud rules matched. |\n\nFraud evaluation runs synchronously during submission â€” duplicate detection,\nphone and address blacklists, per-phone and per-IP rate limits, and GeoIP rules.\nRate limiting on the public order endpoint *flags* an order rather than refusing\nit, so a real buyer behind a shared connection is reviewed rather than turned\naway.\n\nFrom there the merchant moves the order through a fixed set of transitions:\n\n| From | To |\n| --- | --- |\n| `pending` | `confirmed`, `cancelled` |\n| `confirmed` | `shipped`, `cancelled` |\n| `shipped` | `delivered`, `cancelled` |\n| `flagged_fraud` | `pending`, `cancelled` |\n\n`delivered` and `cancelled` are terminal. Any other transition is refused.\n\n## Other status vocabularies\n\n* **Products** â€” `active`, `paused`, `retired`. Only an `active` product's\n  landing can be published, and retirement is a soft delete that preserves the\n  historical evidence attached to past orders.\n* **Landings** â€” `draft`, `published`. Only a `published` landing is reachable\n  through the public API.\n\n## Fulfillment hand-off\n\nWhen a fulfillment provider is configured, the hand-off runs **after** the order\nhas been committed locally. Accepting an order never depends on a third party\nbeing reachable; a failed hand-off is recorded as a durable, retryable row that\nthe merchant can inspect and retry. Endpoints that mention MasterShop are inert\nwhile `FULFILLMENT_PROVIDER` is `none`.\n\n## Scope of this document\n\nOnly endpoints backed by a working implementation are published here. An\noperational endpoint that currently returns a fixed placeholder is excluded\nrather than documented as if it worked.\n",
-    "summary": "Cash-on-delivery commerce API for a single merchant: public landing delivery and checkout, plus the authenticated Administrator surface.",
+    "description": "\nEasy Funnel is a single-merchant, cash-on-delivery (COD) commerce platform for\nthe Colombian market. A buyer arrives on a product landing page — usually from a\npaid ad, usually on a phone — reads the offer, and submits an order form. No\npayment is taken online: the merchant collects cash when the product is\ndelivered, which is why so much of this API is about deciding whether an order\nis worth dispatching.\n\nThis document describes **the API as deployed**. It is generated from the\nrunning route table rather than written by hand, so an endpoint listed here\nexists and a parameter shown here is the parameter the service reads.\n\n## Three doors\n\n**Public** (`/api/public/*`) is what a buyer's browser talks to. It is\nunauthenticated by design: it serves a published landing, records a view or a\ncall-to-action click, lists delivery locations, and accepts an order. Nothing\nhere can read or modify the catalog.\n\n**Administrator** (`/api/admin/*`) is the merchant's operational surface:\nproducts, landings and their conversion components, orders, fraud controls,\nanalytics and operational readouts. Every one of these requires a session. There\nis exactly one role — there is no user management, because the platform is built\nfor one merchant operating their own store.\n\n**Automation** (`/api/automation/*`) is a deliberately narrow door for an\nautomation agent: read a template's creation contract, then create the product\nand its published landing from that contract in a single call. It authenticates\nwith its own shared secret, **not** an Administrator session, so the credential\nthat drives automation cannot reach the rest of the admin API.\n\nIts two endpoints are **intentionally absent from this document**. They are\nmarked private in the route table itself, because the contract belongs to the\nagent that was issued the secret and not to the public surface. They are\nmentioned here so the door is not a surprise, not so it can be called from\nthis page.\n\n## Authentication\n\n`POST /api/auth/login` verifies credentials and replies with a `session` cookie:\n`HttpOnly`, `SameSite=Strict`, and `Secure` everywhere except local development.\nA browser needs nothing else — send subsequent requests with credentials\nincluded and the cookie authorizes them. For non-browser clients the same token\nis accepted as `Authorization: Bearer <token>`.\n\nThe automation door ignores both of those. It accepts only\n`Authorization: Bearer <AUTOMATION_MCP_API_KEY>`, the shared secret configured\nfor the deployment, and an Administrator session is not valid there.\n\nEvery rejection — missing token, expired, tampered, wrong issuer, wrong\naudience, wrong algorithm — returns the **same** generic `401`. This is\ndeliberate: a caller learns that it is not authorized and nothing further.\n\nLogin is rate limited per client address. Exceeding it returns `429`; the\ncredentials themselves are never revealed to be right or wrong in that state.\n\n## Error format\n\nErrors use a single envelope, and the `detail` value has two shapes.\n\nA plain message, for errors that concern the request as a whole:\n\n```json\n{ \"detail\": \"Authentication required.\" }\n```\n\nA field error, for a value the caller can correct — this is what validation\nfailures in business rules return, and it is what lets a client attach the\nmessage to the input that produced it:\n\n```json\n{ \"detail\": { \"field\": \"phone\", \"message\": \"Enter a valid Colombian mobile number.\" } }\n```\n\nSchema-level validation performed before a handler runs (a missing body field, a\nwrong type) returns FastAPI's standard `422` with a `detail` array instead.\n\n## Conventions\n\n**Money** is Colombian pesos (COP). Amounts are exact decimals and are never\nfloats in storage; totals that a buyer owes are always computed server-side and\nreturned ready to display, so a client never adds up a price itself.\n\n**Timestamps** are UTC, ISO-8601. Analytics is the one place that deliberately\ndoes not use UTC: daily figures are bucketed on Colombia's calendar day\n(`America/Bogota`), because a merchant reading yesterday's orders means their\nyesterday.\n\n**Identifiers** are integers. Image and video assets are addressed by an opaque\nrandom key, never by a filename or anything derived from client input.\n\n**Origins.** The single-page application is served from static hosting and the\nAPI from its own host, so browser calls are cross-origin and the deployment's\nallowed origins are configured explicitly.\n\n**Language.** Buyer-facing copy stored through this API is Spanish, and\ndelivery locations come from the bundled Colombian DIVIPOLA catalogue, which is\nauthoritative: a department and municipality must match it exactly, and\n`GET /api/public/locations` is the list a client should populate from.\n\n## Order lifecycle\n\nA submitted order is **never silently rejected**. It is persisted exactly once,\nin a single transaction together with any fraud flags it raised, and it lands in\none of two states:\n\n| Status | Meaning |\n| --- | --- |\n| `pending` | Accepted, awaiting the merchant's confirmation. |\n| `flagged_fraud` | Accepted and held for review; one or more fraud rules matched. |\n\nFraud evaluation runs synchronously during submission — duplicate detection,\nphone and address blacklists, per-phone and per-IP rate limits, and GeoIP rules.\nRate limiting on the public order endpoint *flags* an order rather than refusing\nit, so a real buyer behind a shared connection is reviewed rather than turned\naway.\n\nFrom there the merchant moves the order through a fixed set of transitions:\n\n| From | To |\n| --- | --- |\n| `pending` | `confirmed`, `cancelled` |\n| `confirmed` | `shipped`, `cancelled` |\n| `shipped` | `delivered`, `cancelled` |\n| `flagged_fraud` | `pending`, `cancelled` |\n\n`delivered` and `cancelled` are terminal. Any other transition is refused.\n\n## Other status vocabularies\n\n* **Products** — `active`, `paused`, `retired`. Only an `active` product's\n  landing can be published, and retirement is a soft delete that preserves the\n  historical evidence attached to past orders.\n* **Landings** — `draft`, `published`. Only a `published` landing is reachable\n  through the public API.\n\n## Fulfillment hand-off\n\nWhen a fulfillment provider is configured, the hand-off runs **after** the order\nhas been committed locally. Accepting an order never depends on a third party\nbeing reachable; a failed hand-off is recorded as a durable, retryable row that\nthe merchant can inspect and retry. Endpoints that mention MasterShop are inert\nwhile no provider key is configured.\n\n## Scope of this document\n\nOnly endpoints backed by a working implementation are published here. An\noperational endpoint that currently returns a fixed placeholder is excluded\nrather than documented as if it worked.\n",
+    "summary": "Cash-on-delivery commerce API for a single merchant: public landing delivery and checkout, the authenticated Administrator surface, and a private automation door.",
     "title": "Easy Funnel API",
     "version": "0.1.0"
   },
@@ -5420,7 +5101,7 @@
     },
     "/api/admin/landings/{landing_id}/blocks/{block_id}/offer-images/{quantity}": {
       "delete": {
-        "description": "Remove the image attached to one quantity tier.\n\nThe tier keeps working without it â€” the offer simply renders without an\nimage. Returns the landing's components after the removal.",
+        "description": "Remove the image attached to one quantity tier.\n\nThe tier keeps working without it — the offer simply renders without an\nimage. Returns the landing's components after the removal.",
         "operationId": "delete_block_offer_image_api_admin_landings__landing_id__blocks__block_id__offer_images__quantity__delete",
         "parameters": [
           {
@@ -5505,7 +5186,7 @@
         ]
       },
       "post": {
-        "description": "Attach an image to one quantity tier of an offers component.\n\n`quantity` is the tier the image belongs to â€” the buyer sees it beside that\noption, so \"3 units\" can show the bundle rather than a single item. Sent as\n`multipart/form-data` with the image in a `file` part; one image per tier,\nand uploading again replaces the current one.",
+        "description": "Attach an image to one quantity tier of an offers component.\n\n`quantity` is the tier the image belongs to — the buyer sees it beside that\noption, so \"3 units\" can show the bundle rather than a single item. Sent as\n`multipart/form-data` with the image in a `file` part; one image per tier,\nand uploading again replaces the current one.",
         "operationId": "upload_block_offer_image_api_admin_landings__landing_id__blocks__block_id__offer_images__quantity__post",
         "parameters": [
           {
@@ -6515,7 +6196,7 @@
     },
     "/api/admin/orders/{order_id}/mastershop/retry": {
       "post": {
-        "description": "Re-attempt the fulfillment provider hand-off for one order.\n\nThe hand-off runs after an order is committed locally, so a provider outage\nor a missing product mapping leaves the order intact and the failure recorded\non a durable sync row. This endpoint replays that hand-off and returns the\nresulting sync state.\n\nSafe to call repeatedly: an order that already synced is not sent twice.\nInert while `FULFILLMENT_PROVIDER` is `none`.",
+        "description": "Re-attempt the fulfillment provider hand-off for one order.\n\nThe hand-off runs after an order is committed locally, so a provider outage\nor a missing product mapping leaves the order intact and the failure recorded\non a durable sync row. This endpoint replays that hand-off and returns the\nresulting sync state.\n\nSafe to call repeatedly: an order that already synced is not sent twice.",
         "operationId": "retry_mastershop_sync_api_admin_orders__order_id__mastershop_retry_post",
         "parameters": [
           {
@@ -7078,7 +6759,7 @@
     },
     "/api/admin/products/{product_id}/mastershop-mappings": {
       "get": {
-        "description": "Return how this product's variants map onto the fulfillment provider.\n\nEach mapping ties one local variant selection to the provider's own product\nidentifier. An unmapped selection is what makes a hand-off fail, so this is\nthe list to check when `POST /{order_id}/mastershop/retry` keeps failing.",
+        "description": "Return how this product's variants map onto the fulfillment provider.\n\nEach mapping ties one local variant selection to the provider's own product\nidentifier. An unmapped selection is what makes a hand-off fail, so this is\nthe list to check when a retry keeps failing.",
         "operationId": "get_mastershop_mappings_api_admin_products__product_id__mastershop_mappings_get",
         "parameters": [
           {
@@ -7290,199 +6971,6 @@
         "summary": "Pause Product",
         "tags": [
           "products"
-        ]
-      }
-    },
-    "/api/admin/store": {
-      "get": {
-        "description": "Return the same storefront configuration the public endpoint serves.\n\nSeparate from the public route so the editing surface reads through an\nauthenticated path and its access is audited like every other admin read.",
-        "operationId": "admin_store_api_admin_store_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StoreResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Authentication required."
-                },
-                "schema": {
-                  "properties": {
-                    "detail": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "No valid Administrator session. Returned identically for a missing, expired, tampered or otherwise invalid token."
-          }
-        },
-        "security": [
-          {
-            "sessionCookie": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "summary": "Read storefront settings (admin)",
-        "tags": [
-          "store"
-        ]
-      },
-      "patch": {
-        "description": "Update storefront settings and return the stored result.\n\nA partial update: only the fields present in the body are written, so a\nclient can send one field without restating the rest. Values are validated\n(colors, WhatsApp number format, e-mail, tracking identifiers, lengths) and a\nrejection names the offending field.\n\nThese values seed from `STORE_*` environment variables **once**, on a fresh\ndatabase. After that this endpoint is the source of truth and a restart never\nreverts what the merchant saved here.",
-        "operationId": "update_store_api_admin_store_patch",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StoreUpdateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StoreResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Authentication required."
-                },
-                "schema": {
-                  "properties": {
-                    "detail": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "No valid Administrator session. Returned identically for a missing, expired, tampered or otherwise invalid token."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "sessionCookie": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "summary": "Update storefront settings",
-        "tags": [
-          "store"
-        ]
-      }
-    },
-    "/api/admin/store/assets/{asset_kind}": {
-      "post": {
-        "description": "Replace one brand image and return the updated settings.\n\n`asset_kind` is one of `logo`, `favicon` or `homepage_image`. The upload is\nvalidated as an image, stored under a random opaque key, and the settings\nrecord is pointed at the new public URL. Send it as `multipart/form-data`\nwith the image in a `file` part.",
-        "operationId": "upload_store_asset_api_admin_store_assets__asset_kind__post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "asset_kind",
-            "required": true,
-            "schema": {
-              "title": "Asset Kind",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_upload_store_asset_api_admin_store_assets__asset_kind__post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StoreResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Authentication required."
-                },
-                "schema": {
-                  "properties": {
-                    "detail": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "No valid Administrator session. Returned identically for a missing, expired, tampered or otherwise invalid token."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "sessionCookie": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ],
-        "summary": "Upload a brand image",
-        "tags": [
-          "store"
         ]
       }
     },
@@ -7771,32 +7259,9 @@
         ]
       }
     },
-    "/api/public/store": {
-      "get": {
-        "description": "Return the merchant's public storefront configuration.\n\nBranding, contact details, homepage copy, SEO fields and tracking\nidentifiers â€” everything a storefront needs to render itself. Unauthenticated\nand safe to call from a buyer's browser; it carries no operational data.\n\nAnswers `503` while the singleton has not been initialised, which happens\nonly before the service has completed its first start-up against an empty\ndatabase.",
-        "operationId": "public_store_api_public_store_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StoreResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Read storefront settings",
-        "tags": [
-          "public",
-          "store"
-        ]
-      }
-    },
     "/health": {
       "get": {
-        "description": "Report that the process is up, with the deployed version.\n\nAnswers without touching PostgreSQL, Redis or object storage, so a\ncontainer orchestrator can tell \"the process is alive\" apart from \"its\ndependencies are reachable\" â€” the latter is\n`GET /api/admin/ops/health`.",
+        "description": "Liveness endpoint used by the Koyeb health check.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -7839,7 +7304,7 @@
       "name": "landings"
     },
     {
-      "description": "Reusable landing configurations. A template captures layout, copy and components â€” not images â€” so it can be applied to another landing. Templates outlive the landing they were saved from.",
+      "description": "Reusable landing configurations. A template captures layout, copy and components — not images — so it can be applied to another landing. Templates outlive the landing they were saved from.",
       "name": "landing-templates"
     },
     {
@@ -7855,11 +7320,7 @@
       "name": "analytics"
     },
     {
-      "description": "Storefront identity: branding, contact details, homepage copy, SEO and tracking identifiers, and brand image uploads. The public read-only view is what a storefront renders from; the Administrator view is where the merchant edits it.",
-      "name": "store"
-    },
-    {
-      "description": "Operational read-only endpoints for monitoring: dependency reachability and the deployed version. These expose state only â€” never customer data, credentials, payloads or stack detail.",
+      "description": "Operational read-only endpoints for monitoring: dependency reachability and the deployed version. These expose state only — never customer data, credentials, payloads or stack detail.",
       "name": "ops"
     }
   ]

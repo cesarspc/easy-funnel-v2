@@ -9,6 +9,30 @@ to be running** — not to view it, not to build it, and not to deploy it.
 | `/architecture` | System architecture diagram: components, boundaries and the paths between them. |
 | `/openapi.json` | The OpenAPI 3.1 document itself, for any other tool. |
 
+## Which repository both pages describe
+
+Both are generated from the **production** repository (`cesarspc/easy-funnel`),
+never from this checkout, and `SOURCE_REPO` in `docs.sh` points at it.
+
+This matters because this checkout is the demo/working copy. It carries a
+self-hosted compose stack, a login-free dev server and a store-settings screen
+that the deployed system does not have. Generating from here would publish a
+reference full of endpoints production never serves, and a diagram of the demo
+rig rather than the product.
+
+The diagram additionally pins a revision and cites a source file per component,
+and Archify refuses to render if any cited path is missing at that revision — so
+a node cannot quietly claim to represent code that is not there.
+
+### One thing the reference deliberately omits
+
+Production has a third door: `/api/automation/landing-templates`, guarded by its
+own shared secret (`AUTOMATION_MCP_API_KEY`) rather than an Administrator
+session. Its two endpoints are marked private in the route table
+(`include_in_schema=False`), so they are **not** listed here. That is the
+codebase's own decision and this build respects it; the document explains the
+door exists so a reader is not surprised by the diagram showing it.
+
 | File | What it is |
 | --- | --- |
 | `openapi.json` | Generated from the live route table. |

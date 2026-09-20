@@ -10,10 +10,10 @@
       700
     ],
     "repository": {
-      "url": "https://github.com/cesarspc/easy-funnel-v2",
+      "url": "https://github.com/cesarspc/easy-funnel",
       "provider": "github",
       "link_mode": "local-only",
-      "revision": "63b5794cb36cdd588cd876371fe3155767d57020"
+      "revision": "33428238330900b0199056e65b604d8214a3513c"
     },
     "views": [
       {
@@ -21,40 +21,38 @@
         "label": "Buyer request path",
         "focus": [
           "buyer",
-          "caddy",
           "spa",
           "api"
         ],
-        "note": "A buyer arrives from an ad on a phone. Caddy serves the SPA and proxies the API it calls."
+        "note": "The SPA is static hosting, so every call it makes crosses an origin into the API."
       },
       {
         "id": "order-authority",
         "label": "Order authority",
         "focus": [
           "api",
-          "postgres",
-          "redis",
+          "neon",
+          "upstash",
           "geoip"
         ],
         "note": "Every fraud check runs synchronously inside the transaction that persists the order."
       },
       {
-        "id": "media",
-        "label": "Image delivery",
+        "id": "automation",
+        "label": "Automation door",
         "focus": [
+          "automation",
           "api",
-          "storage",
-          "caddy",
-          "buyer"
+          "neon"
         ],
-        "note": "Variants are generated on upload and served back through the same edge under /media."
+        "note": "A separate shared key reaches two endpoints only, and never the admin API."
       },
       {
         "id": "fulfillment",
         "label": "Fulfillment hand-off",
         "focus": [
           "api",
-          "postgres",
+          "neon",
           "mastershop"
         ],
         "note": "The hand-off runs after the local commit, so acceptance never depends on a third party."
@@ -66,14 +64,34 @@
       "id": "buyer",
       "type": "external",
       "label": "Buyer",
-      "sublabel": "Mobile, from an ad",
+      "sublabel": "Mobile browser, from an ad",
       "pos": [
         40,
         70
       ],
       "size": [
-        150,
+        190,
         64
+      ]
+    },
+    {
+      "id": "automation",
+      "type": "external",
+      "label": "Automation agent",
+      "sublabel": "Creates landings from templates",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/api/routers/automation_landings.py",
+          "label": "private API"
+        }
       ]
     },
     {
@@ -83,39 +101,18 @@
       "sublabel": "Desktop admin panel",
       "pos": [
         40,
-        360
+        200
       ],
       "size": [
-        150,
+        190,
         64
-      ]
-    },
-    {
-      "id": "caddy",
-      "type": "cloud",
-      "label": "Caddy",
-      "sublabel": "TLS edge + reverse proxy",
-      "tag": ":80 / :443",
-      "pos": [
-        270,
-        230
-      ],
-      "size": [
-        160,
-        64
-      ],
-      "sources": [
-        {
-          "path": "docker-compose.yml",
-          "label": "service definition"
-        }
       ]
     },
     {
       "id": "spa",
       "type": "frontend",
       "label": "React SPA",
-      "sublabel": "Vite build, static files",
+      "sublabel": "Cloudflare Pages",
       "pos": [
         590,
         70
@@ -136,7 +133,7 @@
       "type": "backend",
       "label": "FastAPI monolith",
       "sublabel": "routers → services → domains",
-      "tag": "uvicorn :8080",
+      "tag": "Railway",
       "pos": [
         590,
         360
@@ -151,16 +148,16 @@
           "label": "app factory"
         },
         {
-          "path": "backend/app/api/routers/public.py",
-          "label": "public API"
+          "path": "backend/app/core/auth_dependencies.py",
+          "label": "admin guard"
         }
       ]
     },
     {
-      "id": "redis",
+      "id": "upstash",
       "type": "database",
       "label": "Redis",
-      "sublabel": "Rate limits, counters",
+      "sublabel": "Upstash, REST API",
       "pos": [
         900,
         200
@@ -171,15 +168,15 @@
       ],
       "sources": [
         {
-          "path": "backend/app/services/landing_traffic_service.py"
+          "path": "backend/app/redis/client.py"
         }
       ]
     },
     {
-      "id": "postgres",
+      "id": "neon",
       "type": "database",
       "label": "PostgreSQL",
-      "sublabel": "Orders, catalog, audit",
+      "sublabel": "Neon · orders, catalog, audit",
       "tag": "Prisma",
       "pos": [
         900,
@@ -197,29 +194,10 @@
       ]
     },
     {
-      "id": "geoip",
-      "type": "security",
-      "label": "GeoLite2",
-      "sublabel": "Bundled .mmdb file",
-      "pos": [
-        590,
-        510
-      ],
-      "size": [
-        170,
-        64
-      ],
-      "sources": [
-        {
-          "path": "backend/app/services/geoip_resolver.py"
-        }
-      ]
-    },
-    {
-      "id": "storage",
+      "id": "r2",
       "type": "cloud",
-      "label": "Object storage",
-      "sublabel": "MinIO local · R2 production",
+      "label": "Cloudflare R2",
+      "sublabel": "Originals and variants",
       "pos": [
         270,
         510
@@ -232,6 +210,25 @@
         {
           "path": "backend/app/storage/r2_client.py",
           "label": "key layout"
+        }
+      ]
+    },
+    {
+      "id": "geoip",
+      "type": "security",
+      "label": "GeoLite2",
+      "sublabel": "Bundled in the container",
+      "pos": [
+        590,
+        510
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/services/geoip_resolver.py"
         }
       ]
     },
@@ -258,58 +255,59 @@
   "boundaries": [
     {
       "kind": "region",
-      "label": "Self-hosted stack — docker compose",
+      "label": "Hosted platform — one managed service per layer",
       "wraps": [
-        "caddy",
         "spa",
         "api",
-        "redis",
-        "postgres",
-        "geoip",
-        "storage"
+        "upstash",
+        "neon",
+        "r2",
+        "geoip"
       ]
     }
   ],
   "connections": [
     {
-      "id": "buyer-edge",
+      "id": "buyer-spa",
       "from": "buyer",
-      "to": "caddy",
-      "label": "HTTPS",
-      "variant": "emphasis"
-    },
-    {
-      "id": "merchant-edge",
-      "from": "merchant",
-      "to": "caddy",
-      "label": "HTTPS"
-    },
-    {
-      "id": "edge-spa",
-      "from": "caddy",
       "to": "spa",
-      "label": "serves the SPA"
-    },
-    {
-      "id": "edge-api",
-      "from": "caddy",
-      "to": "api",
-      "label": "proxies /api",
+      "label": "loads the SPA",
       "variant": "emphasis"
     },
     {
-      "id": "api-postgres",
+      "id": "merchant-spa",
+      "from": "merchant",
+      "to": "spa",
+      "label": "loads the SPA"
+    },
+    {
+      "id": "spa-api",
+      "from": "spa",
+      "to": "api",
+      "label": "cross-origin XHR",
+      "variant": "emphasis",
+      "labelDy": 110
+    },
+    {
+      "id": "automation-api",
+      "from": "automation",
+      "to": "api",
+      "label": "shared bearer key",
+      "variant": "security"
+    },
+    {
+      "id": "api-neon",
       "from": "api",
-      "to": "postgres",
+      "to": "neon",
       "label": "order + flags, atomic",
       "variant": "emphasis",
       "labelDy": -20
     },
     {
-      "id": "api-redis",
+      "id": "api-upstash",
       "from": "api",
-      "to": "redis",
-      "label": "atomic Lua counters",
+      "to": "upstash",
+      "label": "REST counters",
       "fromSide": "top",
       "toSide": "left"
     },
@@ -322,9 +320,9 @@
       "labelDy": 55
     },
     {
-      "id": "api-storage",
+      "id": "api-r2",
       "from": "api",
-      "to": "storage",
+      "to": "r2",
       "label": "writes image variants"
     },
     {
@@ -337,21 +335,21 @@
   ],
   "cards": [
     {
+      "dot": "cyan",
+      "title": "Three doors, three credentials",
+      "items": [
+        "Public endpoints are unauthenticated and reach no catalog write",
+        "Admin uses a session cookie, with a bearer fallback for API clients",
+        "Automation holds its own shared key that cannot reach the admin API"
+      ]
+    },
+    {
       "dot": "emerald",
       "title": "Local order authority",
       "items": [
         "Duplicate, blacklist, rate-limit and GeoIP checks run synchronously",
         "One transaction persists the order with its fraud flags, or nothing",
         "An order is accepted as pending or flagged_fraud, never dropped"
-      ]
-    },
-    {
-      "dot": "violet",
-      "title": "Layers inside the monolith",
-      "items": [
-        "Routers stay thin: schemas, auth dependency, error mapping",
-        "Services own transactions, I/O order and audit writes",
-        "Domains are pure functions; repositories own every Prisma query"
       ]
     },
     {

@@ -23,32 +23,44 @@ PORT="${DOCS_PORT:-8099}"
 PROJECT="${PAGES_PROJECT:-easy-funnel-api-docs}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-easy-funnel-demo}"
 
-# Writes the document to $1. Never contacts a database: the schema comes from
-# the imported application object, so this works with the stack up, down, or
-# never started.
+# BOTH published pages describe the PRODUCTION repository, not this one. This
+# checkout carries demo scaffolding — a self-hosted compose stack, a login-free
+# dev server, a store-settings screen — that the deployed system does not have,
+# so generating either page from here would publish the demo rig instead of the
+# product. The diagram additionally pins a revision and verifies every cited
+# source path against it, and that revision belongs to the production repo.
+SOURCE_REPO="${SOURCE_REPO:-$PWD/../../GitHub/easy-funnel}"
+
+# Writes the document to $1, from the production repository. Never contacts a
+# database: the schema comes from the imported application object, so this works
+# whether or not anything is running.
 build_to() {
   out="$1"
-  # Preferred: the local Python environment. It needs the backend's runtime
-  # dependencies and a generated Prisma client, which a machine set up for
-  # backend work already has.
-  if (cd backend && python -c "import app.main" >/dev/null 2>&1); then
-    (cd backend && python -m scripts.export_openapi --stdout) > "$out"
-    return
+  if [ ! -d "$SOURCE_REPO/backend" ]; then
+    echo "Production repository not found at $SOURCE_REPO"
+    echo "Set SOURCE_REPO to its checkout."
+    exit 1
   fi
 
-  # Fallback: the backend image already carries every dependency, so the
-  # document can be produced without installing anything on the host.
-  if docker compose -p "$COMPOSE_PROJECT" ps --status running backend 2>/dev/null | grep -q backend; then
-    docker compose -p "$COMPOSE_PROJECT" exec -T backend python -m scripts.export_openapi --stdout > "$out"
-  else
-    # --no-deps: the schema needs the image, never the database.
-    docker compose -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.demo.yml run --rm --no-deps -T backend python -m scripts.export_openapi --stdout > "$out"
-  fi
+  # Preferred: that repository's own virtual environment, which already has its
+  # dependencies and a generated Prisma client.
+  for py in "$SOURCE_REPO/backend/.venv/Scripts/python.exe" "$SOURCE_REPO/backend/.venv/bin/python"; do
+    if [ -x "$py" ]; then
+      (cd "$SOURCE_REPO/backend" && "$py" -m scripts.export_openapi --stdout) > "$out"
+      return
+    fi
+  done
+
+  # Fallback: build its backend image and export from there. Needs no local
+  # Python at all, and still opens no connection.
+  echo "No virtualenv in the production repo; exporting through its backend image."
+  ( cd "$SOURCE_REPO" && docker build -q -f backend/Dockerfile -t easy-funnel-docs-export . >/dev/null )
+  docker run --rm --entrypoint python easy-funnel-docs-export -m scripts.export_openapi --stdout > "$out"
 }
 
 build() {
   build_to "$DOCS_DIR/openapi.json"
-  echo "Wrote $DOCS_DIR/openapi.json"
+  echo "Wrote $DOCS_DIR/openapi.json (from $SOURCE_REPO)"
 }
 
 case "${1:-build}" in
@@ -80,7 +92,12 @@ case "${1:-build}" in
       echo "Install the skill, or set ARCHIFY_HOME to its directory."
       exit 1
     fi
-    node "$archify/bin/archify.mjs" deliver architecture "$PWD/diagrams/easy-funnel.architecture.json" "$PWD/$DOCS_DIR/architecture.html" --quality showcase --repo-root "$PWD"
+    if [ ! -d "$SOURCE_REPO/.git" ]; then
+      echo "Production repository not found at $SOURCE_REPO"
+      echo "Set SOURCE_REPO to its checkout."
+      exit 1
+    fi
+    node "$archify/bin/archify.mjs" deliver architecture "$PWD/diagrams/easy-funnel.architecture.json" "$PWD/$DOCS_DIR/architecture.html" --quality showcase --repo-root "$SOURCE_REPO"
     node "$archify/bin/archify.mjs" visual-check "$PWD/$DOCS_DIR/architecture.html"
     # visual-check writes screenshots and a receipt beside the artifact. They are
     # evidence, not part of the site, so they are moved out of the directory that
