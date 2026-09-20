@@ -234,7 +234,7 @@
 .products-table__action--primary {
   background: transparent;
   border-color: var(--gf-signal-amber);
-  color: var(--gf-signal-amber-deep);
+  color: var(--gf-signal-amber-text);
 }
 
 .products-table__action--primary:hover:not(:disabled) {

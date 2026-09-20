@@ -76,9 +76,17 @@ async def get_version():
     return {"version": settings.app_version}
 
 
-@router.get("/jobs")
+# Excluded from the published reference (`include_in_schema=False`): the shape
+# below is a placeholder and every field is a literal `None`. The background
+# tasks it describes exist (`services/tasks/`), but nothing records their
+# results yet, so documenting this would advertise an endpoint that cannot
+# answer the question it appears to answer. Re-enable it once the results are
+# actually persisted and read back here.
+@router.get("/jobs", include_in_schema=False)
 async def get_jobs():
     """Return last success/failure + timestamps for operational tasks.
+
+    NOT IMPLEMENTED: returns a fixed structure of nulls. Hidden from OpenAPI.
 
     Returns recorded results for:
     - Neon managed backup result and verification

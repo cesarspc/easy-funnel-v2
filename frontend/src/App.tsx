@@ -12,6 +12,8 @@ import { LandingEditorPage } from "./features/admin/LandingEditorPage";
 import { OrdersPage } from "./features/admin/OrdersPage";
 import { FraudPage } from "./features/admin/FraudPage";
 import { AnalyticsPage } from "./features/admin/AnalyticsPage";
+import { StoreProvider } from "./features/store/StoreContext";
+import { StoreSettingsPage } from "./features/admin/StoreSettingsPage";
 
 /**
  * Root route table. Public storefront routes (`/`, `/p/:slug`) land here as
@@ -22,6 +24,7 @@ import { AnalyticsPage } from "./features/admin/AnalyticsPage";
  */
 export function App() {
   return (
+    <StoreProvider>
     <SessionProvider>
       <Routes>
         <Route path="/" element={<MerchantLanding />} />
@@ -43,10 +46,12 @@ export function App() {
           <Route path="orders" element={<OrdersPage />} />
           <Route path="fraud" element={<FraudPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="store" element={<StoreSettingsPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </SessionProvider>
+    </StoreProvider>
   );
 }

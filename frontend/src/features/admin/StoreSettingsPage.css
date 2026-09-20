@@ -1,0 +1,94 @@
+/* Store settings. This sheet predates the token layer and carried raw values,
+   which left it the one admin screen that could not follow the theme. Tokenized
+   here without restyling the screen: same density, same layout, same controls —
+   the colors now come from the panel instead of from the browser. */
+
+.store-settings {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.store-settings header {
+  margin-bottom: 1.5rem;
+}
+
+.store-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.store-settings label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gf-ink-quiet);
+}
+
+.store-settings input,
+.store-settings textarea {
+  width: 100%;
+  padding: 0.7rem;
+  background: var(--gf-paper-raised);
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  color: var(--gf-ink);
+  font: inherit;
+  font-weight: 400;
+}
+
+.store-settings input:focus-visible,
+.store-settings textarea:focus-visible {
+  border-color: var(--gf-signal-amber);
+}
+
+.store-settings textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.store-settings fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  background: var(--gf-paper-raised);
+}
+
+.store-settings legend {
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gf-ink-quiet);
+}
+
+.store-settings button {
+  margin-top: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: 1px solid var(--gf-signal-amber);
+  border-radius: var(--gf-radius-md);
+  color: var(--gf-signal-amber-text);
+  font-family: var(--gf-font-ui);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--gf-duration-standard) var(--gf-ease-standard),
+    color var(--gf-duration-standard) var(--gf-ease-standard);
+}
+
+.store-settings button:hover:not(:disabled) {
+  background: var(--gf-signal-amber);
+  color: var(--gf-signal-amber-ink);
+}
+
+.store-settings button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

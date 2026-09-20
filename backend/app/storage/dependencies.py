@@ -25,7 +25,7 @@ def get_r2_client(
     """Return the process-wide `R2Client` bound to the configured bucket."""
     global _r2_client
     if _r2_client is None:
-        _r2_client = R2Client(create_r2_client(settings), bucket=settings.r2_bucket)
+        _r2_client = R2Client(create_r2_client(settings), bucket=settings.storage_bucket)
     return _r2_client
 
 

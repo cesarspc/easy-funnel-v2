@@ -19,7 +19,7 @@ import logging
 from datetime import date
 
 from prisma import Prisma
-from upstash_redis import AsyncRedis
+from redis.asyncio import Redis as AsyncRedis
 
 from app.db.repositories import LandingRepository
 from app.domains.analytics.date_range import DateRange

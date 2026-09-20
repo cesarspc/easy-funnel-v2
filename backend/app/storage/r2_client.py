@@ -24,10 +24,10 @@ def create_r2_client(settings: Settings) -> Any:
     """Build a boto3 S3 client pointed at the configured R2 endpoint."""
     return boto3.client(
         "s3",
-        endpoint_url=settings.r2_endpoint,
-        aws_access_key_id=settings.r2_access_key_id,
-        aws_secret_access_key=settings.r2_secret_access_key,
-        region_name="auto",
+        endpoint_url=settings.storage_endpoint,
+        aws_access_key_id=settings.storage_access_key_id,
+        aws_secret_access_key=settings.storage_secret_access_key,
+        region_name=settings.s3_region,
     )
 
 

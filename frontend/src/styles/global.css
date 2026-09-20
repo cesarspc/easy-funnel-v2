@@ -2,6 +2,17 @@
  * Easy Funnel Admin Dashboard — design tokens.
  * Direction: "The Instrument Panel" (see DESIGN.md at project root).
  * Graphite chrome + paper work surface; color rationed to state and action.
+ *
+ * Two themes, one instrument. `:root` is the daylight panel. The dark block
+ * below is the same instrument at night: the chrome stays the darkest element
+ * (the bezel), the work surface sits above it, and panels sit above that, so
+ * the daylight hierarchy "chrome recedes, raised is lighter" survives the
+ * inversion. Amber remains the only lit accent in both.
+ *
+ * The theme is chosen by the admin surface alone: `features/admin/theme.ts`
+ * writes `data-theme` on <html> while an admin screen is mounted and clears it
+ * on unmount. The public storefront (`--lp-*`, styles/landing.css) is never
+ * themed — a buyer's page is colored by the merchant, not by this panel.
  */
 
 :root {
@@ -12,19 +23,33 @@
   --gf-graphite-panel-raised: #242830;
   --gf-graphite-line: #33383f;
   --gf-graphite-text: #c9ccd1;
+  /* Quiet text *on graphite* (placeholders, secondary labels inside the chrome).
+     The paper-surface `--gf-ink-*` ramp is tuned against paper and drops below
+     the contrast floor on a graphite field, so the chrome carries its own. */
+  --gf-graphite-text-quiet: #959ba3;
   --gf-graphite-text-strong: #ffffff;
+  /* Error text on graphite: the paper ramp's red is unreadable on chrome. */
+  --gf-graphite-error: #ffb4a4;
 
   /* Work surface (paper) */
   --gf-paper: #f7f6f3;
   --gf-paper-raised: #ffffff;
   --gf-ink: #1a1c1e;
   --gf-ink-quiet: #5b6169;
-  --gf-ink-faint: #8a9099;
+  /* Carries real informational text (empty states, secondary meta), so it is
+     held at >=4.5:1 against both paper surfaces rather than being merely pale. */
+  --gf-ink-faint: #6a7179;
   --gf-hairline: #e4e2dd;
 
-  /* Signal accent — the one lit LED */
+  /* Signal accent — the one lit LED.
+     Three tokens because amber does three jobs with three different contrast
+     contracts: `amber` is the lit fill, `amber-deep` is that fill pressed or
+     hovered (dark `amber-ink` sits on both), and `amber-text` is amber acting
+     as ink *on* a paper surface. One value cannot satisfy "readable as text on
+     white" and "readable under near-black text" at once, so it does not try. */
   --gf-signal-amber: #e8862c;
   --gf-signal-amber-deep: #c56a17;
+  --gf-signal-amber-text: #9c5410;
   --gf-signal-amber-ink: #1a1206;
 
   /* Order_Status vocabulary */
@@ -57,6 +82,13 @@
 
   /* Elevation (overlays only — see DESIGN.md Flat Instrument Rule) */
   --gf-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --gf-scrim: rgba(0, 0, 0, 0.35);
+
+  /* Browser surfaces: the parts we did not draw still belong to the panel. */
+  --gf-selection-bg: #f6dcc0;
+  --gf-selection-ink: var(--gf-ink);
+  --gf-scrollbar-thumb: #cfcdc7;
+  --gf-scrollbar-thumb-hover: #b3b1aa;
 
   /* Motion */
   --gf-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
@@ -69,6 +101,69 @@
   --gf-topbar-height: 56px;
 
   font-family: var(--gf-font-ui);
+}
+
+/* ---------------------------------------------------------------------------
+ * The panel at night.
+ *
+ * Only token values change — no component rule is duplicated per theme, which
+ * is what keeps the two themes from drifting apart as screens are added.
+ *
+ * Values are held to the same floor the daylight theme meets: body, label,
+ * hint, empty-state and error text all clear 4.5:1 on both the work surface
+ * (#181c20) and a raised panel (#20252a); status hues clear 3:1 as marks.
+ * Amber inverts its two roles deliberately — at night "deeper" means *brighter*
+ * (the LED lights up under the pointer) instead of darker, and it doubles as
+ * amber-on-dark ink, which is why `-deep` and `-text` converge here.
+ * ------------------------------------------------------------------------- */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Chrome (bezel — still the darkest element on screen) */
+  --gf-graphite-panel: #101316;
+  --gf-graphite-panel-raised: #1c2126;
+  /* Also the login panel's edge: at night that card sits on a dark ground and a
+     shadow cannot define it, so the hairline has to carry the boundary alone. */
+  --gf-graphite-line: #333b42;
+  --gf-graphite-text: #aab3bb;
+  --gf-graphite-text-quiet: #9aa3ac;
+  --gf-graphite-text-strong: #f4f7f9;
+  --gf-graphite-error: #ffb4a4;
+
+  /* Work surface (the lit panel) */
+  --gf-paper: #181c20;
+  --gf-paper-raised: #20252a;
+  --gf-ink: #e7ebef;
+  --gf-ink-quiet: #a6afb8;
+  --gf-ink-faint: #868f98;
+  --gf-hairline: #363d43;
+
+  /* Signal accent */
+  --gf-signal-amber: #eb8f35;
+  --gf-signal-amber-deep: #f7ab5c;
+  --gf-signal-amber-text: #f7ab5c;
+  --gf-signal-amber-ink: #1a1206;
+
+  /* Order_Status vocabulary, lifted to hold as marks against the dark panel */
+  --gf-status-pending: #c9a961;
+  --gf-status-confirmed: #6ba3d0;
+  --gf-status-shipped: #9a97d6;
+  --gf-status-delivered: #6fbf8a;
+  --gf-status-cancelled: #9aa3ac;
+  --gf-status-flagged: #f28372;
+
+  /* Danger: the fill stays deep enough to carry white text at 4.77:1 */
+  --gf-danger: #c8472f;
+  --gf-danger-deep: #b03a26;
+
+  --gf-shadow-overlay: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --gf-scrim: rgba(0, 0, 0, 0.62);
+
+  --gf-selection-bg: #5c3a15;
+  --gf-selection-ink: #fdf3e7;
+  --gf-scrollbar-thumb: #363d43;
+  --gf-scrollbar-thumb-hover: #4a535b;
 }
 
 * {
@@ -107,6 +202,63 @@ body {
   outline: 2px solid var(--gf-signal-amber);
   outline-offset: 2px;
 }
+
+/* ---------------------------------------------------------------------------
+ * Surfaces the browser draws for us. Left alone they ship Chrome's defaults,
+ * which belong to no design system and read wrong on a dark panel — a bright
+ * blue selection, a light scrollbar trough, a gray placeholder below contrast.
+ *
+ * Scoped to `[data-theme]`, which is present only while an admin screen is
+ * mounted, so the public Landing keeps its own quiet chrome untouched.
+ * ------------------------------------------------------------------------- */
+
+:root[data-theme] {
+  scrollbar-color: var(--gf-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+  accent-color: var(--gf-signal-amber);
+  /* An operations panel reads columns of digits all day: counts, prices, IDs.
+     Tabular figures stop them shifting width as values change. */
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme] ::selection {
+  background: var(--gf-selection-bg);
+  color: var(--gf-selection-ink);
+}
+
+:root[data-theme] input,
+:root[data-theme] textarea,
+:root[data-theme] select {
+  caret-color: var(--gf-signal-amber);
+}
+
+:root[data-theme] ::placeholder {
+  color: var(--gf-ink-faint);
+  opacity: 1; /* Firefox dims placeholders by default, below our contrast floor. */
+}
+
+/* WebKit/Blink ignore `scrollbar-color`; give them the same thumb. */
+:root[data-theme] ::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+:root[data-theme] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root[data-theme] ::-webkit-scrollbar-thumb {
+  background: var(--gf-scrollbar-thumb);
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background-clip: content-box;
+}
+
+:root[data-theme] ::-webkit-scrollbar-thumb:hover {
+  background: var(--gf-scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
 
 /* Tactile pressed feedback, per DESIGN.md's every-state requirement. */
 button:not(:disabled):active {

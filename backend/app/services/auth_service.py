@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from upstash_redis import AsyncRedis
+from redis.asyncio import Redis as AsyncRedis
 
 from app.core.jwt_auth import issue_token
 from app.core.password_hashing import verify_password

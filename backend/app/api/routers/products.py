@@ -161,11 +161,21 @@ async def list_products(
     return ProductListResponse(products=[_to_product_response(p) for p in products])
 
 
-@router.get("/{product_id}/mastershop-mappings", response_model=dict)
+@router.get(
+    "/{product_id}/mastershop-mappings",
+    response_model=dict,
+    summary="Read fulfillment variant mappings",
+)
 async def get_mastershop_mappings(
     product_id: int,
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ):
+    """Return how this product's variants map onto the fulfillment provider.
+
+    Each mapping ties one local variant selection to the provider's own product
+    identifier. An unmapped selection is what makes a hand-off fail, so this is
+    the list to check when `POST /{order_id}/mastershop/retry` keeps failing.
+    """
     db = get_prisma()
     product = await db.product.find_unique(where={"id": product_id})
     if product is None:

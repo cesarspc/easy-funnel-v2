@@ -8,19 +8,19 @@ Each product gets its own banner-based landing page. A visitor arrives (usually 
 
 ## Architecture
 
-| Layer | Tech | Deployed on |
+| Layer | Tech | Self-hosted service |
 |-------|------|-------------|
-| Frontend | React + Vite (SPA) | Cloudflare Pages |
-| Backend | FastAPI (single container) | Railway |
-| Database | PostgreSQL | Neon |
-| Cache & Counters | Redis | Upstash |
-| Image Storage | Object storage | Cloudflare R2 |
+| Frontend/proxy | React + Vite (SPA) | Caddy container |
+| Backend | FastAPI monolith | Application container |
+| Database | PostgreSQL | PostgreSQL container |
+| Cache & Counters | Redis | Redis container |
+| Image Storage | S3-compatible objects | MinIO container |
 | GeoIP | MaxMind GeoLite2 | Bundled in container |
-| COD Fulfillment | Order handoff | MasterShop |
+| COD Fulfillment | Optional order handoff | Disabled or MasterShop |
 
-Monolithic backend by design — no microservices. MasterShop is the single
-post-commit fulfillment integration; local order acceptance never depends on
-its availability.
+Monolithic backend by design — no multi-tenancy and no microservices. When
+enabled, MasterShop runs after the local order commit; order acceptance never
+depends on its availability.
 
 ## Project Structure
 
@@ -30,10 +30,46 @@ its availability.
 ├── prisma/            Database schema & migrations
 ├── infrastructure/    Deployment configs (Railway, Cloudflare, R2, GeoIP)
 ├── docs/              Developer documentation
-└── docker-compose.yml Local test services (Postgres + Redis)
+└── docker-compose.yml Complete production-like self-hosted stack
 ```
 
-## Quick Start
+## Self-hosted quick start
+
+The supported deployment is a reproducible Docker Compose stack containing
+Caddy, the React application, FastAPI, PostgreSQL, Redis, and MinIO.
+
+```bash
+cp docker.env.example .env
+# Replace every password/secret placeholder and customize STORE_* values.
+docker compose up --build -d
+docker compose ps
+```
+
+The local defaults expose the store on `http://localhost:8088`, PostgreSQL on
+`5433`, Redis on `6380`, and the MinIO console on `9003`. For a public server,
+set `APP_SITE_ADDRESS` to the real domain, `APP_PUBLIC_URL` to its HTTPS URL,
+`HTTP_PORT=80`, `HTTPS_PORT=443`, and `ACME_EMAIL`; Caddy obtains and renews
+TLS automatically.
+
+Store values initialize the database only once. Afterwards the merchant edits
+branding, homepage content, assets, contact information, SEO, and tracking IDs
+under **Admin → Tienda**; restarting containers does not revert those edits.
+
+### Clean database verification
+
+The following command creates a disposable PostgreSQL 16 database exposed on
+port `55433` (separate from both the normal stack and the legacy `55432` test
+port), validates and tests the frontend image, applies every migration from
+zero, and runs the backend suite inside the built application image:
+
+```bash
+sh test-fresh.sh
+```
+
+The script always removes its isolated containers and volumes when it exits,
+so repeated runs prove a clean installation rather than reusing database state.
+
+## Developer quick start
 
 ### Prerequisites
 
@@ -103,7 +139,7 @@ record that can be reviewed and retried from Admin.
 
 ## Key Design Decisions
 
-- **No storefront or catalog** — each product lives at its own URL (`/p/{slug}`), reached via direct links from ads or social
+- **Brand homepage, no catalog** — the root represents the merchant while each product lives at its own direct URL (`/p/{slug}`)
 - **Local order authority** — images, GeoIP, fraud rules, and accepted orders remain local; fulfillment handoff failures are durable and retryable
 - **Single admin role** — one merchant operates the entire platform
 - **Mobile-first public pages** — buyers come from ads on their phones

@@ -522,6 +522,42 @@ model AdminUser {
   @@map("admin_users")
 }
 
+/// Runtime configuration for the single merchant represented by this
+/// installation. The fixed id is enforced by a database CHECK constraint.
+/// Environment variables seed this row once; Admin edits are authoritative
+/// after the first successful bootstrap.
+model StoreSettings {
+  id                    Int      @id @default(1)
+  storeName             String   @default("Mi Tienda") @map("store_name") @db.VarChar(100)
+  legalName             String   @default("") @map("legal_name") @db.VarChar(160)
+  primaryColor          String   @default("#30503b") @map("primary_color") @db.VarChar(7)
+  logoUrl               String?  @map("logo_url")
+  logoObjectKey         String?  @map("logo_object_key")
+  faviconUrl            String?  @map("favicon_url")
+  faviconObjectKey      String?  @map("favicon_object_key")
+  homepageImageUrl      String?  @map("homepage_image_url")
+  homepageImageObjectKey String? @map("homepage_image_object_key")
+  whatsappNumber        String   @default("") @map("whatsapp_number") @db.VarChar(16)
+  whatsappMessage       String   @default("Hola, me gustaría conocer más sobre tus productos.") @map("whatsapp_message") @db.VarChar(500)
+  supportEmail          String   @default("") @map("support_email") @db.VarChar(254)
+  homeEyebrow           String   @default("Selección especial") @map("home_eyebrow") @db.VarChar(100)
+  homeHeadline          String   @default("Productos seleccionados para ti") @map("home_headline") @db.VarChar(180)
+  homeDescription       String   @default("Compra con confianza y recibe tu pedido en casa.") @map("home_description") @db.VarChar(500)
+  homeCtaLabel          String   @default("Escribir por WhatsApp") @map("home_cta_label") @db.VarChar(80)
+  trustItems            Json     @default("[]") @map("trust_items")
+  secondaryHeadline     String   @default("¿Tienes preguntas?") @map("secondary_headline") @db.VarChar(180)
+  secondaryDescription  String   @default("Estamos aquí para ayudarte.") @map("secondary_description") @db.VarChar(500)
+  footerText            String   @default("Compra segura con garantía de calidad") @map("footer_text") @db.VarChar(240)
+  seoTitle              String   @default("Mi Tienda") @map("seo_title") @db.VarChar(70)
+  seoDescription        String   @default("") @map("seo_description") @db.VarChar(180)
+  gtmContainerId        String   @default("") @map("gtm_container_id") @db.VarChar(20)
+  metaPixelId           String   @default("") @map("meta_pixel_id") @db.VarChar(30)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("store_settings")
+}
+
 model AuditLog {
   id         BigInt   @id @default(autoincrement())
   actor      String

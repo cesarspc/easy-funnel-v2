@@ -45,6 +45,7 @@ describe("AdminShell", () => {
     expect(screen.getByRole("link", { name: /Pedidos/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Fraude/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Analítica/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Tienda/i })).toBeInTheDocument();
   });
 
   it("marks the current route's nav item as active", async () => {

@@ -30,8 +30,7 @@ def _environment_isolated_from_the_host(monkeypatch: pytest.MonkeyPatch) -> None
 
 _REQUIRED_ENV = {
     "DATABASE_URL": "postgresql://user:pass@localhost/db",
-    "UPSTASH_REDIS_REST_URL": "https://example.upstash.io",
-    "UPSTASH_REDIS_REST_TOKEN": "token",
+    "REDIS_URL": "redis://localhost:6379/0",
     "R2_ENDPOINT": "https://account.r2.cloudflarestorage.com",
     "R2_ACCESS_KEY_ID": "key",
     "R2_SECRET_ACCESS_KEY": "secret",
@@ -47,7 +46,7 @@ class TestSettingsParsing:
         settings = Settings(_env_file=None, **_REQUIRED_ENV)  # type: ignore[call-arg]
 
         assert settings.database_url == _REQUIRED_ENV["DATABASE_URL"]
-        assert settings.upstash_redis_rest_url == _REQUIRED_ENV["UPSTASH_REDIS_REST_URL"]
+        assert settings.redis_url == _REQUIRED_ENV["REDIS_URL"]
         assert settings.r2_bucket == _REQUIRED_ENV["R2_BUCKET"]
         assert settings.jwt_secret == _REQUIRED_ENV["JWT_SECRET"]
         assert settings.geoip_database_path == _REQUIRED_ENV["GEOIP_DATABASE_PATH"]

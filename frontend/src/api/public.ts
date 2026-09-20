@@ -253,7 +253,32 @@ export interface OrderCreateResponse {
   total_price: number;
 }
 
+export interface StoreSettings {
+  store_name: string;
+  legal_name: string;
+  primary_color: string;
+  logo_url: string | null;
+  favicon_url: string | null;
+  homepage_image_url: string | null;
+  whatsapp_number: string;
+  whatsapp_message: string;
+  support_email: string;
+  home_eyebrow: string;
+  home_headline: string;
+  home_description: string;
+  home_cta_label: string;
+  trust_items: string[];
+  secondary_headline: string;
+  secondary_description: string;
+  footer_text: string;
+  seo_title: string;
+  seo_description: string;
+  gtm_container_id: string;
+  meta_pixel_id: string;
+}
+
 export const publicApi = {
+  getStore: async (): Promise<StoreSettings> => apiClient.get<StoreSettings>("/public/store"),
   /**
    * Fetch a public landing by slug.
    * Returns identical 404 for unknown, draft, paused, or retired slugs.

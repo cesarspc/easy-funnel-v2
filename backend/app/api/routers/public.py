@@ -10,7 +10,7 @@ from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
-from upstash_redis import AsyncRedis
+from redis.asyncio import Redis as AsyncRedis
 
 from app.core.request_context import RequestContext, get_request_context
 from app.core.settings import Settings, get_settings
@@ -275,7 +275,7 @@ async def get_public_landing(
     )
     cta_positions = compute_cta_positions(cta_config, len(stored_banners))
 
-    public_host = settings.r2_public_host.rstrip("/")
+    public_host = settings.storage_public_base_url.rstrip("/")
     banners: list[BannerResponse] = []
     banner_edges: list[BannerEdges] = []
     for banner in sorted(stored_banners, key=lambda item: item.orderIndex):
@@ -357,8 +357,8 @@ async def get_public_landing(
             videos=[
                 {
                     "id": video.id,
-                    "url": object_public_url(settings.r2_public_host, video.videoObjectKey),
-                    "poster_url": object_public_url(settings.r2_public_host, video.posterObjectKey),
+                    "url": object_public_url(settings.storage_public_base_url, video.videoObjectKey),
+                    "poster_url": object_public_url(settings.storage_public_base_url, video.posterObjectKey),
                     "width": video.width,
                     "height": video.height,
                     "duration_ms": video.durationMs,
@@ -370,7 +370,7 @@ async def get_public_landing(
                 {
                     "id": image.id,
                     "quantity": image.quantity,
-                    "url": object_public_url(settings.r2_public_host, image.imageObjectKey),
+                    "url": object_public_url(settings.storage_public_base_url, image.imageObjectKey),
                     "width": image.width,
                     "height": image.height,
                 }
@@ -531,7 +531,13 @@ async def create_order(
     503 on persistence failure (no partial order).
     """
     db = get_prisma()
-    service = OrderSubmissionService(db, redis, geoip)
+    settings = get_settings()
+    service = OrderSubmissionService(
+        db,
+        redis,
+        geoip,
+        fulfillment_enabled=settings.fulfillment_provider == "mastershop",
+    )
 
     try:
         result = await service.submit(
@@ -565,8 +571,7 @@ async def create_order(
     # The local order is already committed and remains authoritative. A
     # provider outage or even an unexpected integration bug must never turn a
     # successful COD checkout into a false 503 or create a duplicate retry.
-    if result.status == "pending":
-        from app.core.settings import get_settings
+    if result.status == "pending" and settings.fulfillment_provider == "mastershop":
         from app.integrations.mastershop import MastershopSyncService
 
         try:

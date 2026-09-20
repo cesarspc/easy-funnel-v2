@@ -1,47 +1,138 @@
-# Local test services for the backend suite (see docs/testing.md).
-#
-# Postgres is published on 55432, not 5432, so it never collides with a native
-# PostgreSQL install on the host — the port docs/testing.md documents for the
-# throwaway test database.
+name: easy-funnel
+
+x-backend-environment: &backend-environment
+  DATABASE_URL: postgresql://${POSTGRES_USER:-easy_funnel}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-easy_funnel}
+  REDIS_URL: redis://redis:6379/0
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
+  S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
+  S3_BUCKET: store
+  S3_PUBLIC_BASE_URL: ${APP_PUBLIC_URL:-http://localhost:8088}/media
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+  GEOIP_DATABASE_PATH: /app/geoip/GeoLite2-Country.mmdb
+  CORS_ALLOWED_ORIGINS: ${APP_PUBLIC_URL:-http://localhost:8088}
+  ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
+  ADMIN_PASSWORD_RESET: ${ADMIN_PASSWORD_RESET:-false}
+  FULFILLMENT_PROVIDER: ${FULFILLMENT_PROVIDER:-none}
+  MASTERSHOP_API_KEY: ${MASTERSHOP_API_KEY:-}
+  STORE_NAME: ${STORE_NAME:-Mi Tienda}
+  STORE_LEGAL_NAME: ${STORE_LEGAL_NAME:-}
+  STORE_PRIMARY_COLOR: ${STORE_PRIMARY_COLOR:-#30503b}
+  STORE_WHATSAPP_NUMBER: ${STORE_WHATSAPP_NUMBER:-}
+  STORE_WHATSAPP_MESSAGE: ${STORE_WHATSAPP_MESSAGE:-Hola, me gustaría conocer más sobre tus productos.}
+  STORE_SUPPORT_EMAIL: ${STORE_SUPPORT_EMAIL:-}
+  ENVIRONMENT: production
+
 services:
-  # PostgreSQL Database
   postgres:
-    image: postgres:16-alpine
-    container_name: cod_postgres_test
+    image: postgres:16.4-alpine
     environment:
-      POSTGRES_USER: cod_user
-      POSTGRES_PASSWORD: cod_password
-      POSTGRES_DB: cod_platform_test
+      POSTGRES_USER: ${POSTGRES_USER:-easy_funnel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-easy_funnel}
     ports:
-      - "55432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cod_user -d cod_platform_test"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-    networks:
-      - cod_network
+      retries: 20
+    restart: unless-stopped
 
-  # Redis Cache
   redis:
-    image: redis:7-alpine
-    container_name: cod_redis_test
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_API_PORT:-9002}:9000"
+      - "${MINIO_CONSOLE_PORT:-9003}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing local/store &&
+        mc anonymous set download local/store
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: *backend-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-    networks:
-      - cod_network
-    command: redis-server --appendonly yes
+      retries: 20
+    restart: unless-stopped
 
-networks:
-  cod_network:
-    driver: bridge
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    environment:
+      APP_SITE_ADDRESS: ${APP_SITE_ADDRESS:-:80}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-8088}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:
+  minio_data:
+  caddy_data:
+  caddy_config:

@@ -12,14 +12,18 @@ Everything goes through the real ASGI application (authenticated admin API +
 public API), so seeded rows obey the same validation, fraud evaluation, and
 audit rules a merchant would hit. Nothing is inserted behind the services.
 
-Two collaborators are injected as in-process doubles, for the same reasons
-`tests/e2e/conftest.py` injects them: the local docker Redis speaks the Redis
-wire protocol while the application client speaks the Upstash REST API, and
-the licensed MaxMind GeoLite2 database is not committed. Pointing the real
-client at the unreachable `UPSTASH_REDIS_REST_URL` placeholder also makes
-seeding slow and non-deterministic, because that call happens inside the
-order transaction. Every other collaborator (Prisma, R2/MinIO, fraud
-evaluation, audit) is real.
+One collaborator is injected as an in-process double: the licensed MaxMind
+GeoLite2 database is not committed, so `SeedGeoIpResolver` stands in for it.
+Every other collaborator — Prisma, Redis, R2/MinIO, fraud evaluation, audit —
+is the real one, so seeded analytics and rate-limit counters end up in the same
+state a real day of traffic would produce.
+
+Redis used to be doubled here too, back when the application client spoke the
+Upstash REST API and could not reach the local container. It speaks the normal
+Redis protocol now (`app/redis/client.py`), and that stub was never taught
+about the second Lua script `LandingTrafficService` added, so it returned a
+bare count where a `{count, has_older_day}` pair was expected and seeding a
+landing view crashed. Using the real client removes the whole class of drift.
 
 Refuses to run unless `ENVIRONMENT` is `development`, and it is idempotent by
 truncation: it removes previously seeded catalog/order rows before recreating
@@ -40,34 +44,19 @@ import asyncio
 import io
 import os
 import sys
+import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
 from app.core.settings import get_settings
+from app.domains.orders.locations import location_catalog
 from app.db.client import connect_db, disconnect_db, get_db
 from app.main import app
-from app.redis.client import get_redis
 from app.services.geoip_resolver import get_geoip_resolver
 from httpx import ASGITransport, AsyncClient
 from PIL import Image, ImageDraw
 
 BANNER_SIZE = (1200, 1500)
-
-
-class SeedRedis:
-    """Minimal in-process stand-in for the Upstash REST client.
-
-    Only `eval` is used by the rate-limit counters, and seeding stays far
-    below the configured threshold, so plain per-key counts are enough.
-    """
-
-    def __init__(self) -> None:
-        self._counts: dict[str, int] = {}
-
-    async def eval(self, script: str, keys: list[str], args: list[str]) -> int:  # noqa: ARG002
-        key = keys[0]
-        self._counts[key] = self._counts.get(key, 0) + 1
-        return self._counts[key]
 
 
 class SeedGeoIpResolver:
@@ -222,6 +211,34 @@ CATALOG: tuple[CatalogSpec, ...] = (
     ),
 )
 
+def _canonical_location(department: str, city: str) -> tuple[str, str]:
+    """Map a readable fixture place name onto its exact catalog spelling.
+
+    The delivery catalog is DIVIPOLA data: upper case and accented
+    ("ANTIOQUIA" / "MEDELLIN" with an accent), and validation compares the
+    names as written. These fixtures were authored before that catalog landed
+    and still spell places the way a person would, so every seeded order was
+    rejected with "Select a city or municipality belonging to the chosen
+    department". Matching accent-insensitively here keeps the fixtures readable
+    and lets the catalog stay the single source of truth.
+    """
+
+    def fold(value: str) -> str:
+        decomposed = unicodedata.normalize("NFD", value)
+        return "".join(c for c in decomposed if unicodedata.category(c) != "Mn").upper()
+
+    catalog = location_catalog()
+    target_department, target_city = fold(department), fold(city)
+    for entry in catalog["departments"]:
+        if fold(entry["name"]) != target_department:
+            continue
+        for municipality in entry["cities"]:
+            if fold(municipality["name"]) == target_city:
+                return entry["name"], municipality["name"]
+        raise RuntimeError(f"{city!r} is not a municipality of {department!r} in the catalog.")
+    raise RuntimeError(f"{department!r} is not a department in the catalog.")
+
+
 # Synthetic Colombian order data. Phones stay inside the documented test
 # examples' shape (docs/testing.md -> Test Data) and are not real numbers.
 ORDERS: tuple[dict[str, Any], ...] = (
@@ -240,8 +257,8 @@ ORDERS: tuple[dict[str, Any], ...] = (
         "slug": "set-sartenes-dev",
         "full_name": "Andres Gomez",
         "phone": "301-222-3344",
-        "department": "Cundinamarca",
-        "city": "Bogota",
+        "department": "Bogota D.C.",
+        "city": "Bogota D.C.",
         "address": "Carrera 7 # 122-15 Torre 2",
         "quantity": 2,
         "ip": "190.85.10.12",
@@ -346,9 +363,30 @@ async def _reset_seeded_rows() -> None:
     landings and products they reference.
     """
     db = get_db()
+    # Everything that points at an order goes first. All three of these hold
+    # restrict FKs (design.md: historical evidence never cascades), so deleting
+    # an order out from under any one of them fails. Only `fraud_flags` was
+    # cleared here originally, which is why the first seed of an empty database
+    # succeeded and every re-seed afterwards died on
+    # `order_fulfillment_details_order_id_fkey`: the order pipeline writes a
+    # fulfillment row for *every* order it accepts.
     await db.execute_raw(
         """
         DELETE FROM fraud_flags
+         WHERE order_id IN (SELECT id FROM orders WHERE landing_slug LIKE '%-dev')
+        """
+    )
+    await db.execute_raw(
+        """
+        DELETE FROM order_fulfillment_details
+         WHERE order_id IN (SELECT id FROM orders WHERE landing_slug LIKE '%-dev')
+        """
+    )
+    # Empty unless FULFILLMENT_PROVIDER=mastershop, but a re-seed on a stack
+    # that has it enabled would hit the same wall.
+    await db.execute_raw(
+        """
+        DELETE FROM mastershop_order_syncs
          WHERE order_id IN (SELECT id FROM orders WHERE landing_slug LIKE '%-dev')
         """
     )
@@ -413,9 +451,7 @@ async def seed(*, username: str, password: str) -> dict[str, int]:
 
     await connect_db()
     db = get_db()
-    seed_redis = SeedRedis()
     seed_geoip = SeedGeoIpResolver()
-    app.dependency_overrides[get_redis] = lambda: seed_redis
     app.dependency_overrides[get_geoip_resolver] = lambda: seed_geoip
     try:
         await _reset_seeded_rows()
@@ -517,14 +553,15 @@ async def seed(*, username: str, password: str) -> dict[str, int]:
                             _fail(click, f"CTA click {spec.slug}")
 
             for order in ORDERS:
+                department, city = _canonical_location(order["department"], order["city"])
                 created_order = await client.post(
                     "/api/public/orders",
                     json={
                         "landing_slug": order["slug"],
                         "full_name": order["full_name"],
                         "phone": order["phone"],
-                        "department": order["department"],
-                        "city": order["city"],
+                        "department": department,
+                        "city": city,
                         "address": order["address"],
                         "quantity": order["quantity"],
                     },
@@ -550,7 +587,6 @@ async def seed(*, username: str, password: str) -> dict[str, int]:
             "blacklist_entries": await db.blacklistentry.count(),
         }
     finally:
-        app.dependency_overrides.pop(get_redis, None)
         app.dependency_overrides.pop(get_geoip_resolver, None)
         await disconnect_db()
 

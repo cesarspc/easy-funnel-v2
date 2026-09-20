@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
-from upstash_redis import AsyncRedis
+from redis.asyncio import Redis as AsyncRedis
 
 from app.core.auth_dependencies import require_admin
 from app.core.request_context import RequestContext, get_request_context

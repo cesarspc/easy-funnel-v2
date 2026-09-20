@@ -111,10 +111,12 @@ class OrderSubmissionService:
         db: Prisma,
         redis_client,
         geoip_resolver: GeoIpResolver,
+        fulfillment_enabled: bool = True,
     ) -> None:
         self._db = db
         self._redis = redis_client
         self._geoip = geoip_resolver
+        self._fulfillment_enabled = fulfillment_enabled
 
     async def submit(
         self,
@@ -323,12 +325,13 @@ class OrderSubmissionService:
                     "address2": validated_address2,
                 }
             )
-            await persist_tx.mastershopordersync.create(
-                {
-                    "orderId": order.id,
-                    "status": "waiting_review" if all_flags else "pending",
-                }
-            )
+            if self._fulfillment_enabled:
+                await persist_tx.mastershopordersync.create(
+                    {
+                        "orderId": order.id,
+                        "status": "waiting_review" if all_flags else "pending",
+                    }
+                )
             for flag in all_flags:
                 await persist_tx.fraudflag.create(
                     {

@@ -26,7 +26,7 @@ class ImageCleanupTask:
 
     def __init__(self, settings: Settings):
         self._settings = settings
-        self._r2 = R2Client(create_r2_client(settings), bucket=settings.r2_bucket)
+        self._r2 = R2Client(create_r2_client(settings), bucket=settings.storage_bucket)
 
     async def cleanup_orphans(self) -> CleanupResult:
         """Delete R2 objects with no live or historical reference.

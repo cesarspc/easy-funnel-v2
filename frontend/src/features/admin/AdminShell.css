@@ -214,7 +214,7 @@
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--gf-scrim);
     border: none;
     padding: 0;
     z-index: 20;

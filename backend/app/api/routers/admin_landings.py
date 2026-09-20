@@ -440,7 +440,7 @@ async def get_landing(
     if landing is None:
         raise _not_found("Landing not found")
 
-    return _to_detail_response(landing, settings.r2_public_host)
+    return _to_detail_response(landing, settings.storage_public_base_url)
 
 
 @router.patch("/{landing_id}", response_model=LandingDetailResponse)
@@ -554,7 +554,7 @@ async def upload_banner(
         where={"id": result.banner.id},
         include={"imageAsset": {"include": {"variants": True}}},
     )
-    return _to_banner_response(stored or result.banner, settings.r2_public_host)
+    return _to_banner_response(stored or result.banner, settings.storage_public_base_url)
 
 
 @router.patch("/{landing_id}/banners/{banner_id}", response_model=BannerListResponse)
@@ -584,7 +584,7 @@ async def update_banner(
     except LandingValidationError as exc:
         raise _field_error(exc.field, exc.message) from exc
 
-    return await _banner_list(landing_id, settings.r2_public_host)
+    return await _banner_list(landing_id, settings.storage_public_base_url)
 
 
 @router.put("/{landing_id}/banners/order", response_model=BannerListResponse)
@@ -605,7 +605,7 @@ async def reorder_banners(
     except LandingValidationError as exc:
         raise _field_error(exc.field, exc.message) from exc
 
-    return await _banner_list(landing_id, settings.r2_public_host)
+    return await _banner_list(landing_id, settings.storage_public_base_url)
 
 
 @router.delete("/{landing_id}/banners/{banner_id}", response_model=BannerListResponse)
@@ -626,7 +626,7 @@ async def delete_banner(
     except BannerNotFoundError as exc:
         raise _not_found("Banner not found") from exc
 
-    return await _banner_list(landing_id, settings.r2_public_host)
+    return await _banner_list(landing_id, settings.storage_public_base_url)
 
 
 @router.post("/{landing_id}/publish", response_model=LandingDetailResponse)
@@ -783,7 +783,7 @@ async def _block_list(landing_id: int) -> LandingBlockListResponse:
     )
     settings = get_settings()
     return LandingBlockListResponse(
-        blocks=[_to_block_response(block, settings.r2_public_host) for block in blocks],
+        blocks=[_to_block_response(block, settings.storage_public_base_url) for block in blocks],
         slots=await service.describe_slots(landing_id),
         allowed_block_types=list(ALLOWED_BLOCK_TYPES),
     )
@@ -793,6 +793,7 @@ async def _block_list(landing_id: int) -> LandingBlockListResponse:
     "/{landing_id}/blocks/{block_id}/videos",
     response_model=LandingBlockListResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Upload a video to a component",
 )
 async def upload_block_video(
     landing_id: int,
@@ -802,6 +803,15 @@ async def upload_block_video(
     r2: R2Client = Depends(get_r2_client),  # noqa: B008
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ) -> LandingBlockListResponse:
+    """Add a video to a video-carousel component.
+
+    Send `multipart/form-data` with the video in a `file` part and an optional
+    `caption`. Accepts MP4, WebM and MOV within the configured size limit; the
+    upload is normalised and a poster frame is extracted, so the public page
+    gets a consistent format regardless of what the merchant recorded on.
+
+    Returns the landing's components with the new video in place.
+    """
     if file.content_type not in _VIDEO_CONTENT_TYPES:
         raise _field_error("file", "Selecciona un archivo MP4, WebM o MOV válido.")
     raw_bytes = await file.read(SOURCE_VIDEO_MAX_BYTES + 1)
@@ -823,6 +833,7 @@ async def upload_block_video(
 @router.delete(
     "/{landing_id}/blocks/{block_id}/videos/{video_id}",
     response_model=LandingBlockListResponse,
+    summary="Delete a component video",
 )
 async def delete_block_video(
     landing_id: int,
@@ -831,6 +842,12 @@ async def delete_block_video(
     r2: R2Client = Depends(get_r2_client),  # noqa: B008
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ) -> LandingBlockListResponse:
+    """Remove one video from a video-carousel component.
+
+    Deletes the stored object along with the record and returns the landing's
+    components with the remaining videos renumbered, so the caller does not need
+    a second request to refresh the list.
+    """
     try:
         await VideoUploadService(get_prisma(), r2).delete(
             landing_id, block_id, video_id, actor=admin_user.subject
@@ -885,6 +902,7 @@ async def create_landing_block(
     "/{landing_id}/blocks/{block_id}/offer-images/{quantity}",
     response_model=LandingBlockListResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Upload an image for one offer tier",
 )
 async def upload_block_offer_image(
     landing_id: int,
@@ -894,6 +912,13 @@ async def upload_block_offer_image(
     r2: R2Client = Depends(get_r2_client),  # noqa: B008
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ) -> LandingBlockListResponse:
+    """Attach an image to one quantity tier of an offers component.
+
+    `quantity` is the tier the image belongs to — the buyer sees it beside that
+    option, so "3 units" can show the bundle rather than a single item. Sent as
+    `multipart/form-data` with the image in a `file` part; one image per tier,
+    and uploading again replaces the current one.
+    """
     raw_bytes = await file.read(SOURCE_MAX_BYTES + 1)
     if len(raw_bytes) > SOURCE_MAX_BYTES:
         raise _field_error(
@@ -922,6 +947,7 @@ async def upload_block_offer_image(
 @router.delete(
     "/{landing_id}/blocks/{block_id}/offer-images/{quantity}",
     response_model=LandingBlockListResponse,
+    summary="Delete an offer-tier image",
 )
 async def delete_block_offer_image(
     landing_id: int,
@@ -930,6 +956,11 @@ async def delete_block_offer_image(
     r2: R2Client = Depends(get_r2_client),  # noqa: B008
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008
 ) -> LandingBlockListResponse:
+    """Remove the image attached to one quantity tier.
+
+    The tier keeps working without it — the offer simply renders without an
+    image. Returns the landing's components after the removal.
+    """
     try:
         await OfferImageUploadService(get_prisma(), r2).delete(
             landing_id, block_id, quantity, actor=admin_user.subject

@@ -8,6 +8,9 @@
 import { useState, type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useSession } from "../auth/SessionContext";
+import { useStore } from "../store/StoreContext";
+import { ThemeToggle } from "./ThemeToggle";
+import { useAdminTheme } from "./theme";
 import "./AdminShell.css";
 
 interface NavItem {
@@ -50,11 +53,18 @@ const NAV_ITEMS: NavItem[] = [
     label: "Analítica",
     icon: <Icon path="M3 15h2V9H3v6zm5 0h2V5H8v10zm5 0h2v-8h-2v8z" />,
   },
+  {
+    to: "/admin/store",
+    label: "Tienda",
+    icon: <Icon path="M3 8l2-5h10l2 5v2h-1v7H4v-7H3V8zm4 2v5h6v-5H7z" />,
+  },
 ];
 
 export function AdminShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { logout } = useSession();
+  const { store } = useStore();
+  const { preference, choose } = useAdminTheme();
 
   return (
     <div className="admin-shell">
@@ -63,7 +73,7 @@ export function AdminShell() {
       >
         <div className="admin-shell__brand">
           <span className="admin-shell__brand-led" aria-hidden="true" />
-          <span className="admin-shell__brand-name">Easy Funnel</span>
+          <span className="admin-shell__brand-name">{store?.store_name ?? "Mi Tienda"}</span>
         </div>
 
         <nav className="admin-shell__nav" aria-label="Navegación principal">
@@ -110,6 +120,8 @@ export function AdminShell() {
           </button>
 
           <div className="admin-shell__topbar-spacer" />
+
+          <ThemeToggle preference={preference} onChange={choose} />
 
           <button type="button" className="admin-shell__logout" onClick={() => void logout()}>
             Cerrar sesión

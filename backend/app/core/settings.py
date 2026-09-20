@@ -1,10 +1,9 @@
-"""Environment-based application settings.
+"""Environment-based infrastructure and bootstrap settings.
 
-Single source of truth for configuration (Requirement 9.3): Neon PostgreSQL,
-Upstash Redis, Cloudflare R2, JWT signing, GeoIP, and deployment values all
-come from environment variables — never hard-coded, never committed. See
-`.env.example` for the documented variable names and safe placeholder
-examples.
+Deployment concerns come from environment variables. Merchant-facing values
+are seeded from ``STORE_*`` only on a fresh database, then live in the admin-
+editable singleton store record. Generic Redis and S3 settings make the same
+application work with the bundled services or compatible external providers.
 
 `get_settings()` is cached so the environment is parsed once per process;
 tests that need different values construct `Settings(...)` directly instead
@@ -14,6 +13,7 @@ of mutating process environment variables.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,16 +25,24 @@ class Settings(BaseSettings):
     # --- Neon PostgreSQL (via Prisma) ---
     database_url: str = Field(alias="DATABASE_URL")
 
-    # --- Upstash Redis ---
-    upstash_redis_rest_url: str = Field(alias="UPSTASH_REDIS_REST_URL")
-    upstash_redis_rest_token: str = Field(alias="UPSTASH_REDIS_REST_TOKEN")
+    # --- Redis (standard wire protocol; works with self-hosted Redis) ---
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     # --- Cloudflare R2 ---
-    r2_endpoint: str = Field(alias="R2_ENDPOINT")
-    r2_access_key_id: str = Field(alias="R2_ACCESS_KEY_ID")
-    r2_secret_access_key: str = Field(alias="R2_SECRET_ACCESS_KEY")
-    r2_bucket: str = Field(alias="R2_BUCKET")
-    r2_public_host: str = Field(alias="R2_PUBLIC_HOST")
+    r2_endpoint: str | None = Field(default=None, alias="R2_ENDPOINT")
+    r2_access_key_id: str | None = Field(default=None, alias="R2_ACCESS_KEY_ID")
+    r2_secret_access_key: str | None = Field(default=None, alias="R2_SECRET_ACCESS_KEY")
+    r2_bucket: str | None = Field(default=None, alias="R2_BUCKET")
+    r2_public_host: str | None = Field(default=None, alias="R2_PUBLIC_HOST")
+
+    # Vendor-neutral S3 aliases. Existing R2 names remain accepted so an
+    # operator can upgrade without rotating storage credentials.
+    s3_endpoint: str | None = Field(default=None, alias="S3_ENDPOINT")
+    s3_region: str = Field(default="us-east-1", alias="S3_REGION")
+    s3_access_key_id: str | None = Field(default=None, alias="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: str | None = Field(default=None, alias="S3_SECRET_ACCESS_KEY")
+    s3_bucket: str | None = Field(default=None, alias="S3_BUCKET")
+    s3_public_base_url: str | None = Field(default=None, alias="S3_PUBLIC_BASE_URL")
 
     # --- JWT / Administrator sessions ---
     jwt_secret: str = Field(alias="JWT_SECRET")
@@ -62,6 +70,20 @@ class Settings(BaseSettings):
         le=30,
         alias="MASTERSHOP_TIMEOUT_SECONDS",
     )
+    fulfillment_provider: Literal["none", "mastershop"] = Field(
+        default="none", alias="FULFILLMENT_PROVIDER"
+    )
+
+    # --- Store bootstrap (applied only while store_settings is absent) ---
+    store_name: str = Field(default="Mi Tienda", alias="STORE_NAME")
+    store_legal_name: str = Field(default="", alias="STORE_LEGAL_NAME")
+    store_primary_color: str = Field(default="#30503b", alias="STORE_PRIMARY_COLOR")
+    store_whatsapp_number: str = Field(default="", alias="STORE_WHATSAPP_NUMBER")
+    store_whatsapp_message: str = Field(
+        default="Hola, me gustaría conocer más sobre tus productos.",
+        alias="STORE_WHATSAPP_MESSAGE",
+    )
+    store_support_email: str = Field(default="", alias="STORE_SUPPORT_EMAIL")
 
     # --- Admin bootstrap ---
     # When both are set, startup provisions this Administrator if it is missing.
@@ -80,6 +102,26 @@ class Settings(BaseSettings):
     # --- Deployment ---
     app_version: str = Field(default="0.1.0", alias="APP_VERSION")
     environment: str = Field(default="development", alias="ENVIRONMENT")
+
+    @property
+    def storage_endpoint(self) -> str:
+        return self.s3_endpoint or self.r2_endpoint or ""
+
+    @property
+    def storage_access_key_id(self) -> str:
+        return self.s3_access_key_id or self.r2_access_key_id or ""
+
+    @property
+    def storage_secret_access_key(self) -> str:
+        return self.s3_secret_access_key or self.r2_secret_access_key or ""
+
+    @property
+    def storage_bucket(self) -> str:
+        return self.s3_bucket or self.r2_bucket or ""
+
+    @property
+    def storage_public_base_url(self) -> str:
+        return self.s3_public_base_url or self.r2_public_host or ""
 
 
 @lru_cache

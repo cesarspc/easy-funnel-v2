@@ -16,7 +16,7 @@ import logging
 from datetime import date, datetime
 
 from prisma import Prisma
-from upstash_redis import AsyncRedis
+from redis.asyncio import Redis as AsyncRedis
 
 from app.core.business_time import colombia_today
 from app.db.repositories import CtaClickRepository, LandingViewRepository

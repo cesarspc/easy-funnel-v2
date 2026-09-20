@@ -17,24 +17,18 @@ function resolveApiBaseUrl(mode: string): string {
   )?.trim();
 
   if (!configured) {
-    if (mode === "production") {
-      throw new Error(
-        "Missing VITE_API_BASE_URL. Configure it as a Production build variable " +
-          "(for example https://api.example.com/api) and redeploy.",
-      );
-    }
     return "/api";
   }
 
   const normalized = configured.replace(/\/+$/, "");
 
-  if (mode === "production") {
+  if (mode === "production" && !normalized.startsWith("/")) {
     let url: URL;
     try {
       url = new URL(normalized);
     } catch {
       throw new Error(
-        `Invalid VITE_API_BASE_URL "${configured}": production requires an absolute HTTPS URL.`,
+        `Invalid VITE_API_BASE_URL "${configured}": use /api or an absolute HTTPS URL.`,
       );
     }
 
@@ -75,7 +69,13 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         "/api": {
-          target: "http://localhost:8000",
+          // 127.0.0.1 rather than "localhost". Node resolves "localhost" to
+          // ::1 before 127.0.0.1 on Windows, while Docker publishes ports on
+          // IPv4 — so anything else holding [::1]:8000 (a WSL relay, another
+          // project's server) answers the dev proxy instead of this API, and
+          // the symptom is a confusing 404 from a backend that is not ours.
+          // Override with VITE_DEV_API_PROXY when the API is somewhere else.
+          target: loadEnv(mode, process.cwd(), "VITE_").VITE_DEV_API_PROXY || "http://127.0.0.1:8000",
           changeOrigin: true,
         },
       },

@@ -163,7 +163,7 @@ describe("conversion components on the landing", () => {
     await user.click(await screen.findByRole("button", { name: "Comprar ahora" }));
 
     expect(publicApi.recordCtaClick).toHaveBeenCalledWith("set-sartenes");
-    expect(screen.getByRole("dialog", { name: "Completa tu pedido - Envio GRATIS" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Elige tu oferta" })).toBeInTheDocument();
     expect(document.querySelector(".cblock--purchase-cta")).toBeInTheDocument();
   });
 

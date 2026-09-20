@@ -155,7 +155,7 @@
 
 .fraud-table__action--primary {
   border-color: var(--gf-signal-amber);
-  color: var(--gf-signal-amber-deep);
+  color: var(--gf-signal-amber-text);
 }
 
 .fraud-table__action--primary:hover:not(:disabled) {

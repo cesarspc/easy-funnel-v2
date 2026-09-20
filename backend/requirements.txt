@@ -4,7 +4,9 @@
 # Web Framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-httpx==0.28.1
+# Starlette 0.35's TestClient still passes the deprecated `app=` argument;
+# httpx 0.28 removed it. Keep the compatible release until FastAPI is upgraded.
+httpx==0.27.2
 # Multipart form parsing for banner image uploads (FastAPI UploadFile/Form)
 python-multipart==0.0.20
 
@@ -25,7 +27,7 @@ boto3==1.34.34
 botocore==1.34.34
 
 # Redis
-upstash-redis==1.7.0
+redis[hiredis]==5.2.1
 
 # Validation and Serialization
 pydantic==2.5.3

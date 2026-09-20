@@ -1,0 +1,94 @@
+/* Segmented theme switch. Flat Instrument Rule: the group is a hairline track,
+   the selected segment is the only filled surface in it, and nothing casts a
+   shadow at rest. No second accent — selection reads as a lit panel, and amber
+   stays reserved for the focus ring and the brand LED. */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  background: var(--gf-paper-raised);
+}
+
+.theme-toggle__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: var(--gf-radius-sm);
+  color: var(--gf-ink-quiet);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--gf-duration-fast) var(--gf-ease-standard),
+    color var(--gf-duration-fast) var(--gf-ease-standard);
+}
+
+/* The radio carries focus and keyboard behavior, so it is clipped rather than
+   hidden: `display: none` would take it out of the tab order and break the
+   arrow-key selection this control relies on. */
+.theme-toggle__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.theme-toggle__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.theme-toggle__option:hover {
+  background: var(--gf-paper);
+  color: var(--gf-ink);
+}
+
+.theme-toggle__input:checked + .theme-toggle__icon,
+.theme-toggle__input:checked ~ .theme-toggle__label {
+  color: var(--gf-ink);
+}
+
+.theme-toggle__option:has(.theme-toggle__input:checked) {
+  background: var(--gf-paper);
+  color: var(--gf-ink);
+  box-shadow: inset 0 0 0 1px var(--gf-hairline);
+}
+
+/* Focus lands on the clipped input, so the ring is drawn on the segment the
+   merchant is actually looking at. */
+.theme-toggle__option:has(.theme-toggle__input:focus-visible) {
+  outline: 2px solid var(--gf-signal-amber);
+  outline-offset: 2px;
+}
+
+/* Below the top bar's comfortable width the labels clip to their icons. They
+   stay in the accessibility tree — the control never goes unnamed. */
+@media (max-width: 899px) {
+  .theme-toggle__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .theme-toggle__option {
+    padding: 6px;
+  }
+}

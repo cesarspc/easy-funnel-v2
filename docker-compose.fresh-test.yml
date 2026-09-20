@@ -1,0 +1,65 @@
+name: easy-funnel-fresh-test
+
+services:
+  postgres-fresh:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_USER: fresh_user
+      POSTGRES_PASSWORD: fresh_password_only_for_tests
+      POSTGRES_DB: easy_funnel_fresh
+    ports:
+      - "55433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fresh_user -d easy_funnel_fresh"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  redis-fresh:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend-test:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      postgres-fresh:
+        condition: service_healthy
+      redis-fresh:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://fresh_user:fresh_password_only_for_tests@postgres-fresh:5432/easy_funnel_fresh
+      REDIS_URL: redis://redis-fresh:6379/0
+      S3_ENDPOINT: http://storage.invalid
+      S3_ACCESS_KEY_ID: fresh-test-key
+      S3_SECRET_ACCESS_KEY: fresh-test-secret
+      S3_BUCKET: fresh-test
+      S3_PUBLIC_BASE_URL: https://test-images.example.com
+      JWT_SECRET: fresh-test-signing-secret-at-least-32-characters
+      GEOIP_DATABASE_PATH: /app/geoip/GeoLite2-Country.mmdb
+      # Keep the historical integration contract enabled for the regression
+      # suite. Provider-disabled behavior has focused service tests.
+      FULFILLMENT_PROVIDER: mastershop
+      STORE_NAME: Fresh Database Store
+    volumes:
+      - ./backend/tests:/app/tests:ro
+      - ./backend/pytest.ini:/app/pytest.ini:ro
+      # The migration harness deliberately resolves the repository root from
+      # its test path. In this compact test image that root is `/`, so expose
+      # the checked-in schema there as well as its baked-in `/app` location.
+      - ./prisma:/prisma:ro
+    command: ["sh", "-c", "prisma migrate deploy --schema /app/prisma/schema.prisma && pytest -q"]
+
+  frontend-test:
+    profiles: ["test-build"]
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: test

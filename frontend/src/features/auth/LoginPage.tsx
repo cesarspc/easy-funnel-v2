@@ -9,6 +9,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../../api";
 import { useSession } from "./SessionContext";
 import "./LoginPage.css";
+import { useStore } from "../store/StoreContext";
+import { useAdminTheme } from "../admin/theme";
 
 interface LocationState {
   from?: { pathname: string };
@@ -18,6 +20,10 @@ export function LoginPage() {
   const { login } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
+  const { store } = useStore();
+  // The door matches the room: the merchant's saved theme applies here too, so
+  // signing in is not a jump from a white page into a dark panel.
+  useAdminTheme();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -53,7 +59,7 @@ export function LoginPage() {
         <div className="login-panel__mark" aria-hidden="true">
           <span className="login-panel__led" />
         </div>
-        <h1 className="login-panel__title">Easy Funnel</h1>
+        <h1 className="login-panel__title">{store?.store_name ?? "Mi Tienda"}</h1>
         <p className="login-panel__subtitle">Panel de administración</p>
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>

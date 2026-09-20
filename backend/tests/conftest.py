@@ -44,8 +44,7 @@ _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 # inject the in-process double from `tests/redis/fakes.py` instead of
 # reaching this endpoint (docs/testing.md -> Redis rate-limit tests).
 _SYNTHETIC_TEST_ENV = {
-    "UPSTASH_REDIS_REST_URL": "https://redis.test.invalid",
-    "UPSTASH_REDIS_REST_TOKEN": "test-upstash-token",
+    "REDIS_URL": "redis://localhost:6379/15",
     "R2_ENDPOINT": "https://test.r2.cloudflarestorage.com",
     "R2_ACCESS_KEY_ID": "test-access-key",
     "R2_SECRET_ACCESS_KEY": "test-secret-key",

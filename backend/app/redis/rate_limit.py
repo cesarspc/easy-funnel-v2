@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from upstash_redis import AsyncRedis
+from redis.asyncio import Redis as AsyncRedis
 
 # Atomic fixed-window counter: increments the key, and sets the expiry only
 # on the first increment of a window so the TTL is not repeatedly extended

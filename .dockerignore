@@ -1,0 +1,54 @@
+# Build context hygiene. Both images build from the repository root, and both
+# copy whole directories (`COPY frontend/ ./`, `COPY backend/app/ app/`), so
+# anything left here is baked into the context and can overwrite what the image
+# just installed.
+#
+# node_modules is the one that actually breaks the build: pnpm installs a
+# symlink farm pointing into a store on the host, so copying a Windows or macOS
+# node_modules over the container's own install leaves every binary dangling
+# ("Cannot find module '/app/node_modules/typescript/bin/tsc'"). The frontend
+# image installs its dependencies itself; it must never receive ours.
+
+# Dependencies — each image installs its own
+**/node_modules
+backend/.venv
+**/__pycache__
+*.egg-info
+
+# Build output
+frontend/dist
+frontend/build
+
+# Local environment and secrets — never bake these into an image
+.env
+.env.*
+!.env.example
+docker.env.example
+
+# VCS and tooling caches
+.git
+.gitignore
+.gitattributes
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.hypothesis
+**/htmlcov
+**/.coverage
+.agents
+.kiro
+.claude
+
+# Editor / OS noise
+.vscode
+.idea
+**/.DS_Store
+**/Thumbs.db
+
+# Local scripts, logs and scratch files
+*.log
+run-tests.ps1
+test.bat
+test-fresh.sh
+tmp_*
+frontend/test_output*.txt

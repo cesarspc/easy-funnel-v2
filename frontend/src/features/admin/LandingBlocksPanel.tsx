@@ -72,7 +72,7 @@ const BLOCK_TYPES: Record<ConversionBlockType, BlockTypeMeta> = {
   },
   store_trust: {
     label: "Tienda certificada",
-    purpose: "Muestra por separado el sello visual de confianza de Bodega Premium.",
+    purpose: "Muestra por separado el sello visual de confianza de la tienda.",
   },
   purchase_benefits: {
     label: "Envío, pago y garantía",

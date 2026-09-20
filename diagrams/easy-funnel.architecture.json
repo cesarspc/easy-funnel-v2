@@ -1,0 +1,367 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Easy Funnel — System Architecture",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1300,
+      700
+    ],
+    "repository": {
+      "url": "https://github.com/cesarspc/easy-funnel-v2",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "63b5794cb36cdd588cd876371fe3155767d57020"
+    },
+    "views": [
+      {
+        "id": "buyer-path",
+        "label": "Buyer request path",
+        "focus": [
+          "buyer",
+          "caddy",
+          "spa",
+          "api"
+        ],
+        "note": "A buyer arrives from an ad on a phone. Caddy serves the SPA and proxies the API it calls."
+      },
+      {
+        "id": "order-authority",
+        "label": "Order authority",
+        "focus": [
+          "api",
+          "postgres",
+          "redis",
+          "geoip"
+        ],
+        "note": "Every fraud check runs synchronously inside the transaction that persists the order."
+      },
+      {
+        "id": "media",
+        "label": "Image delivery",
+        "focus": [
+          "api",
+          "storage",
+          "caddy",
+          "buyer"
+        ],
+        "note": "Variants are generated on upload and served back through the same edge under /media."
+      },
+      {
+        "id": "fulfillment",
+        "label": "Fulfillment hand-off",
+        "focus": [
+          "api",
+          "postgres",
+          "mastershop"
+        ],
+        "note": "The hand-off runs after the local commit, so acceptance never depends on a third party."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "buyer",
+      "type": "external",
+      "label": "Buyer",
+      "sublabel": "Mobile, from an ad",
+      "pos": [
+        40,
+        70
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "merchant",
+      "type": "external",
+      "label": "Merchant",
+      "sublabel": "Desktop admin panel",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "caddy",
+      "type": "cloud",
+      "label": "Caddy",
+      "sublabel": "TLS edge + reverse proxy",
+      "tag": ":80 / :443",
+      "pos": [
+        270,
+        230
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "docker-compose.yml",
+          "label": "service definition"
+        }
+      ]
+    },
+    {
+      "id": "spa",
+      "type": "frontend",
+      "label": "React SPA",
+      "sublabel": "Vite build, static files",
+      "pos": [
+        590,
+        70
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "frontend/src/App.tsx",
+          "label": "route table"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI monolith",
+      "sublabel": "routers → services → domains",
+      "tag": "uvicorn :8080",
+      "pos": [
+        590,
+        360
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/main.py",
+          "label": "app factory"
+        },
+        {
+          "path": "backend/app/api/routers/public.py",
+          "label": "public API"
+        }
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "Rate limits, counters",
+      "pos": [
+        900,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/services/landing_traffic_service.py"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "Orders, catalog, audit",
+      "tag": "Prisma",
+      "pos": [
+        900,
+        360
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "label": "data model"
+        }
+      ]
+    },
+    {
+      "id": "geoip",
+      "type": "security",
+      "label": "GeoLite2",
+      "sublabel": "Bundled .mmdb file",
+      "pos": [
+        590,
+        510
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/services/geoip_resolver.py"
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "cloud",
+      "label": "Object storage",
+      "sublabel": "MinIO local · R2 production",
+      "pos": [
+        270,
+        510
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/storage/r2_client.py",
+          "label": "key layout"
+        }
+      ]
+    },
+    {
+      "id": "mastershop",
+      "type": "external",
+      "label": "MasterShop",
+      "sublabel": "Optional fulfillment",
+      "pos": [
+        1110,
+        510
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "backend/app/integrations/mastershop/service.py"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Self-hosted stack — docker compose",
+      "wraps": [
+        "caddy",
+        "spa",
+        "api",
+        "redis",
+        "postgres",
+        "geoip",
+        "storage"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "buyer-edge",
+      "from": "buyer",
+      "to": "caddy",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "merchant-edge",
+      "from": "merchant",
+      "to": "caddy",
+      "label": "HTTPS"
+    },
+    {
+      "id": "edge-spa",
+      "from": "caddy",
+      "to": "spa",
+      "label": "serves the SPA"
+    },
+    {
+      "id": "edge-api",
+      "from": "caddy",
+      "to": "api",
+      "label": "proxies /api",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-postgres",
+      "from": "api",
+      "to": "postgres",
+      "label": "order + flags, atomic",
+      "variant": "emphasis",
+      "labelDy": -20
+    },
+    {
+      "id": "api-redis",
+      "from": "api",
+      "to": "redis",
+      "label": "atomic Lua counters",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "api-geoip",
+      "from": "api",
+      "to": "geoip",
+      "label": "resolves the request IP",
+      "variant": "security",
+      "labelDy": 55
+    },
+    {
+      "id": "api-storage",
+      "from": "api",
+      "to": "storage",
+      "label": "writes image variants"
+    },
+    {
+      "id": "api-mastershop",
+      "from": "api",
+      "to": "mastershop",
+      "label": "after the local commit",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Local order authority",
+      "items": [
+        "Duplicate, blacklist, rate-limit and GeoIP checks run synchronously",
+        "One transaction persists the order with its fraud flags, or nothing",
+        "An order is accepted as pending or flagged_fraud, never dropped"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Layers inside the monolith",
+      "items": [
+        "Routers stay thin: schemas, auth dependency, error mapping",
+        "Services own transactions, I/O order and audit writes",
+        "Domains are pure functions; repositories own every Prisma query"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Deliberate degradation",
+      "items": [
+        "Unreachable Redis returns a non-triggering result; durable checks still run",
+        "A missing GeoIP database skips geo rules instead of rejecting orders",
+        "A failed fulfillment hand-off is recorded and retryable, never fatal"
+      ]
+    }
+  ]
+}

@@ -54,6 +54,9 @@
   background: var(--gf-paper-raised);
   border: 1px solid var(--gf-hairline);
   border-radius: var(--gf-radius-lg);
+}
+
+.landings-page__table-wrap {
   overflow-x: auto;
 }
 
@@ -152,7 +155,7 @@
 
 .landings-table__action--primary {
   border-color: var(--gf-signal-amber);
-  color: var(--gf-signal-amber-deep);
+  color: var(--gf-signal-amber-text);
 }
 
 .landings-table__action--primary:hover:not(:disabled) {
@@ -483,16 +486,334 @@
 
 .landings-offer__discounts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--gf-space-sm);
 }
 
 @media (max-width: 639px) {
-  .landings-offer__discounts {
-    grid-template-columns: 1fr;
-  }
-
   .landings-page__header {
     flex-direction: column;
   }
+}
+
+/* ===========================================================================
+   Landing configuration — banks of controls, not one long ribbon.
+   ---------------------------------------------------------------------------
+   This form was a single 480px column holding eighteen field groups in the
+   order they were built, which on a desktop-first admin meant roughly 2,500
+   vertical pixels of scrolling past unrelated settings, with the save button
+   reachable only from the very bottom. It is now four named banks — address,
+   calls to action, colors, order form — laid two-up on a work surface that uses
+   its width, with the save control pinned in view.
+
+   Separation is a hairline rule and space, never a nested card: the panel is
+   already a card, and a card inside a card is one border too many. The legend
+   is the bank's engraved label, which is why it stays small, spaced and quiet
+   instead of becoming a heading that competes with the panel title.
+   ========================================================================= */
+
+.landings-form--config {
+  /* No cap of its own: `.landings-page--editor` already holds the page to a
+     sane measure, and a narrower form here would leave the sticky action bar
+     stopping short of the panel edge it is supposed to close. */
+  max-width: none;
+  align-items: stretch;
+  gap: 0;
+}
+
+.lcfg__group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gf-space-md) var(--gf-space-lg);
+  width: 100%;
+  margin: 0;
+  /* More room above the label than below it, so each bank reads as belonging to
+     its own heading rather than floating between two. */
+  padding: var(--gf-space-lg) 0 var(--gf-space-xl);
+  border: none;
+  border-top: 1px solid var(--gf-hairline);
+  min-inline-size: 0; /* fieldsets size to min-content by default; grid needs 0 */
+}
+
+.lcfg__group:first-of-type {
+  padding-top: 0;
+  border-top: none;
+}
+
+.lcfg__group:last-of-type {
+  padding-bottom: var(--gf-space-lg);
+}
+
+.lcfg__legend {
+  grid-column: 1 / -1;
+  padding: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--gf-ink);
+}
+
+.lcfg__group-hint {
+  grid-column: 1 / -1;
+  margin: 2px 0 var(--gf-space-xs);
+  max-width: 68ch;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--gf-ink-quiet);
+}
+
+/* Controls that carry a list or a sub-group of their own take the full width
+   instead of being wedged into half of one: the per-CTA override rows, the offer
+   cards, and the readouts. Matched structurally, so the JSX keeps the field
+   classes it already had. */
+.lcfg__group > .landings-field:has(.landings-field__overrides),
+.lcfg__group > .landings-offers,
+.lcfg__span {
+  grid-column: 1 / -1;
+}
+
+/* A color picker needs its swatch, a hex field and sometimes an "inherit"
+   button on one line, so this bank asks for wider columns and drops to a single
+   column sooner than the others. */
+.lcfg__group--colors {
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+}
+
+/* Values the merchant cannot type: the resolved public URL, and which banner
+   positions actually end up carrying a CTA. Each sits beside the controls that
+   decide it — the CTA readout used to be orphaned below the entire form.
+   Monospace because these are addresses and positions, i.e. data. */
+.lcfg__readout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--gf-space-xs) var(--gf-space-sm);
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--gf-hairline);
+  border-radius: var(--gf-radius-md);
+  background: var(--gf-paper);
+}
+
+.lcfg__readout-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--gf-ink-quiet);
+}
+
+.lcfg__readout-value {
+  font-family: var(--gf-font-data);
+  font-size: 0.8125rem;
+  color: var(--gf-ink);
+  overflow-wrap: anywhere;
+}
+
+/* Offer tiers side by side. Three tiers meant three stacked blocks of five
+   fields each, which is most of what pushed the save button off screen. */
+.landings-offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  align-items: stretch;
+  gap: var(--gf-space-md);
+}
+
+.landings-offers > .landings-field__error,
+.landings-offers__legend {
+  grid-column: 1 / -1;
+}
+
+/* ---------------------------------------------------------------------------
+   Action bar. Sticks to the bottom of the viewport while the form is on screen,
+   so saving is reachable from any field instead of only from the end of the last
+   offer row. It is the one element in this panel allowed a shadow: content
+   passes underneath it, so its edge has to read as being in front.
+   ------------------------------------------------------------------------- */
+
+.lcfg__savebar {
+  position: sticky;
+  bottom: calc(-1 * var(--gf-space-lg));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gf-space-md);
+  flex-wrap: wrap;
+  /* Bleeds into the panel's padding so the bar closes the card edge to edge:
+     the negative margins move it out, and the width has to grow by the same
+     amount or the bar stops short of the right-hand edge. */
+  width: calc(100% + 2 * var(--gf-space-lg));
+  margin: 0 calc(-1 * var(--gf-space-lg)) calc(-1 * var(--gf-space-lg));
+  padding: var(--gf-space-md) var(--gf-space-lg);
+  border-top: 1px solid var(--gf-hairline);
+  border-radius: 0 0 var(--gf-radius-lg) var(--gf-radius-lg);
+  background: var(--gf-paper-raised);
+  box-shadow: 0 -6px 18px -12px rgba(0, 0, 0, 0.45);
+}
+
+.lcfg__savebar-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gf-space-sm);
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gf-ink-quiet);
+}
+
+/* The amber LED in its one honest use: something is pending. */
+.lcfg__savebar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--gf-signal-amber);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--gf-signal-amber) 45%, transparent);
+}
+
+/* --- Templates ------------------------------------------------------------
+   "Guardar plantilla" dangled unlabeled under the form while its counterpart,
+   "Cargar plantilla", lived up in the page header — two halves of one idea, a
+   full panel apart. The saving half gets a named home and a pointer to the
+   other half. */
+
+.lcfg__templates {
+  margin-top: var(--gf-space-xl);
+  padding-top: var(--gf-space-lg);
+  border-top: 1px solid var(--gf-hairline);
+}
+
+.lcfg__templates-title {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--gf-ink);
+}
+
+.lcfg__templates-hint {
+  margin: var(--gf-space-xs) 0 var(--gf-space-md);
+  max-width: 68ch;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--gf-ink-quiet);
+}
+
+/* --- Header: the public address ------------------------------------------- */
+
+.landings-page__public-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--gf-ink-quiet);
+  font-family: var(--gf-font-data);
+  text-decoration: underline;
+  text-decoration-color: var(--gf-hairline);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color var(--gf-duration-fast) var(--gf-ease-standard),
+    text-decoration-color var(--gf-duration-fast) var(--gf-ease-standard);
+}
+
+.landings-page__public-link:hover {
+  color: var(--gf-ink);
+  text-decoration-color: currentColor;
+}
+
+/* --- Banner rows ---------------------------------------------------------- */
+
+/* Reorder reads as one control with two ends, the way a stepper does, instead of
+   two more buttons in a row of four equals. */
+.banner-list__reorder {
+  display: inline-flex;
+}
+
+.banner-list__reorder .landings-table__action:first-child {
+  border-radius: var(--gf-radius-md) 0 0 var(--gf-radius-md);
+}
+
+.banner-list__reorder .landings-table__action:last-child {
+  margin-left: -1px;
+  border-radius: 0 var(--gf-radius-md) var(--gf-radius-md) 0;
+}
+
+.banner-list__reorder .landings-table__action:hover:not(:disabled) {
+  /* Lift the hovered half above its neighbour so the shared 1px edge does not
+     cut through the hover fill. */
+  position: relative;
+  z-index: 1;
+}
+
+.landings-table__action--icon {
+  padding: 6px 8px;
+  color: var(--gf-ink-quiet);
+}
+
+.landings-table__action--icon:hover:not(:disabled) {
+  color: var(--gf-ink);
+}
+
+/* The only irreversible control in the row sits at the far end, away from the
+   routine ones, and states its nature on hover rather than shouting at rest. */
+.banner-list__destructive {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gf-space-xs);
+  margin-left: auto;
+}
+
+.landings-table__action--quiet-danger {
+  color: var(--gf-ink-quiet);
+}
+
+.landings-table__action--quiet-danger:hover:not(:disabled) {
+  background: var(--gf-danger);
+  border-color: var(--gf-danger);
+  color: #fff;
+}
+
+/* --- Narrower viewports --------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .lcfg__group,
+  .lcfg__group--colors {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 639px) {
+  .lcfg__savebar {
+    /* The panel keeps its 24px padding at every width, so only the bar's own
+       vertical padding tightens — the horizontal bleed must stay matched to the
+       panel or the bar goes out of alignment with the fields above it. */
+    padding-top: var(--gf-space-sm);
+    padding-bottom: var(--gf-space-sm);
+  }
+
+  .banner-list__destructive {
+    margin-left: 0;
+  }
+}
+
+/* The editor is a form, not a data table: past ~1180px the panels stop gaining
+   anything and start stranding controls at opposite ends of an empty card.
+   Capping the page keeps every panel edge aligned with the form inside it.
+   Scoped to the editor so the landings *table* keeps the full width it uses. */
+.landings-page--editor {
+  max-width: 1180px;
+}
+
+/* Alt text is a sentence, not a paragraph. Without a cap this input grew to the
+   full width of the panel — a ~1700px field for eight words. */
+.banner-list__fields {
+  max-width: 520px;
+}
+
+/* The template name is a short label; without a cap it inherited the panel's
+   full width and dwarfed the button beside it. */
+.ltemplates__save-field,
+.lcfg__templates .landings-field {
+  max-width: 420px;
 }

@@ -45,6 +45,13 @@
   margin: 0;
 }
 
+/* At night the panel and the ground are both dark, so the card's edge stops
+   being obvious. One hairline restores it — the Flat Instrument Rule's own
+   answer to depth, and cheaper than the shadow that would barely register. */
+:root[data-theme="dark"] .login-panel {
+  border: 1px solid var(--gf-graphite-line);
+}
+
 .login-panel__subtitle {
   color: var(--gf-graphite-text);
   font-size: 0.75rem;
@@ -87,7 +94,8 @@
 }
 
 .login-form__input::placeholder {
-  color: var(--gf-ink-faint);
+  /* Graphite-family, not the paper ramp: this field sits on chrome. */
+  color: var(--gf-graphite-text-quiet);
 }
 
 .login-form__input:focus-visible {
@@ -104,7 +112,7 @@
 
 .login-form__error {
   margin: 0;
-  color: #ffb4a4;
+  color: var(--gf-graphite-error);
   font-size: 0.8125rem;
   line-height: 1.4;
 }

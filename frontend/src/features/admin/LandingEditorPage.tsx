@@ -139,6 +139,27 @@ function parsePositions(raw: string): number[] {
     .map((part) => Number(part));
 }
 
+/**
+ * Reorder affordance for a banner row. Drawn rather than typed: the arrows here
+ * used to be the "↑" / "↓" characters, which render in whatever the UI font
+ * happens to supply and sit at a different weight and baseline than the rest of
+ * the chrome. The buttons carry their own `aria-label`, so this is decorative.
+ */
+function ChevronIcon({ direction }: { direction: "up" | "down" }) {
+  return (
+    <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        d={
+          direction === "up"
+            ? "M10 5.6l5.2 5.2-1.5 1.5L10 8.6l-3.7 3.7-1.5-1.5L10 5.6z"
+            : "M10 14.4L4.8 9.2l1.5-1.5L10 11.4l3.7-3.7 1.5 1.5L10 14.4z"
+        }
+      />
+    </svg>
+  );
+}
+
 /** Smallest JPEG candidate, used for the admin thumbnail. */
 function thumbnailUrl(banner: LandingBanner): string | null {
   const jpeg = banner.variants
@@ -377,13 +398,41 @@ export function LandingEditorPage() {
     );
   }
 
+  /**
+   * Whether the form holds edits the landing has not been told about yet.
+   *
+   * Compared against the same `toConfigForm` projection the form was seeded
+   * from, so the answer stays true no matter which control changed, and a save
+   * that round-trips identical values reads as clean. Purely an indicator: the
+   * save button's enabled state is still governed by `busy` alone, because a
+   * merchant re-saving unchanged config is not an error worth blocking.
+   */
+  const isDirty = JSON.stringify(config) !== JSON.stringify(toConfigForm(landing));
+
   return (
-    <div className="landings-page">
+    <div className="landings-page landings-page--editor">
       <div className="landings-page__header">
         <div>
           <h1 className="landings-page__title">{landing.product_name}</h1>
           <p className="landings-page__subtitle">
-            <StatusPill status={landing.status} /> <span>/p/{landing.slug}</span>
+            <StatusPill status={landing.status} />{" "}
+            {/* The public address was printed here as dead text, which is the
+                one thing a merchant wants to click after every edit. */}
+            <a
+              className="landings-page__public-link"
+              href={`/p/${landing.slug}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              /p/{landing.slug}
+              <svg viewBox="0 0 20 20" width="12" height="12" aria-hidden="true" focusable="false">
+                <path
+                  fill="currentColor"
+                  d="M11 3h6v6h-2V6.4l-6.3 6.3-1.4-1.4L13.6 5H11V3zM4 5h4v2H5v8h8v-3h2v5H3V5h1z"
+                />
+              </svg>
+              <span className="sr-only">(abre la landing en una pestaña nueva)</span>
+            </a>
           </p>
         </div>
         <div className="landings-page__header-actions">
@@ -489,6 +538,29 @@ export function LandingEditorPage() {
                   </div>
 
                   <div className="banner-list__actions">
+                    {/* Reorder is the action taken most often here, so it leads
+                        and reads as one pair of controls rather than two more
+                        buttons competing with "save" and "delete". */}
+                    <span className="banner-list__reorder">
+                      <button
+                        type="button"
+                        className="landings-table__action landings-table__action--icon"
+                        disabled={busy || index === 0}
+                        aria-label={`Subir banner ${index + 1}`}
+                        onClick={() => void handleMove(banner.id, -1)}
+                      >
+                        <ChevronIcon direction="up" />
+                      </button>
+                      <button
+                        type="button"
+                        className="landings-table__action landings-table__action--icon"
+                        disabled={busy || index === banners.length - 1}
+                        aria-label={`Bajar banner ${index + 1}`}
+                        onClick={() => void handleMove(banner.id, 1)}
+                      >
+                        <ChevronIcon direction="down" />
+                      </button>
+                    </span>
                     <button
                       type="button"
                       className="landings-table__action"
@@ -497,52 +569,40 @@ export function LandingEditorPage() {
                     >
                       Guardar texto
                     </button>
-                    <button
-                      type="button"
-                      className="landings-table__action"
-                      disabled={busy || index === 0}
-                      aria-label={`Subir banner ${index + 1}`}
-                      onClick={() => void handleMove(banner.id, -1)}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="landings-table__action"
-                      disabled={busy || index === banners.length - 1}
-                      aria-label={`Bajar banner ${index + 1}`}
-                      onClick={() => void handleMove(banner.id, 1)}
-                    >
-                      ↓
-                    </button>
-                    {confirmDeleteId === banner.id ? (
-                      <>
+                    {/* Pushed to the far end of the row: the one irreversible
+                        action here should not sit shoulder to shoulder with the
+                        routine ones, and the confirm step keeps its own
+                        two-button shape. */}
+                    <span className="banner-list__destructive">
+                      {confirmDeleteId === banner.id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="landings-table__action landings-table__action--danger"
+                            disabled={busy}
+                            onClick={() => void handleDelete(banner.id)}
+                          >
+                            Confirmar
+                          </button>
+                          <button
+                            type="button"
+                            className="landings-table__action"
+                            onClick={() => setConfirmDeleteId(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      ) : (
                         <button
                           type="button"
-                          className="landings-table__action landings-table__action--danger"
+                          className="landings-table__action landings-table__action--quiet-danger"
                           disabled={busy}
-                          onClick={() => void handleDelete(banner.id)}
+                          onClick={() => setConfirmDeleteId(banner.id)}
                         >
-                          Confirmar
+                          Eliminar
                         </button>
-                        <button
-                          type="button"
-                          className="landings-table__action"
-                          onClick={() => setConfirmDeleteId(null)}
-                        >
-                          Cancelar
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        className="landings-table__action"
-                        disabled={busy}
-                        onClick={() => setConfirmDeleteId(banner.id)}
-                      >
-                        Eliminar
-                      </button>
-                    )}
+                      )}
+                    </span>
                   </div>
                 </li>
               );
@@ -612,851 +672,879 @@ export function LandingEditorPage() {
           Configuración
         </h2>
 
-        <form className="landings-form" onSubmit={handleSaveConfig}>
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-slug">
-              Slug público
-            </label>
-            <input
-              id="landing-slug"
-              className="landings-field__input"
-              type="text"
-              value={config.slug}
-              aria-describedby={fieldErrors.slug ? "landing-slug-error" : undefined}
-              aria-invalid={fieldErrors.slug ? true : undefined}
-              onChange={(event) =>
-                setConfig((current) => (current ? { ...current, slug: event.target.value } : current))
-              }
-            />
-            {fieldErrors.slug && (
-              <p className="landings-field__error" id="landing-slug-error" role="alert">
-                {fieldErrors.slug}
-              </p>
-            )}
-          </div>
-
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-cta-mode">
-              Ubicación de los CTA
-            </label>
-            <select
-              id="landing-cta-mode"
-              className="landings-field__input"
-              value={config.ctaMode}
-              aria-describedby={fieldErrors.cta_mode ? "landing-cta-mode-error" : undefined}
-              onChange={(event) =>
-                setConfig((current) =>
-                  current ? { ...current, ctaMode: event.target.value as CtaMode } : current,
-                )
-              }
-            >
-              <option value="after_every">Después de cada banner</option>
-              <option value="every_n">Cada N banners</option>
-              <option value="fixed_positions">En posiciones fijas</option>
-            </select>
-            {fieldErrors.cta_mode && (
-              <p className="landings-field__error" id="landing-cta-mode-error" role="alert">
-                {fieldErrors.cta_mode}
-              </p>
-            )}
-          </div>
-
-          {config.ctaMode === "every_n" && (
+        <form className="landings-form landings-form--config" onSubmit={handleSaveConfig}>
+          <fieldset className="lcfg__group">
+            <legend className="lcfg__legend">Dirección pública</legend>
+            <p className="lcfg__group-hint">La URL por la que entra el comprador. Cambiarla rompe los enlaces que ya estén en circulación.</p>
             <div className="landings-field">
-              <label className="landings-field__label" htmlFor="landing-cta-interval">
-                Intervalo (1-15)
+              <label className="landings-field__label" htmlFor="landing-slug">
+                Slug público
               </label>
               <input
-                id="landing-cta-interval"
-                className="landings-field__input"
-                type="number"
-                min={1}
-                max={15}
-                value={config.ctaInterval}
-                aria-describedby={
-                  fieldErrors.cta_interval ? "landing-cta-interval-error" : undefined
-                }
-                aria-invalid={fieldErrors.cta_interval ? true : undefined}
-                onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, ctaInterval: event.target.value } : current,
-                  )
-                }
-              />
-              {fieldErrors.cta_interval && (
-                <p className="landings-field__error" id="landing-cta-interval-error" role="alert">
-                  {fieldErrors.cta_interval}
-                </p>
-              )}
-            </div>
-          )}
-
-          {config.ctaMode === "fixed_positions" && (
-            <div className="landings-field">
-              <label className="landings-field__label" htmlFor="landing-cta-positions">
-                Posiciones (separadas por comas, p. ej. 1, 3)
-              </label>
-              <input
-                id="landing-cta-positions"
+                id="landing-slug"
                 className="landings-field__input"
                 type="text"
-                value={config.ctaPositions}
-                aria-describedby={
-                  fieldErrors.cta_positions ? "landing-cta-positions-error" : undefined
-                }
-                aria-invalid={fieldErrors.cta_positions ? true : undefined}
+                value={config.slug}
+                aria-describedby={fieldErrors.slug ? "landing-slug-error" : undefined}
+                aria-invalid={fieldErrors.slug ? true : undefined}
                 onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, ctaPositions: event.target.value } : current,
-                  )
+                  setConfig((current) => (current ? { ...current, slug: event.target.value } : current))
                 }
               />
-              {fieldErrors.cta_positions && (
-                <p className="landings-field__error" id="landing-cta-positions-error" role="alert">
-                  {fieldErrors.cta_positions}
+              {fieldErrors.slug && (
+                <p className="landings-field__error" id="landing-slug-error" role="alert">
+                  {fieldErrors.slug}
                 </p>
               )}
             </div>
-          )}
-
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-cta-band-style">
-              Fondo del botón CTA
-            </label>
-            <select
-              id="landing-cta-band-style"
-              className="landings-field__input"
-              value={config.ctaBandStyle}
-              aria-describedby={
-                fieldErrors.cta_band_style
-                  ? "landing-cta-band-style-error landing-cta-band-style-hint"
-                  : "landing-cta-band-style-hint"
-              }
-              onChange={(event) =>
-                setConfig((current) =>
-                  current
-                    ? { ...current, ctaBandStyle: event.target.value as CtaBandStyle }
-                    : current,
-                )
-              }
-            >
-              <option value="gradient">Degradado entre banners</option>
-              <option value="solid">Color plano</option>
-            </select>
-            <p className="landings-field__hint" id="landing-cta-band-style-hint">
-              El degradado va del borde inferior del banner de arriba al borde superior del
-              banner de abajo. El color plano usa el punto medio de esos dos bordes.
+            <p className="lcfg__readout lcfg__span">
+              <span className="lcfg__readout-label">Quedará en</span>
+              <code className="lcfg__readout-value">/p/{config.slug || "…"}</code>
             </p>
-            {fieldErrors.cta_band_style && (
-              <p className="landings-field__error" id="landing-cta-band-style-error" role="alert">
-                {fieldErrors.cta_band_style}
-              </p>
-            )}
-          </div>
-
-          {/* Accent color. One picker, not four: every other shade the public
-              page needs (hover, tile tint, readable foreground) is derived from
-              this server-side, so a merchant cannot land on white text over a
-              pale button. The text input beside the swatch exists because a
-              brand hex is usually pasted, not hunted for in a color wheel. */}
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-accent-color">
-              Color de la landing
-            </label>
-            <div className="landings-field__color">
-              <input
-                id="landing-accent-color"
-                className="landings-field__swatch"
-                type="color"
-                value={config.accentColor}
-                aria-describedby={
-                  fieldErrors.accent_color
-                    ? "landing-accent-color-error landing-accent-color-hint"
-                    : "landing-accent-color-hint"
-                }
-                aria-invalid={fieldErrors.accent_color ? true : undefined}
-                onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, accentColor: event.target.value } : current,
-                  )
-                }
-              />
-              <input
-                className="landings-field__input landings-field__input--hex"
-                type="text"
-                value={config.accentColor}
-                aria-label="Color de la landing en hexadecimal"
-                spellCheck={false}
-                maxLength={7}
-                onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, accentColor: event.target.value } : current,
-                  )
-                }
-              />
-            </div>
-            <p className="landings-field__hint" id="landing-accent-color-hint">
-              Se aplica al botón de CTA, los bordes y textos destacados, la oferta seleccionada y
-              un tono claro de fondo en las ofertas. Los tonos de hover y el color de texto se
-              calculan solos para que siempre haya contraste.
-            </p>
-            {fieldErrors.accent_color && (
-              <p className="landings-field__error" id="landing-accent-color-error" role="alert">
-                {fieldErrors.accent_color}
-              </p>
-            )}
-          </div>
-
-          {/* Form accent color. Separate from the CTA/page accent above: this
-              themes the COD form alone (tier tiles, focus rings, submit
-              button), so a merchant can, for example, keep a bold CTA button
-              while the form itself stays neutral. Left blank, the form keeps
-              following the CTA's accent — the picker below shows that fallback
-              live rather than defaulting to a fixed color. */}
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-form-accent-color">
-              Color del formulario
-            </label>
-            <div className="landings-field__color">
-              <input
-                id="landing-form-accent-color"
-                className="landings-field__swatch"
-                type="color"
-                value={config.formAccentColor || config.accentColor}
-                aria-describedby={
-                  fieldErrors.form_accent_color
-                    ? "landing-form-accent-color-error landing-form-accent-color-hint"
-                    : "landing-form-accent-color-hint"
-                }
-                aria-invalid={fieldErrors.form_accent_color ? true : undefined}
-                onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, formAccentColor: event.target.value } : current,
-                  )
-                }
-              />
-              <input
-                className="landings-field__input landings-field__input--hex"
-                type="text"
-                placeholder="Igual al color de la landing"
-                value={config.formAccentColor}
-                aria-label="Color del formulario en hexadecimal"
-                spellCheck={false}
-                maxLength={7}
-                onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, formAccentColor: event.target.value } : current,
-                  )
-                }
-              />
-              {config.formAccentColor && (
-                <button
-                  type="button"
-                  className="landings-field__clear"
-                  onClick={() =>
-                    setConfig((current) =>
-                      current ? { ...current, formAccentColor: "" } : current,
-                    )
-                  }
-                >
-                  Usar el color de la landing
-                </button>
-              )}
-            </div>
-            <p className="landings-field__hint" id="landing-form-accent-color-hint">
-              Colorea solo el formulario de pedido (cantidades, bordes de foco, botón de
-              confirmar). Déjalo vacío para que siga el color de la landing.
-            </p>
-            {fieldErrors.form_accent_color && (
-              <p
-                className="landings-field__error"
-                id="landing-form-accent-color-error"
-                role="alert"
-              >
-                {fieldErrors.form_accent_color}
-              </p>
-            )}
-          </div>
-
-          {/* Conversion-block default accent. */}
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-blocks-accent-color">
-              Color de componentes
-            </label>
-            <div className="landings-field__color">
-              <input
-                id="landing-blocks-accent-color"
-                className="landings-field__swatch"
-                type="color"
-                value={config.blocksAccentColor || config.formAccentColor || config.accentColor}
-                aria-describedby="landing-blocks-accent-color-hint"
-                aria-invalid={fieldErrors.blocks_accent_color ? true : undefined}
-                onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, blocksAccentColor: event.target.value } : current,
-                  )
-                }
-              />
-              <input
-                className="landings-field__input landings-field__input--hex"
-                type="text"
-                placeholder="Igual al color del formulario"
-                value={config.blocksAccentColor}
-                aria-label="Color de componentes en hexadecimal"
-                spellCheck={false}
-                maxLength={7}
-                onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, blocksAccentColor: event.target.value } : current,
-                  )
-                }
-              />
-              {config.blocksAccentColor && (
-                <button
-                  type="button"
-                  className="landings-field__clear"
-                  onClick={() =>
-                    setConfig((current) =>
-                      current ? { ...current, blocksAccentColor: "" } : current,
-                    )
-                  }
-                >
-                  Usar el color del formulario
-                </button>
-              )}
-            </div>
-            <p className="landings-field__hint" id="landing-blocks-accent-color-hint">
-              Es el color predeterminado de todos los componentes de conversión. Déjalo
-              vacío para seguir el color del formulario; cada componente todavía puede
-              sobrescribirlo individualmente.
-            </p>
-            {fieldErrors.blocks_accent_color && (
-              <p className="landings-field__error" role="alert">
-                {fieldErrors.blocks_accent_color}
-              </p>
-            )}
-          </div>
-
-          {/* Blocks dark mode global toggle */}
-          <div className="landings-field">
-            <label className="lblocks__checkbox-label">
-              <input
-                type="checkbox"
-                checked={config.blocksDarkMode}
-                onChange={(event) =>
-                  setConfig((current) =>
-                    current ? { ...current, blocksDarkMode: event.target.checked } : current,
-                  )
-                }
-              />
-              Componentes de conversión en modo oscuro
-            </label>
-            <p className="landings-field__hint">
-              Fondo oscuro en todos los componentes de conversión. Los componentes individuales
-              pueden sobreescribir este ajuste.
-            </p>
-          </div>
-
-          {/* Quantity offers. The count drives how many rows render, so the
-              merchant never edits copy for a tier the buyer will not see. */}
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-cta-text">
-              Texto del botón CTA
-            </label>
-            <input
-              id="landing-cta-text"
-              className="landings-field__input"
-              type="text"
-              maxLength={60}
-              placeholder="Pedir ahora — $precio (por defecto)"
-              value={config.ctaText}
-              aria-describedby={
-                fieldErrors.cta_text
-                  ? "landing-cta-text-error landing-cta-text-hint"
-                  : "landing-cta-text-hint"
-              }
-              aria-invalid={fieldErrors.cta_text ? true : undefined}
-              onChange={(event) =>
-                setConfig((current) =>
-                  current ? { ...current, ctaText: event.target.value } : current,
-                )
-              }
-            />
-            <p className="landings-field__hint" id="landing-cta-text-hint">
-              Máximo 60 caracteres. Déjalo vacío para usar el texto por defecto con el precio.
-            </p>
-            {fieldErrors.cta_text && (
-              <p className="landings-field__error" id="landing-cta-text-error" role="alert">
-                {fieldErrors.cta_text}
-              </p>
-            )}
-          </div>
-
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-cta-animation">
-              Animación del botón CTA
-            </label>
-            <select
-              id="landing-cta-animation"
-              className="landings-field__input"
-              value={config.ctaAnimation}
-              aria-describedby={
-                fieldErrors.cta_animation
-                  ? "landing-cta-animation-error landing-cta-animation-hint"
-                  : "landing-cta-animation-hint"
-              }
-              onChange={(event) =>
-                setConfig((current) =>
-                  current ? { ...current, ctaAnimation: event.target.value } : current,
-                )
-              }
-            >
-              <option value="">Sin animación</option>
-              <option value="slide">Brillo (izquierda a derecha)</option>
-              <option value="shake">Sacudir</option>
-            </select>
-            <p className="landings-field__hint" id="landing-cta-animation-hint">
-              La animación se repite para llamar la atención. Se pausa al hacer hover.
-            </p>
-            {fieldErrors.cta_animation && (
-              <p className="landings-field__error" id="landing-cta-animation-error" role="alert">
-                {fieldErrors.cta_animation}
-              </p>
-            )}
-          </div>
-
-          {/* Per-CTA-position text override. Independent of `cta_text` above:
-              this lets one specific CTA (e.g. only the second one) say
-              something different — "Lo quiero ahora" — while every other CTA
-              on the landing keeps showing the default label. Rows are keyed
-              off `resolved_cta_positions`, the actual 1-based positions the
-              current banner sequence renders a CTA at, so the merchant is
-              never offered an override for a CTA that does not exist. */}
-          {landing && landing.resolved_cta_positions.length > 0 && (
-            <div className="landings-field">
-              <label className="landings-field__label">Personalización por CTA</label>
-              <p className="landings-field__hint" id="landing-cta-overrides-hint">
-                Personaliza el texto y el fondo de cada posición. Predeterminado conserva el
-                degradado o color medio calculado desde los banners.
-              </p>
-              <div className="landings-field__overrides">
-                {landing.resolved_cta_positions.map((position) => {
-                  const key = String(position);
-                  const value = config.ctaTextOverrides[key] ?? "";
-                  return (
-                    <div key={position} className="landings-field__row">
-                      <label
-                        className="landings-field__label"
-                        htmlFor={`landing-cta-override-${position}`}
-                        style={{ minWidth: 90 }}
-                      >
-                        CTA #{position}
-                      </label>
-                      <input
-                        id={`landing-cta-override-${position}`}
-                        className="landings-field__input"
-                        type="text"
-                        maxLength={60}
-                        placeholder="Usar el texto por defecto"
-                        value={value}
-                        onChange={(event) => {
-                          const text = event.target.value;
-                          setConfig((current) => {
-                            if (!current) return current;
-                            const next = { ...current.ctaTextOverrides };
-                            if (text.trim() === "") {
-                              delete next[key];
-                            } else {
-                              next[key] = text;
-                            }
-                            return { ...current, ctaTextOverrides: next };
-                          });
-                        }}
-                      />
-                      <select
-                        className="landings-field__input landings-field__cta-color"
-                        aria-label={`Fondo CTA #${position}`}
-                        value={config.ctaColorModes[key] ?? "default"}
-                        onChange={(event) => {
-                          const mode = event.target.value as CtaColorMode;
-                          setConfig((current) => {
-                            if (!current) return current;
-                            const next = { ...current.ctaColorModes };
-                            if (mode === "default") delete next[key];
-                            else next[key] = mode;
-                            return { ...current, ctaColorModes: next };
-                          });
-                        }}
-                      >
-                        <option value="default">Predeterminado</option>
-                        <option value="dark">Oscuro</option>
-                        <option value="light">Claro</option>
-                      </select>
-                    </div>
-                  );
-                })}
-              </div>
-              {fieldErrors.cta_text_overrides && (
-                <p
-                  className="landings-field__error"
-                  id="landing-cta-overrides-error"
-                  role="alert"
-                >
-                  {fieldErrors.cta_text_overrides}
-                </p>
-              )}
-              {fieldErrors.cta_color_modes && (
-                <p className="landings-field__error" role="alert">
-                  {fieldErrors.cta_color_modes}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Quantity offers. The count drives how many rows render, so the
-              merchant never edits copy for a tier the buyer will not see. */}
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-offer-count">
-              Número de ofertas
-            </label>
-            <select
-              id="landing-offer-count"
-              className="landings-field__input"
-              value={config.offerCount}
-              aria-describedby={
-                fieldErrors.offer_count
-                  ? "landing-offer-count-error landing-offer-count-hint"
-                  : "landing-offer-count-hint"
-              }
-              aria-invalid={fieldErrors.offer_count ? true : undefined}
-              onChange={(event) => {
-                const count = Number(event.target.value);
-                setConfig((current) =>
-                  current
-                    ? {
-                        ...current,
-                        offerCount: count,
-                        defaultOfferQuantity: Math.min(current.defaultOfferQuantity, count),
-                        offers: fitOffers(current.offers, count),
-                      }
-                    : current,
-                );
-              }}
-            >
-              {OFFER_COUNT_CHOICES.map((count) => (
-                <option key={count} value={count}>
-                  {count === 1 ? "1 oferta" : `${count} ofertas`}
-                </option>
-              ))}
-            </select>
-            <p className="landings-field__hint" id="landing-offer-count-hint">
-              Cuántas opciones de cantidad ve el comprador en el formulario.
-            </p>
-            {fieldErrors.offer_count && (
-              <p className="landings-field__error" id="landing-offer-count-error" role="alert">
-                {fieldErrors.offer_count}
-              </p>
-            )}
-          </div>
-
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-default-offer">
-              Oferta preseleccionada
-            </label>
-            <select
-              id="landing-default-offer"
-              className="landings-field__input"
-              value={config.defaultOfferQuantity}
-              aria-invalid={fieldErrors.default_offer_quantity ? true : undefined}
-              onChange={(event) =>
-                setConfig((current) =>
-                  current
-                    ? { ...current, defaultOfferQuantity: Number(event.target.value) }
-                    : current,
-                )
-              }
-            >
-              {Array.from({ length: config.offerCount }, (_, index) => index + 1).map(
-                (quantity) => (
-                  <option key={quantity} value={quantity}>
-                    {quantity === 1 ? "1 unidad" : `${quantity} unidades`}
-                  </option>
-                ),
-              )}
-            </select>
-            <p className="landings-field__hint">
-              Esta opción aparece elegida cuando se abre el formulario.
-            </p>
-            {fieldErrors.default_offer_quantity && (
-              <p className="landings-field__error" role="alert">
-                {fieldErrors.default_offer_quantity}
-              </p>
-            )}
-          </div>
-
-          <fieldset className="landings-offers">
-            <legend className="landings-offers__legend">Ofertas</legend>
-            {fieldErrors.offers && (
-              <p className="landings-field__error" id="landing-offers-error" role="alert">
-                {fieldErrors.offers}
-              </p>
-            )}
-
-            {config.offers.slice(0, config.offerCount).map((offer, index) => (
-              <div className="landings-offer" key={offer.quantity}>
-                <p className="landings-offer__quantity">
-                  {offer.quantity === 1 ? "1 unidad" : `${offer.quantity} unidades`}
-                </p>
-
-                <div className="landings-field">
-                  <label
-                    className="landings-field__label"
-                    htmlFor={`landing-offer-label-${offer.quantity}`}
-                  >
-                    Texto
-                  </label>
-                  <input
-                    id={`landing-offer-label-${offer.quantity}`}
-                    className="landings-field__input"
-                    type="text"
-                    value={offer.label}
-                    maxLength={60}
-                    aria-describedby={fieldErrors.offers ? "landing-offers-error" : undefined}
-                    onChange={(event) =>
-                      setConfig((current) =>
-                        current
-                          ? {
-                              ...current,
-                              offers: current.offers.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, label: event.target.value }
-                                  : item,
-                              ),
-                            }
-                          : current,
-                      )
-                    }
-                  />
-                </div>
-
-                <div className="landings-field">
-                  <label
-                    className="landings-field__label"
-                    htmlFor={`landing-offer-sublabel-${offer.quantity}`}
-                  >
-                    Sub-texto (opcional)
-                  </label>
-                  <input
-                    id={`landing-offer-sublabel-${offer.quantity}`}
-                    className="landings-field__input"
-                    type="text"
-                    value={offer.sublabel}
-                    maxLength={80}
-                    aria-describedby={`landing-offer-sublabel-hint-${offer.quantity}`}
-                    onChange={(event) =>
-                      setConfig((current) =>
-                        current
-                          ? {
-                              ...current,
-                              offers: current.offers.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, sublabel: event.target.value }
-                                  : item,
-                              ),
-                            }
-                          : current,
-                      )
-                    }
-                  />
-                  <p
-                    className="landings-field__hint"
-                    id={`landing-offer-sublabel-hint-${offer.quantity}`}
-                  >
-                    Déjalo vacío para que la oferta no muestre segunda línea.
-                  </p>
-                </div>
-
-                {/* A single unit has no volume saving to show, so it gets an
-                    informational reference price; two or three units get a real
-                    percentage off. Offering both on one tier would let the page
-                    advertise a discount off an invented "was" price. */}
-                {offer.quantity === 1 ? (
-                  <div className="landings-field">
-                    <label
-                      className="landings-field__label"
-                      htmlFor={`landing-offer-compare-${offer.quantity}`}
-                    >
-                      Precio de comparación (opcional)
-                    </label>
-                    <input
-                      id={`landing-offer-compare-${offer.quantity}`}
-                      className="landings-field__input"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      inputMode="decimal"
-                      value={offer.compareAtPrice}
-                      aria-describedby={`landing-offer-compare-hint-${offer.quantity}`}
-                      onChange={(event) =>
-                        setConfig((current) =>
-                          current
-                            ? {
-                                ...current,
-                                offers: current.offers.map((item, itemIndex) =>
-                                  itemIndex === index
-                                    ? { ...item, compareAtPrice: event.target.value }
-                                    : item,
-                                ),
-                              }
-                            : current,
-                        )
-                      }
-                    />
-                    <p
-                      className="landings-field__hint"
-                      id={`landing-offer-compare-hint-${offer.quantity}`}
-                    >
-                      Solo informativo en la landing: se muestra tachado junto al precio. No
-                      cambia lo que paga el comprador.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="landings-offer__discounts">
-                  <div className="landings-field">
-                    <label
-                      className="landings-field__label"
-                      htmlFor={`landing-offer-discount-${offer.quantity}`}
-                    >
-                      Descuento (%)
-                    </label>
-                    <input
-                      id={`landing-offer-discount-${offer.quantity}`}
-                      className="landings-field__input"
-                      type="number"
-                      min={0}
-                      max={90}
-                      step={1}
-                      inputMode="numeric"
-                      value={offer.discountPercent}
-                      aria-describedby={`landing-offer-discount-hint-${offer.quantity}`}
-                      onChange={(event) =>
-                        setConfig((current) =>
-                          current
-                            ? {
-                                ...current,
-                                offers: current.offers.map((item, itemIndex) =>
-                                  itemIndex === index
-                                    ? {
-                                        ...item,
-                                        discountPercent: event.target.value,
-                                        discountAmount: event.target.value ? "" : item.discountAmount,
-                                      }
-                                    : item,
-                                ),
-                              }
-                            : current,
-                        )
-                      }
-                    />
-                    <p
-                      className="landings-field__hint"
-                      id={`landing-offer-discount-hint-${offer.quantity}`}
-                    >
-                      Reduce de verdad el total de esta oferta y queda registrado en el pedido.
-                      Máximo 90%.
-                    </p>
-                  </div>
-                  <div className="landings-field">
-                    <label
-                      className="landings-field__label"
-                      htmlFor={`landing-offer-discount-amount-${offer.quantity}`}
-                    >
-                      Descuento fijo (COP)
-                    </label>
-                    <input
-                      id={`landing-offer-discount-amount-${offer.quantity}`}
-                      className="landings-field__input"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      inputMode="decimal"
-                      value={offer.discountAmount}
-                      aria-describedby={`landing-offer-discount-amount-hint-${offer.quantity}`}
-                      onChange={(event) =>
-                        setConfig((current) =>
-                          current
-                            ? {
-                                ...current,
-                                offers: current.offers.map((item, itemIndex) =>
-                                  itemIndex === index
-                                    ? {
-                                        ...item,
-                                        discountAmount: event.target.value,
-                                        discountPercent: event.target.value ? "" : item.discountPercent,
-                                        calculatedDiscountPercent: 0,
-                                      }
-                                    : item,
-                                ),
-                              }
-                            : current,
-                        )
-                      }
-                    />
-                    <p
-                      className="landings-field__hint"
-                      id={`landing-offer-discount-amount-hint-${offer.quantity}`}
-                    >
-                      {offer.discountAmount && offer.calculatedDiscountPercent > 0
-                        ? `Equivale a ${offer.calculatedDiscountPercent}% y ese porcentaje se muestra al comprador.`
-                        : "Valor exacto que se resta al total. Al guardarlo calculamos el porcentaje visible."}
-                    </p>
-                  </div>
-                  </div>
-                )}
-              </div>
-            ))}
           </fieldset>
 
-          <div className="landings-field">
-            <label className="landings-field__label" htmlFor="landing-form-presentation">
-              Formulario COD
-            </label>
-            <select
-              id="landing-form-presentation"
-              className="landings-field__input"
-              value={config.formPresentation}
-              aria-describedby={
-                fieldErrors.form_presentation ? "landing-form-presentation-error" : undefined
-              }
-              onChange={(event) =>
-                setConfig((current) =>
-                  current
-                    ? { ...current, formPresentation: event.target.value as FormPresentation }
-                    : current,
-                )
-              }
-            >
-              <option value="inline">En la página</option>
-              <option value="modal">En ventana modal</option>
-            </select>
-            {fieldErrors.form_presentation && (
-              <p
-                className="landings-field__error"
-                id="landing-form-presentation-error"
-                role="alert"
+          <fieldset className="lcfg__group">
+            <legend className="lcfg__legend">Llamados a la acción</legend>
+            <p className="lcfg__group-hint">Dónde aparecen los botones entre los banners, cómo se ven y qué dicen.</p>
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-cta-mode">
+                Ubicación de los CTA
+              </label>
+              <select
+                id="landing-cta-mode"
+                className="landings-field__input"
+                value={config.ctaMode}
+                aria-describedby={fieldErrors.cta_mode ? "landing-cta-mode-error" : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, ctaMode: event.target.value as CtaMode } : current,
+                  )
+                }
               >
-                {fieldErrors.form_presentation}
-              </p>
+                <option value="after_every">Después de cada banner</option>
+                <option value="every_n">Cada N banners</option>
+                <option value="fixed_positions">En posiciones fijas</option>
+              </select>
+              {fieldErrors.cta_mode && (
+                <p className="landings-field__error" id="landing-cta-mode-error" role="alert">
+                  {fieldErrors.cta_mode}
+                </p>
+              )}
+            </div>
+            {config.ctaMode === "every_n" && (
+              <div className="landings-field">
+                <label className="landings-field__label" htmlFor="landing-cta-interval">
+                  Intervalo (1-15)
+                </label>
+                <input
+                  id="landing-cta-interval"
+                  className="landings-field__input"
+                  type="number"
+                  min={1}
+                  max={15}
+                  value={config.ctaInterval}
+                  aria-describedby={
+                    fieldErrors.cta_interval ? "landing-cta-interval-error" : undefined
+                  }
+                  aria-invalid={fieldErrors.cta_interval ? true : undefined}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, ctaInterval: event.target.value } : current,
+                    )
+                  }
+                />
+                {fieldErrors.cta_interval && (
+                  <p className="landings-field__error" id="landing-cta-interval-error" role="alert">
+                    {fieldErrors.cta_interval}
+                  </p>
+                )}
+              </div>
             )}
+            {config.ctaMode === "fixed_positions" && (
+              <div className="landings-field">
+                <label className="landings-field__label" htmlFor="landing-cta-positions">
+                  Posiciones (separadas por comas, p. ej. 1, 3)
+                </label>
+                <input
+                  id="landing-cta-positions"
+                  className="landings-field__input"
+                  type="text"
+                  value={config.ctaPositions}
+                  aria-describedby={
+                    fieldErrors.cta_positions ? "landing-cta-positions-error" : undefined
+                  }
+                  aria-invalid={fieldErrors.cta_positions ? true : undefined}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, ctaPositions: event.target.value } : current,
+                    )
+                  }
+                />
+                {fieldErrors.cta_positions && (
+                  <p className="landings-field__error" id="landing-cta-positions-error" role="alert">
+                    {fieldErrors.cta_positions}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-cta-band-style">
+                Fondo del botón CTA
+              </label>
+              <select
+                id="landing-cta-band-style"
+                className="landings-field__input"
+                value={config.ctaBandStyle}
+                aria-describedby={
+                  fieldErrors.cta_band_style
+                    ? "landing-cta-band-style-error landing-cta-band-style-hint"
+                    : "landing-cta-band-style-hint"
+                }
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current
+                      ? { ...current, ctaBandStyle: event.target.value as CtaBandStyle }
+                      : current,
+                  )
+                }
+              >
+                <option value="gradient">Degradado entre banners</option>
+                <option value="solid">Color plano</option>
+              </select>
+              <p className="landings-field__hint" id="landing-cta-band-style-hint">
+                El degradado va del borde inferior del banner de arriba al borde superior del
+                banner de abajo. El color plano usa el punto medio de esos dos bordes.
+              </p>
+              {fieldErrors.cta_band_style && (
+                <p className="landings-field__error" id="landing-cta-band-style-error" role="alert">
+                  {fieldErrors.cta_band_style}
+                </p>
+              )}
+            </div>
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-cta-text">
+                Texto del botón CTA
+              </label>
+              <input
+                id="landing-cta-text"
+                className="landings-field__input"
+                type="text"
+                maxLength={60}
+                placeholder="Pedir ahora — $precio (por defecto)"
+                value={config.ctaText}
+                aria-describedby={
+                  fieldErrors.cta_text
+                    ? "landing-cta-text-error landing-cta-text-hint"
+                    : "landing-cta-text-hint"
+                }
+                aria-invalid={fieldErrors.cta_text ? true : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, ctaText: event.target.value } : current,
+                  )
+                }
+              />
+              <p className="landings-field__hint" id="landing-cta-text-hint">
+                Máximo 60 caracteres. Déjalo vacío para usar el texto por defecto con el precio.
+              </p>
+              {fieldErrors.cta_text && (
+                <p className="landings-field__error" id="landing-cta-text-error" role="alert">
+                  {fieldErrors.cta_text}
+                </p>
+              )}
+            </div>
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-cta-animation">
+                Animación del botón CTA
+              </label>
+              <select
+                id="landing-cta-animation"
+                className="landings-field__input"
+                value={config.ctaAnimation}
+                aria-describedby={
+                  fieldErrors.cta_animation
+                    ? "landing-cta-animation-error landing-cta-animation-hint"
+                    : "landing-cta-animation-hint"
+                }
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current ? { ...current, ctaAnimation: event.target.value } : current,
+                  )
+                }
+              >
+                <option value="">Sin animación</option>
+                <option value="slide">Brillo (izquierda a derecha)</option>
+                <option value="shake">Sacudir</option>
+              </select>
+              <p className="landings-field__hint" id="landing-cta-animation-hint">
+                La animación se repite para llamar la atención. Se pausa al hacer hover.
+              </p>
+              {fieldErrors.cta_animation && (
+                <p className="landings-field__error" id="landing-cta-animation-error" role="alert">
+                  {fieldErrors.cta_animation}
+                </p>
+              )}
+            </div>
+            {/* Per-CTA-position text override. Independent of `cta_text` above:
+                this lets one specific CTA (e.g. only the second one) say
+                something different — "Lo quiero ahora" — while every other CTA
+                on the landing keeps showing the default label. Rows are keyed
+                off `resolved_cta_positions`, the actual 1-based positions the
+                current banner sequence renders a CTA at, so the merchant is
+                never offered an override for a CTA that does not exist. */}
+            {landing && landing.resolved_cta_positions.length > 0 && (
+              <div className="landings-field">
+                <label className="landings-field__label">Personalización por CTA</label>
+                <p className="landings-field__hint" id="landing-cta-overrides-hint">
+                  Personaliza el texto y el fondo de cada posición. Predeterminado conserva el
+                  degradado o color medio calculado desde los banners.
+                </p>
+                <div className="landings-field__overrides">
+                  {landing.resolved_cta_positions.map((position) => {
+                    const key = String(position);
+                    const value = config.ctaTextOverrides[key] ?? "";
+                    return (
+                      <div key={position} className="landings-field__row">
+                        <label
+                          className="landings-field__label"
+                          htmlFor={`landing-cta-override-${position}`}
+                          style={{ minWidth: 90 }}
+                        >
+                          CTA #{position}
+                        </label>
+                        <input
+                          id={`landing-cta-override-${position}`}
+                          className="landings-field__input"
+                          type="text"
+                          maxLength={60}
+                          placeholder="Usar el texto por defecto"
+                          value={value}
+                          onChange={(event) => {
+                            const text = event.target.value;
+                            setConfig((current) => {
+                              if (!current) return current;
+                              const next = { ...current.ctaTextOverrides };
+                              if (text.trim() === "") {
+                                delete next[key];
+                              } else {
+                                next[key] = text;
+                              }
+                              return { ...current, ctaTextOverrides: next };
+                            });
+                          }}
+                        />
+                        <select
+                          className="landings-field__input landings-field__cta-color"
+                          aria-label={`Fondo CTA #${position}`}
+                          value={config.ctaColorModes[key] ?? "default"}
+                          onChange={(event) => {
+                            const mode = event.target.value as CtaColorMode;
+                            setConfig((current) => {
+                              if (!current) return current;
+                              const next = { ...current.ctaColorModes };
+                              if (mode === "default") delete next[key];
+                              else next[key] = mode;
+                              return { ...current, ctaColorModes: next };
+                            });
+                          }}
+                        >
+                          <option value="default">Predeterminado</option>
+                          <option value="dark">Oscuro</option>
+                          <option value="light">Claro</option>
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+                {fieldErrors.cta_text_overrides && (
+                  <p
+                    className="landings-field__error"
+                    id="landing-cta-overrides-error"
+                    role="alert"
+                  >
+                    {fieldErrors.cta_text_overrides}
+                  </p>
+                )}
+                {fieldErrors.cta_color_modes && (
+                  <p className="landings-field__error" role="alert">
+                    {fieldErrors.cta_color_modes}
+                  </p>
+                )}
+              </div>
+            )}
+            <p className="lcfg__readout lcfg__span">
+              <span className="lcfg__readout-label">CTA después de los banners</span>
+              <code className="lcfg__readout-value">
+                {landing.resolved_cta_positions.join(", ") || "ninguno"}
+              </code>
+            </p>
+          </fieldset>
+
+          <fieldset className="lcfg__group lcfg__group--colors">
+            <legend className="lcfg__legend">Colores</legend>
+            <p className="lcfg__group-hint">Cada color hereda del anterior mientras lo dejes vacío: la landing manda sobre el formulario, y el formulario sobre los componentes.</p>
+            {/* Accent color. One picker, not four: every other shade the public
+                page needs (hover, tile tint, readable foreground) is derived from
+                this server-side, so a merchant cannot land on white text over a
+                pale button. The text input beside the swatch exists because a
+                brand hex is usually pasted, not hunted for in a color wheel. */}
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-accent-color">
+                Color de la landing
+              </label>
+              <div className="landings-field__color">
+                <input
+                  id="landing-accent-color"
+                  className="landings-field__swatch"
+                  type="color"
+                  value={config.accentColor}
+                  aria-describedby={
+                    fieldErrors.accent_color
+                      ? "landing-accent-color-error landing-accent-color-hint"
+                      : "landing-accent-color-hint"
+                  }
+                  aria-invalid={fieldErrors.accent_color ? true : undefined}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, accentColor: event.target.value } : current,
+                    )
+                  }
+                />
+                <input
+                  className="landings-field__input landings-field__input--hex"
+                  type="text"
+                  value={config.accentColor}
+                  aria-label="Color de la landing en hexadecimal"
+                  spellCheck={false}
+                  maxLength={7}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, accentColor: event.target.value } : current,
+                    )
+                  }
+                />
+              </div>
+              <p className="landings-field__hint" id="landing-accent-color-hint">
+                Se aplica al botón de CTA, los bordes y textos destacados, la oferta seleccionada y
+                un tono claro de fondo en las ofertas. Los tonos de hover y el color de texto se
+                calculan solos para que siempre haya contraste.
+              </p>
+              {fieldErrors.accent_color && (
+                <p className="landings-field__error" id="landing-accent-color-error" role="alert">
+                  {fieldErrors.accent_color}
+                </p>
+              )}
+            </div>
+            {/* Form accent color. Separate from the CTA/page accent above: this
+                themes the COD form alone (tier tiles, focus rings, submit
+                button), so a merchant can, for example, keep a bold CTA button
+                while the form itself stays neutral. Left blank, the form keeps
+                following the CTA's accent — the picker below shows that fallback
+                live rather than defaulting to a fixed color. */}
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-form-accent-color">
+                Color del formulario
+              </label>
+              <div className="landings-field__color">
+                <input
+                  id="landing-form-accent-color"
+                  className="landings-field__swatch"
+                  type="color"
+                  value={config.formAccentColor || config.accentColor}
+                  aria-describedby={
+                    fieldErrors.form_accent_color
+                      ? "landing-form-accent-color-error landing-form-accent-color-hint"
+                      : "landing-form-accent-color-hint"
+                  }
+                  aria-invalid={fieldErrors.form_accent_color ? true : undefined}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, formAccentColor: event.target.value } : current,
+                    )
+                  }
+                />
+                <input
+                  className="landings-field__input landings-field__input--hex"
+                  type="text"
+                  placeholder="Igual al color de la landing"
+                  value={config.formAccentColor}
+                  aria-label="Color del formulario en hexadecimal"
+                  spellCheck={false}
+                  maxLength={7}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, formAccentColor: event.target.value } : current,
+                    )
+                  }
+                />
+                {config.formAccentColor && (
+                  <button
+                    type="button"
+                    className="landings-field__clear"
+                    onClick={() =>
+                      setConfig((current) =>
+                        current ? { ...current, formAccentColor: "" } : current,
+                      )
+                    }
+                  >
+                    Usar el color de la landing
+                  </button>
+                )}
+              </div>
+              <p className="landings-field__hint" id="landing-form-accent-color-hint">
+                Colorea solo el formulario de pedido (cantidades, bordes de foco, botón de
+                confirmar). Déjalo vacío para que siga el color de la landing.
+              </p>
+              {fieldErrors.form_accent_color && (
+                <p
+                  className="landings-field__error"
+                  id="landing-form-accent-color-error"
+                  role="alert"
+                >
+                  {fieldErrors.form_accent_color}
+                </p>
+              )}
+            </div>
+            {/* Conversion-block default accent. */}
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-blocks-accent-color">
+                Color de componentes
+              </label>
+              <div className="landings-field__color">
+                <input
+                  id="landing-blocks-accent-color"
+                  className="landings-field__swatch"
+                  type="color"
+                  value={config.blocksAccentColor || config.formAccentColor || config.accentColor}
+                  aria-describedby="landing-blocks-accent-color-hint"
+                  aria-invalid={fieldErrors.blocks_accent_color ? true : undefined}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, blocksAccentColor: event.target.value } : current,
+                    )
+                  }
+                />
+                <input
+                  className="landings-field__input landings-field__input--hex"
+                  type="text"
+                  placeholder="Igual al color del formulario"
+                  value={config.blocksAccentColor}
+                  aria-label="Color de componentes en hexadecimal"
+                  spellCheck={false}
+                  maxLength={7}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, blocksAccentColor: event.target.value } : current,
+                    )
+                  }
+                />
+                {config.blocksAccentColor && (
+                  <button
+                    type="button"
+                    className="landings-field__clear"
+                    onClick={() =>
+                      setConfig((current) =>
+                        current ? { ...current, blocksAccentColor: "" } : current,
+                      )
+                    }
+                  >
+                    Usar el color del formulario
+                  </button>
+                )}
+              </div>
+              <p className="landings-field__hint" id="landing-blocks-accent-color-hint">
+                Es el color predeterminado de todos los componentes de conversión. Déjalo
+                vacío para seguir el color del formulario; cada componente todavía puede
+                sobrescribirlo individualmente.
+              </p>
+              {fieldErrors.blocks_accent_color && (
+                <p className="landings-field__error" role="alert">
+                  {fieldErrors.blocks_accent_color}
+                </p>
+              )}
+            </div>
+            {/* Blocks dark mode global toggle */}
+            <div className="landings-field">
+              <label className="lblocks__checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={config.blocksDarkMode}
+                  onChange={(event) =>
+                    setConfig((current) =>
+                      current ? { ...current, blocksDarkMode: event.target.checked } : current,
+                    )
+                  }
+                />
+                Componentes de conversión en modo oscuro
+              </label>
+              <p className="landings-field__hint">
+                Fondo oscuro en todos los componentes de conversión. Los componentes individuales
+                pueden sobreescribir este ajuste.
+              </p>
+            </div>
+          </fieldset>
+
+          <fieldset className="lcfg__group">
+            <legend className="lcfg__legend">Formulario de pedido</legend>
+            <p className="lcfg__group-hint">Cómo se abre el formulario y qué cantidades puede elegir el comprador.</p>
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-form-presentation">
+                Formulario COD
+              </label>
+              <select
+                id="landing-form-presentation"
+                className="landings-field__input"
+                value={config.formPresentation}
+                aria-describedby={
+                  fieldErrors.form_presentation ? "landing-form-presentation-error" : undefined
+                }
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current
+                      ? { ...current, formPresentation: event.target.value as FormPresentation }
+                      : current,
+                  )
+                }
+              >
+                <option value="inline">En la página</option>
+                <option value="modal">En ventana modal</option>
+              </select>
+              {fieldErrors.form_presentation && (
+                <p
+                  className="landings-field__error"
+                  id="landing-form-presentation-error"
+                  role="alert"
+                >
+                  {fieldErrors.form_presentation}
+                </p>
+              )}
+            </div>
+            {/* Quantity offers. The count drives how many rows render, so the
+                merchant never edits copy for a tier the buyer will not see. */}
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-offer-count">
+                Número de ofertas
+              </label>
+              <select
+                id="landing-offer-count"
+                className="landings-field__input"
+                value={config.offerCount}
+                aria-describedby={
+                  fieldErrors.offer_count
+                    ? "landing-offer-count-error landing-offer-count-hint"
+                    : "landing-offer-count-hint"
+                }
+                aria-invalid={fieldErrors.offer_count ? true : undefined}
+                onChange={(event) => {
+                  const count = Number(event.target.value);
+                  setConfig((current) =>
+                    current
+                      ? {
+                          ...current,
+                          offerCount: count,
+                          defaultOfferQuantity: Math.min(current.defaultOfferQuantity, count),
+                          offers: fitOffers(current.offers, count),
+                        }
+                      : current,
+                  );
+                }}
+              >
+                {OFFER_COUNT_CHOICES.map((count) => (
+                  <option key={count} value={count}>
+                    {count === 1 ? "1 oferta" : `${count} ofertas`}
+                  </option>
+                ))}
+              </select>
+              <p className="landings-field__hint" id="landing-offer-count-hint">
+                Cuántas opciones de cantidad ve el comprador en el formulario.
+              </p>
+              {fieldErrors.offer_count && (
+                <p className="landings-field__error" id="landing-offer-count-error" role="alert">
+                  {fieldErrors.offer_count}
+                </p>
+              )}
+            </div>
+            <div className="landings-field">
+              <label className="landings-field__label" htmlFor="landing-default-offer">
+                Oferta preseleccionada
+              </label>
+              <select
+                id="landing-default-offer"
+                className="landings-field__input"
+                value={config.defaultOfferQuantity}
+                aria-invalid={fieldErrors.default_offer_quantity ? true : undefined}
+                onChange={(event) =>
+                  setConfig((current) =>
+                    current
+                      ? { ...current, defaultOfferQuantity: Number(event.target.value) }
+                      : current,
+                  )
+                }
+              >
+                {Array.from({ length: config.offerCount }, (_, index) => index + 1).map(
+                  (quantity) => (
+                    <option key={quantity} value={quantity}>
+                      {quantity === 1 ? "1 unidad" : `${quantity} unidades`}
+                    </option>
+                  ),
+                )}
+              </select>
+              <p className="landings-field__hint">
+                Esta opción aparece elegida cuando se abre el formulario.
+              </p>
+              {fieldErrors.default_offer_quantity && (
+                <p className="landings-field__error" role="alert">
+                  {fieldErrors.default_offer_quantity}
+                </p>
+              )}
+            </div>
+            <fieldset className="landings-offers">
+              <legend className="landings-offers__legend">Ofertas</legend>
+              {fieldErrors.offers && (
+                <p className="landings-field__error" id="landing-offers-error" role="alert">
+                  {fieldErrors.offers}
+                </p>
+              )}
+
+              {config.offers.slice(0, config.offerCount).map((offer, index) => (
+                <div className="landings-offer" key={offer.quantity}>
+                  <p className="landings-offer__quantity">
+                    {offer.quantity === 1 ? "1 unidad" : `${offer.quantity} unidades`}
+                  </p>
+
+                  <div className="landings-field">
+                    <label
+                      className="landings-field__label"
+                      htmlFor={`landing-offer-label-${offer.quantity}`}
+                    >
+                      Texto
+                    </label>
+                    <input
+                      id={`landing-offer-label-${offer.quantity}`}
+                      className="landings-field__input"
+                      type="text"
+                      value={offer.label}
+                      maxLength={60}
+                      aria-describedby={fieldErrors.offers ? "landing-offers-error" : undefined}
+                      onChange={(event) =>
+                        setConfig((current) =>
+                          current
+                            ? {
+                                ...current,
+                                offers: current.offers.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, label: event.target.value }
+                                    : item,
+                                ),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="landings-field">
+                    <label
+                      className="landings-field__label"
+                      htmlFor={`landing-offer-sublabel-${offer.quantity}`}
+                    >
+                      Sub-texto (opcional)
+                    </label>
+                    <input
+                      id={`landing-offer-sublabel-${offer.quantity}`}
+                      className="landings-field__input"
+                      type="text"
+                      value={offer.sublabel}
+                      maxLength={80}
+                      aria-describedby={`landing-offer-sublabel-hint-${offer.quantity}`}
+                      onChange={(event) =>
+                        setConfig((current) =>
+                          current
+                            ? {
+                                ...current,
+                                offers: current.offers.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, sublabel: event.target.value }
+                                    : item,
+                                ),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                    <p
+                      className="landings-field__hint"
+                      id={`landing-offer-sublabel-hint-${offer.quantity}`}
+                    >
+                      Déjalo vacío para que la oferta no muestre segunda línea.
+                    </p>
+                  </div>
+
+                  {/* A single unit has no volume saving to show, so it gets an
+                      informational reference price; two or three units get a real
+                      percentage off. Offering both on one tier would let the page
+                      advertise a discount off an invented "was" price. */}
+                  {offer.quantity === 1 ? (
+                    <div className="landings-field">
+                      <label
+                        className="landings-field__label"
+                        htmlFor={`landing-offer-compare-${offer.quantity}`}
+                      >
+                        Precio de comparación (opcional)
+                      </label>
+                      <input
+                        id={`landing-offer-compare-${offer.quantity}`}
+                        className="landings-field__input"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={offer.compareAtPrice}
+                        aria-describedby={`landing-offer-compare-hint-${offer.quantity}`}
+                        onChange={(event) =>
+                          setConfig((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  offers: current.offers.map((item, itemIndex) =>
+                                    itemIndex === index
+                                      ? { ...item, compareAtPrice: event.target.value }
+                                      : item,
+                                  ),
+                                }
+                              : current,
+                          )
+                        }
+                      />
+                      <p
+                        className="landings-field__hint"
+                        id={`landing-offer-compare-hint-${offer.quantity}`}
+                      >
+                        Solo informativo en la landing: se muestra tachado junto al precio. No
+                        cambia lo que paga el comprador.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="landings-offer__discounts">
+                    <div className="landings-field">
+                      <label
+                        className="landings-field__label"
+                        htmlFor={`landing-offer-discount-${offer.quantity}`}
+                      >
+                        Descuento (%)
+                      </label>
+                      <input
+                        id={`landing-offer-discount-${offer.quantity}`}
+                        className="landings-field__input"
+                        type="number"
+                        min={0}
+                        max={90}
+                        step={1}
+                        inputMode="numeric"
+                        value={offer.discountPercent}
+                        aria-describedby={`landing-offer-discount-hint-${offer.quantity}`}
+                        onChange={(event) =>
+                          setConfig((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  offers: current.offers.map((item, itemIndex) =>
+                                    itemIndex === index
+                                      ? {
+                                          ...item,
+                                          discountPercent: event.target.value,
+                                          discountAmount: event.target.value ? "" : item.discountAmount,
+                                        }
+                                      : item,
+                                  ),
+                                }
+                              : current,
+                          )
+                        }
+                      />
+                      <p
+                        className="landings-field__hint"
+                        id={`landing-offer-discount-hint-${offer.quantity}`}
+                      >
+                        Reduce de verdad el total de esta oferta y queda registrado en el pedido.
+                        Máximo 90%.
+                      </p>
+                    </div>
+                    <div className="landings-field">
+                      <label
+                        className="landings-field__label"
+                        htmlFor={`landing-offer-discount-amount-${offer.quantity}`}
+                      >
+                        Descuento fijo (COP)
+                      </label>
+                      <input
+                        id={`landing-offer-discount-amount-${offer.quantity}`}
+                        className="landings-field__input"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={offer.discountAmount}
+                        aria-describedby={`landing-offer-discount-amount-hint-${offer.quantity}`}
+                        onChange={(event) =>
+                          setConfig((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  offers: current.offers.map((item, itemIndex) =>
+                                    itemIndex === index
+                                      ? {
+                                          ...item,
+                                          discountAmount: event.target.value,
+                                          discountPercent: event.target.value ? "" : item.discountPercent,
+                                          calculatedDiscountPercent: 0,
+                                        }
+                                      : item,
+                                  ),
+                                }
+                              : current,
+                          )
+                        }
+                      />
+                      <p
+                        className="landings-field__hint"
+                        id={`landing-offer-discount-amount-hint-${offer.quantity}`}
+                      >
+                        {offer.discountAmount && offer.calculatedDiscountPercent > 0
+                          ? `Equivale a ${offer.calculatedDiscountPercent}% y ese porcentaje se muestra al comprador.`
+                          : "Valor exacto que se resta al total. Al guardarlo calculamos el porcentaje visible."}
+                      </p>
+                    </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </fieldset>
+          </fieldset>
+
+          {/* Stays in view while the merchant works down the form: the save
+              control used to sit past the last offer row, so a one-field edit
+              near the top cost a full scroll down and back. */}
+          <div className="lcfg__savebar">
+            <p className="lcfg__savebar-state" role="status">
+              {isDirty ? (
+                <>
+                  <span className="lcfg__savebar-dot" aria-hidden="true" />
+                  Cambios sin guardar
+                </>
+              ) : (
+                "Sin cambios pendientes"
+              )}
+            </p>
+            <button
+              type="submit"
+              className="landings-table__action landings-table__action--primary"
+              disabled={busy}
+            >
+              Guardar configuración
+            </button>
           </div>
 
-          <button
-            type="submit"
-            className="landings-table__action landings-table__action--primary"
-            disabled={busy}
-          >
-            Guardar configuración
-          </button>
           {fieldErrors.banners && (
             <p className="landings-field__error" role="alert">
               {fieldErrors.banners}
@@ -1464,15 +1552,18 @@ export function LandingEditorPage() {
           )}
         </form>
 
-        <p className="landings-page__muted">
-          CTA después de los banners: {landing.resolved_cta_positions.join(", ") || "ninguno"}
-        </p>
-
-        <SaveTemplateControl
-          landingId={landing.id}
-          bannerCount={banners.length}
-          disabled={busy}
-        />
+        <div className="lcfg__templates">
+          <h3 className="lcfg__templates-title">Plantillas</h3>
+          <p className="lcfg__templates-hint">
+            Guarda esta configuración para reutilizarla en otra landing. Para aplicar una
+            plantilla guardada, usa «Cargar plantilla» arriba.
+          </p>
+          <SaveTemplateControl
+            landingId={landing.id}
+            bannerCount={banners.length}
+            disabled={busy}
+          />
+        </div>
       </section>
 
       <LandingBlocksPanel

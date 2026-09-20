@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.openapi import API_TITLE, build_openapi
 from app.api.routers import (
     admin_analytics,
     admin_fraud,
@@ -24,12 +25,14 @@ from app.api.routers import (
     ops,
     products,
     public,
+    store,
 )
 from app.core import configure_logging
 from app.core.settings import Settings, get_settings
 from app.db import connect_db, disconnect_db
 from app.db.client import get_db
 from app.services.admin_bootstrap_service import ensure_admin_user
+from app.services.store_settings_service import ensure_store_settings
 
 _logger = logging.getLogger("app.bootstrap")
 
@@ -67,13 +70,14 @@ def create_app() -> FastAPI:
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await connect_db()
         await _bootstrap_admin(settings)
+        await ensure_store_settings(get_db(), settings)
         try:
             yield
         finally:
             await disconnect_db()
 
     app = FastAPI(
-        title="COD Commerce Platform API",
+        title=API_TITLE,
         version=os.getenv("APP_VERSION", "0.1.0"),
         lifespan=lifespan,
     )
@@ -92,9 +96,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.get("/health")
+    @app.get("/health", tags=["ops"], summary="Liveness probe")
     async def health() -> dict[str, str]:
-        """Liveness endpoint used by the Koyeb health check."""
+        """Report that the process is up, with the deployed version.
+
+        Answers without touching PostgreSQL, Redis or object storage, so a
+        container orchestrator can tell "the process is alive" apart from "its
+        dependencies are reachable" — the latter is
+        `GET /api/admin/ops/health`.
+        """
         return {"status": "healthy", "version": app.version}
 
     # Wire routers
@@ -102,11 +112,17 @@ def create_app() -> FastAPI:
     app.include_router(ops.router)
     app.include_router(products.router)
     app.include_router(public.router)
+    app.include_router(store.public_router)
+    app.include_router(store.admin_router)
     app.include_router(admin_landings.router)
     app.include_router(admin_landing_templates.router)
     app.include_router(admin_orders.router)
     app.include_router(admin_fraud.router)
     app.include_router(admin_analytics.router)
+
+    # Metadata, security scheme and tag descriptions are layered on top of the
+    # generated document; see `app/api/openapi.py`.
+    app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]
 
     return app
 

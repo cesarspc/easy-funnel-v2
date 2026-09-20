@@ -166,7 +166,7 @@ def _to_template_response(template) -> LandingTemplateResponse:  # type: ignore[
 
 
 def _expected_payload(contract: dict[str, Any], settings: Settings) -> dict[str, Any]:
-    source_example = f"{settings.r2_public_host.rstrip('/')}/originals/<opaque-file-name>"
+    source_example = f"{settings.storage_public_base_url.rstrip('/')}/originals/<opaque-file-name>"
     block_assets: list[dict[str, Any]] = []
     for block in contract["media_blocks"]:
         if block["block_type"] == "video_carousel":
@@ -228,7 +228,7 @@ async def get_landing_template_creation_contract(
 ) -> LandingTemplateCreationContractResponse:
     """Describe the exact product, banner and per-block media payload required."""
     service = LandingTemplateInstantiationService(
-        get_prisma(), r2, public_host=settings.r2_public_host
+        get_prisma(), r2, public_host=settings.storage_public_base_url
     )
     try:
         contract = await service.creation_contract(template_id)
@@ -257,7 +257,7 @@ async def instantiate_landing_template(
 ) -> LandingTemplateInstantiateResponse:
     """Create and publish one complete product landing from staged R2 originals."""
     service = LandingTemplateInstantiationService(
-        get_prisma(), r2, public_host=settings.r2_public_host
+        get_prisma(), r2, public_host=settings.storage_public_base_url
     )
     try:
         created = await service.instantiate(

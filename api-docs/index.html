@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Easy Funnel API</title>
+    <meta
+      name="description"
+      content="Reference documentation for the Easy Funnel cash-on-delivery commerce API: public landing delivery and checkout, and the authenticated Administrator surface."
+    />
+    <!-- This page is a static reference. It reads ./openapi.json and never
+         calls the API, so it can be published on its own with no backend
+         running anywhere. -->
+    <meta name="robots" content="index, follow" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231c1f22'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23e8862c'/%3E%3C/svg%3E"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      /* Shown until the renderer takes over, and left visible if it never
+         loads — a reader should get the link to the raw document rather than a
+         blank page. */
+      #fallback {
+        font:
+          15px/1.55 ui-sans-serif,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        max-width: 42rem;
+        margin: 12vh auto;
+        padding: 0 1.5rem;
+        color: #1a1c1e;
+      }
+      #fallback h1 {
+        font-size: 1.35rem;
+        letter-spacing: -0.01em;
+        margin: 0 0 0.5rem;
+      }
+      #fallback p {
+        color: #5b6169;
+        margin: 0 0 1rem;
+      }
+      #fallback a {
+        color: #9c5410;
+      }
+      @media (prefers-color-scheme: dark) {
+        #fallback {
+          color: #e7ebef;
+        }
+        #fallback p {
+          color: #a6afb8;
+        }
+        #fallback a {
+          color: #f7ab5c;
+        }
+        body {
+          background: #181c20;
+        }
+      }
+
+      /* Sibling-page link. Pinned to the bottom-right rather than injected into
+         the renderer's own chrome, so an upgrade of the renderer cannot break
+         it and it cannot fight the renderer's layout. */
+      .site-nav {
+        position: fixed;
+        right: 1rem;
+        bottom: 1rem;
+        z-index: 2147483000;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.5rem 0.85rem;
+        border: 1px solid rgba(128, 138, 150, 0.35);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.92);
+        color: #1a1c1e;
+        font:
+          600 13px/1 ui-sans-serif,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        text-decoration: none;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.45);
+      }
+      .site-nav:hover {
+        border-color: rgba(128, 138, 150, 0.7);
+      }
+      .site-nav svg {
+        flex: none;
+      }
+      @media (prefers-color-scheme: dark) {
+        .site-nav {
+          background: rgba(32, 37, 42, 0.92);
+          color: #e7ebef;
+          border-color: rgba(128, 138, 150, 0.3);
+        }
+      }
+      @media (max-width: 640px) {
+        .site-nav {
+          right: 0.75rem;
+          bottom: 0.75rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="fallback">
+      <h1>Easy Funnel API</h1>
+      <p>Loading the reference&hellip;</p>
+      <p>
+        If this message stays, the renderer could not load. The specification
+        itself is always available as
+        <a href="./openapi.json">openapi.json</a> — any OpenAPI viewer will open
+        it.
+      </p>
+    </div>
+
+    <!-- Links to the file, not to the clean route: Vercel and Cloudflare Pages
+         both redirect /architecture.html to /architecture, while the plain
+         local preview server has no clean-URL resolution and would 404 on it.
+         The published route readers see and share is /architecture. -->
+    <a class="site-nav" href="./architecture.html" title="System architecture diagram">
+      <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" focusable="false">
+        <path
+          fill="currentColor"
+          d="M8 2h4v3h-4V2zM2 12h4v3H2v-3zm12 0h4v3h-4v-3zM9.25 5h1.5v3h4.75v4h-1.5v-2.5h-3.25V12h-1.5V9.5H5.75V12h-1.5V8h5V5z"
+        />
+      </svg>
+      Architecture
+    </a>
+
+    <!-- Scalar renders an OpenAPI 3.1 document client-side: navigation, search,
+         schema expansion and code samples, with no build step and no server.
+         `data-url` is relative, so the page works from any path, on any host,
+         and from the local filesystem. -->
+    <script
+      id="api-reference"
+      data-url="./openapi.json"
+      data-configuration='{"theme":"default","darkMode":true,"hideDownloadButton":false,"searchHotKey":"k"}'
+    ></script>
+    <script>
+      // Remove the fallback only once the renderer has actually painted.
+      const observer = new MutationObserver(() => {
+        if (document.querySelector(".scalar-app, [class*='scalar']")) {
+          document.getElementById("fallback")?.remove();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>

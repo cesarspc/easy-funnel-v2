@@ -372,11 +372,25 @@ async def update_order_fulfillment(
     return _serialize_order(updated, include_flags=True)
 
 
-@router.post("/{order_id}/mastershop/retry", response_model=dict)
+@router.post(
+    "/{order_id}/mastershop/retry",
+    response_model=dict,
+    summary="Retry a failed fulfillment hand-off",
+)
 async def retry_mastershop_sync(
     order_id: int,
     admin_user=Depends(require_admin),  # type: ignore # noqa: B008 (FastAPI DI)
 ):
+    """Re-attempt the fulfillment provider hand-off for one order.
+
+    The hand-off runs after an order is committed locally, so a provider outage
+    or a missing product mapping leaves the order intact and the failure recorded
+    on a durable sync row. This endpoint replays that hand-off and returns the
+    resulting sync state.
+
+    Safe to call repeatedly: an order that already synced is not sent twice.
+    Inert while `FULFILLMENT_PROVIDER` is `none`.
+    """
     from app.core.settings import get_settings
     from app.integrations.mastershop import MastershopSyncService
 
