@@ -236,7 +236,8 @@ def test_geoip_no_flag_when_unresolved() -> None:
 def test_blacklist_matches_normalized_phone() -> None:
     """Blacklist matching uses normalized phone keys."""
     # Test with normalized phone key format
-    from app.domains.orders.normalization import normalize_colombian_phone_key
+    from app.core.regional import DEFAULT_REGIONAL
+    from app.domains.orders.normalization import normalize_phone_key
 
-    phone_key = normalize_colombian_phone_key("+573001234567")
+    phone_key = normalize_phone_key("+573001234567", DEFAULT_REGIONAL.phone)
     assert len(phone_key) == 10  # Should be 10 digits

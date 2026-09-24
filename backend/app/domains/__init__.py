@@ -2,7 +2,7 @@
 
 Orders domain:
 - Field validation/normalization (name, phone, department, city, address, quantity)
-- Colombian phone normalization producing canonical +57 + 10 digits form
+- Phone normalization to E.164 using the merchant-configured phone rules
 - Stable matching key for duplicate/blacklist/rate-limit
 - Centralized legal status-transition graph
 

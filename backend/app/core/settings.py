@@ -1,8 +1,9 @@
 """Environment-based infrastructure and bootstrap settings.
 
 Deployment concerns come from environment variables. Merchant-facing values
-are seeded from ``STORE_*`` only on a fresh database, then live in the admin-
-editable singleton store record. Generic Redis and S3 settings make the same
+(branding, market conventions, fulfillment integration) are seeded from
+``STORE_*`` / ``FULFILLMENT_PROVIDER`` / ``MASTERSHOP_*`` only once, then live
+in the admin-editable singleton store record. Generic Redis and S3 settings make the same
 application work with the bundled services or compatible external providers.
 
 `get_settings()` is cached so the environment is parsed once per process;
@@ -17,6 +18,8 @@ from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.regional import DEFAULT_REGIONAL
 
 
 class Settings(BaseSettings):
@@ -55,10 +58,11 @@ class Settings(BaseSettings):
     geoip_database_path: str = Field(alias="GEOIP_DATABASE_PATH")
     geoip_update_url: str | None = Field(default=None, alias="GEOIP_UPDATE_URL")
 
-    # --- MasterShop fulfillment ---
-    # Optional for rolling-deploy safety: a missing secret never prevents the
-    # API from booting or accepting local orders. The durable sync row records
-    # the configuration failure until the secret is configured and retried.
+    # --- Fulfillment bootstrap (seeded once into store_settings) ---
+    # These only initialize the admin-editable fulfillment settings the first
+    # time a database starts without them; afterwards Admin → Tienda is the
+    # source of truth. A missing key never prevents the API from booting or
+    # accepting local orders: the durable sync row records the failure.
     mastershop_api_key: str | None = Field(default=None, alias="MASTERSHOP_API_KEY")
     mastershop_orders_url: str = Field(
         default="https://prod.api.mastershop.com/api/orders",
@@ -84,6 +88,18 @@ class Settings(BaseSettings):
         alias="STORE_WHATSAPP_MESSAGE",
     )
     store_support_email: str = Field(default="", alias="STORE_SUPPORT_EMAIL")
+    store_country_code: str = Field(
+        default=DEFAULT_REGIONAL.country_code, alias="STORE_COUNTRY_CODE"
+    )
+    store_locale: str = Field(default=DEFAULT_REGIONAL.locale, alias="STORE_LOCALE")
+    store_currency: str = Field(default=DEFAULT_REGIONAL.currency, alias="STORE_CURRENCY")
+    store_time_zone: str = Field(default=DEFAULT_REGIONAL.time_zone, alias="STORE_TIME_ZONE")
+    store_phone_country_code: str = Field(
+        default=DEFAULT_REGIONAL.phone.country_code, alias="STORE_PHONE_COUNTRY_CODE"
+    )
+    store_phone_national_pattern: str = Field(
+        default=DEFAULT_REGIONAL.phone.national_pattern, alias="STORE_PHONE_NATIONAL_PATTERN"
+    )
 
     # --- Admin bootstrap ---
     # When both are set, startup provisions this Administrator if it is missing.

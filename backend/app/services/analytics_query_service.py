@@ -39,20 +39,20 @@ _logger = logging.getLogger("app.analytics.query")
 # `query_raw` sends parameters as text, so the timestamp bounds are cast
 # explicitly; without the cast PostgreSQL rejects `timestamptz >= text`.
 _ORDERS_PER_DAY_SQL = """
-    SELECT DATE("created_at" AT TIME ZONE 'America/Bogota') AS day, COUNT(*) AS count
+    SELECT DATE("created_at" AT TIME ZONE $3::text) AS day, COUNT(*) AS count
     FROM "orders"
     WHERE "created_at" >= $1::timestamptz AND "created_at" <= $2::timestamptz
-    GROUP BY DATE("created_at" AT TIME ZONE 'America/Bogota')
+    GROUP BY DATE("created_at" AT TIME ZONE $3::text)
     ORDER BY day DESC
 """
 
 _FRAUD_PER_DAY_SQL = """
-    SELECT DATE("created_at" AT TIME ZONE 'America/Bogota') AS day,
+    SELECT DATE("created_at" AT TIME ZONE $4::text) AS day,
            COUNT(*) AS total_orders,
            COUNT(*) FILTER (WHERE "status" = $3) AS flagged_orders
     FROM "orders"
     WHERE "created_at" >= $1::timestamptz AND "created_at" <= $2::timestamptz
-    GROUP BY DATE("created_at" AT TIME ZONE 'America/Bogota')
+    GROUP BY DATE("created_at" AT TIME ZONE $4::text)
     ORDER BY day DESC
 """
 
@@ -154,11 +154,13 @@ class AnalyticsQueryService:
 
     def __init__(self, db: Prisma, redis: AsyncRedis | None = None) -> None:
         self._db = db
-        self._traffic = LandingTrafficService(db, redis) if redis is not None else None
+        self._redis = redis
 
     async def get_orders_per_day(self, date_range: DateRange) -> list[OrdersPerDay]:
         """Return orders per calendar day within the inclusive range, newest first."""
-        rows = await self._db.query_raw(_ORDERS_PER_DAY_SQL, date_range.start, date_range.end)
+        rows = await self._db.query_raw(
+            _ORDERS_PER_DAY_SQL, date_range.start, date_range.end, date_range.time_zone
+        )
         return [OrdersPerDay(date=_to_date(row["day"]), count=int(row["count"])) for row in rows]
 
     async def get_landing_analytics(
@@ -181,11 +183,14 @@ class AnalyticsQueryService:
             return []
 
         landing_ids = [landing.id for landing in selected]
-        if self._traffic is not None:
+        if self._redis is not None:
             # Persist current live snapshots before reading PostgreSQL. Redis
             # failures are fail-open inside the traffic service, leaving the
             # last durable snapshot available to the dashboard.
-            await _reconcile_traffic_with_deadline(self._traffic, landing_ids)
+            traffic = LandingTrafficService(
+                self._db, self._redis, time_zone=date_range.time_zone
+            )
+            await _reconcile_traffic_with_deadline(traffic, landing_ids)
         views, clicks = _traffic_by_landing(
             await self._db.query_raw(
                 _LANDING_TRAFFIC_SQL,
@@ -222,7 +227,11 @@ class AnalyticsQueryService:
         flagged order, so the rate can never exceed 1 (Requirement 8.13).
         """
         rows = await self._db.query_raw(
-            _FRAUD_PER_DAY_SQL, date_range.start, date_range.end, FLAGGED_ORDER_STATUS
+            _FRAUD_PER_DAY_SQL,
+            date_range.start,
+            date_range.end,
+            FLAGGED_ORDER_STATUS,
+            date_range.time_zone,
         )
         analytics: list[FraudAnalytics] = []
         for row in rows:

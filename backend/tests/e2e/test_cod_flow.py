@@ -22,7 +22,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from app.domains.orders.normalization import normalize_colombian_phone_key
+from app.core.regional import DEFAULT_REGIONAL
+from app.domains.orders.normalization import normalize_phone_key
 
 from tests.conftest import requires_database
 from tests.e2e.conftest import CodFlowHarness, unique_phone
@@ -168,7 +169,7 @@ async def test_e2e_cod_flow_blacklist(cod_flow: CodFlowHarness) -> None:
     landing = await cod_flow.seed_landing()
     phone = unique_phone()
     await cod_flow.blacklist_phone(
-        normalize_colombian_phone_key(phone), reason="Chargeback history"
+        normalize_phone_key(phone, DEFAULT_REGIONAL.phone), reason="Chargeback history"
     )
 
     response = await cod_flow.client.post(

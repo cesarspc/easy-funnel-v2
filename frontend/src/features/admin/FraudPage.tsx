@@ -12,17 +12,12 @@
  * second order table.
  */
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import type { BlacklistEntry, FraudConfig, GeoIpRule } from "../../api";
 import { ApiError, fraudApi } from "../../api";
 import "./FraudPage.css";
-
-const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-});
+import { createDateFormatter, useRegional } from "../store/regional";
 
 interface ConfigForm {
   duplicateWindowHours: string;
@@ -43,6 +38,11 @@ function toConfigForm(config: FraudConfig): ConfigForm {
 }
 
 export function FraudPage() {
+  const regional = useRegional();
+  const dateFormatter = useMemo(
+    () => createDateFormatter(regional, { day: "2-digit", month: "short", year: "numeric" }),
+    [regional],
+  );
   // --- Fraud configuration ------------------------------------------------
   const [config, setConfig] = useState<ConfigForm | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
@@ -538,7 +538,7 @@ export function FraudPage() {
                     <td className="fraud-table__data">{entry.value_normalized}</td>
                     <td>{entry.reason}</td>
                     <td className="fraud-table__data">
-                      {DATE_FORMATTER.format(new Date(entry.created_at))}
+                      {dateFormatter.format(new Date(entry.created_at))}
                     </td>
                     <td className="fraud-table__actions">
                       {confirmDeleteBlacklistId === entry.id ? (
@@ -610,7 +610,7 @@ export function FraudPage() {
               className="fraud-field__input"
               type="text"
               value={newEntryValue}
-              placeholder={newEntryType === "phone" ? "300 123 4567" : "203.0.113.5"}
+              placeholder={newEntryType === "phone" ? `+${regional.phoneCountryCode} …` : "203.0.113.5"}
               aria-describedby={
                 blacklistFieldErrors.value_normalized ? "blacklist-value-error" : undefined
               }
@@ -715,7 +715,7 @@ export function FraudPage() {
                       </button>
                     </td>
                     <td className="fraud-table__data">
-                      {DATE_FORMATTER.format(new Date(rule.updated_at))}
+                      {dateFormatter.format(new Date(rule.updated_at))}
                     </td>
                     <td className="fraud-table__actions">
                       {confirmDeleteGeoipId === rule.id ? (
@@ -765,7 +765,7 @@ export function FraudPage() {
               type="text"
               maxLength={10}
               value={newLocationCode}
-              placeholder="CO o CO-DC"
+              placeholder={`${regional.countryCode} o ${regional.countryCode}-…`}
               aria-describedby={
                 geoipFieldErrors.location_code ? "geoip-location-code-error" : undefined
               }

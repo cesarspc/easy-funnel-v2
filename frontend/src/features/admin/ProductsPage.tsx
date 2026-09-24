@@ -19,12 +19,7 @@ import { StatusPill } from "../../components";
 import type { MastershopProductMapping, Product, ProductVariantOption } from "../../api";
 import { ApiError, productsApi } from "../../api";
 import "./ProductsPage.css";
-
-const CURRENCY_FORMATTER = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
+import { useRegional } from "../store/regional";
 
 interface CreateFormValues {
   name: string;
@@ -76,6 +71,7 @@ function mappingKey(selection: Record<string, string>): string {
 }
 
 export function ProductsPage() {
+  const { money, currency } = useRegional();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -375,7 +371,7 @@ export function ProductsPage() {
 
               <FormField
                 name="price"
-                label="Precio (COP)"
+                label={`Precio (${currency})`}
                 type="number"
                 inputMode="numeric"
                 min={0}
@@ -485,7 +481,7 @@ export function ProductsPage() {
           />
           <FormField
             name="edit-product-price"
-            label="Precio (COP)"
+            label={`Precio (${currency})`}
             type="number"
             inputMode="decimal"
             min={0.01}
@@ -612,7 +608,7 @@ export function ProductsPage() {
                   <td>{product.name}</td>
                   <td className="products-table__data">{product.sku}</td>
                   <td className="products-table__data">
-                    {CURRENCY_FORMATTER.format(product.price)}
+                    {money.format(product.price)}
                   </td>
                   <td>
                     <StatusPill status={product.status} />

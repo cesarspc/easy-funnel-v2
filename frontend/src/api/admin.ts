@@ -12,15 +12,33 @@ import type {
   StoreSettings,
 } from "./public";
 
-export type StoreSettingsUpdate = Partial<Omit<StoreSettings, "logo_url" | "favicon_url" | "homepage_image_url">>;
+/** Store settings plus operational parameters only the admin API exposes. */
+export interface AdminStoreSettings extends StoreSettings {
+  fulfillment_provider: "none" | "mastershop";
+  mastershop_orders_url: string;
+  mastershop_timeout_seconds: number;
+  /** The API key itself is write-only; only its presence is reported. */
+  mastershop_api_key_configured: boolean;
+}
+
+export type StoreSettingsUpdate = Partial<
+  Omit<
+    AdminStoreSettings,
+    "logo_url" | "favicon_url" | "homepage_image_url" | "mastershop_api_key_configured"
+  >
+> & {
+  /** Send a new value to replace the stored key, or "" to clear it. */
+  mastershop_api_key?: string;
+};
 
 export const storeApi = {
-  get: () => apiClient.get<StoreSettings>("/admin/store"),
-  update: (request: StoreSettingsUpdate) => apiClient.patch<StoreSettings>("/admin/store", request),
+  get: () => apiClient.get<AdminStoreSettings>("/admin/store"),
+  update: (request: StoreSettingsUpdate) =>
+    apiClient.patch<AdminStoreSettings>("/admin/store", request),
   upload: (kind: "logo" | "favicon" | "homepage_image", file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return apiClient.postForm<StoreSettings>(`/admin/store/assets/${kind}`, form);
+    return apiClient.postForm<AdminStoreSettings>(`/admin/store/assets/${kind}`, form);
   },
 };
 

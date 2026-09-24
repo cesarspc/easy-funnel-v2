@@ -8,6 +8,7 @@ import pytest
 from app.integrations.mastershop.client import MastershopClient, MastershopHttpResult
 from app.integrations.mastershop.payload import MastershopPayloadError, build_order_payload
 from app.integrations.mastershop.service import MastershopSyncService
+from app.services.platform_config import FulfillmentConfig
 
 
 def _order(
@@ -198,7 +199,8 @@ class _RejectedTransport:
 @pytest.mark.asyncio
 async def test_service_durably_records_non_200_without_touching_local_order() -> None:
     db = _Db()
-    settings = SimpleNamespace(
+    settings = FulfillmentConfig(
+        provider="mastershop",
         mastershop_api_key="secret",
         mastershop_orders_url="https://prod.api.mastershop.com/api/orders",
         mastershop_timeout_seconds=5,

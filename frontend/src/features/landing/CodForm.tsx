@@ -33,6 +33,7 @@ import type {
 } from "../../api";
 import type { PurchaseCustomerData } from "../../analytics/metaCommerce";
 import "./CodForm.css";
+import { matchesNationalPhone, nationalPhoneDigits, type RegionalSettings, useRegional } from "../store/regional";
 
 export interface CodFormValues {
   /** Exact fulfillment parts; also joined into the existing `full_name`. */
@@ -72,12 +73,6 @@ const MAX_QUANTITY = 99;
 /** Fixed multiplier choices exposed in the form; the backend/validation
  *  contract still allows 1 through MAX_QUANTITY (Requirement 5.5). */
 const QUANTITY_OPTIONS = [1, 2, 3] as const;
-
-const CURRENCY = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
 
 /** Field order, used to focus the first invalid control on submit. */
 const FIELD_ORDER: (keyof CodFormValues)[] = [
@@ -134,10 +129,14 @@ function fitVariantSelections(
 /**
  * Client-side check for one field. Deliberately thin: it catches the mistakes
  * a buyer makes on a phone keyboard (empty field, too-short address, a phone
- * that is not 10 digits) and leaves the authoritative rules to the backend,
+ * that does not match the store's phone rules) and leaves the authoritative rules to the backend,
  * whose 422 messages are rendered in the same place.
  */
-function validateField(field: keyof CodFormValues, raw: string): string | undefined {
+function validateField(
+  field: keyof CodFormValues,
+  raw: string,
+  regional: RegionalSettings,
+): string | undefined {
   const value = raw.trim();
 
   switch (field) {
@@ -150,10 +149,10 @@ function validateField(field: keyof CodFormValues, raw: string): string | undefi
       if (value.length > 120) return "El apellido no puede superar 120 caracteres.";
       return undefined;
     case "phone": {
-      const digits = value.replace(/\D/g, "").replace(/^57/, "");
+      const digits = nationalPhoneDigits(regional, value);
       if (!digits) return "Escribe tu número de celular para coordinar la entrega.";
-      if (digits.length !== 10 || !digits.startsWith("3")) {
-        return "El celular debe tener 10 dígitos y empezar por 3. Ejemplo: 3001234567.";
+      if (!matchesNationalPhone(regional, digits)) {
+        return `Revisa tu número de celular (+${regional.phoneCountryCode}).`;
       }
       return undefined;
     }
@@ -194,6 +193,8 @@ export function CodForm({
   departments,
   onSuccess,
 }: CodFormProps): JSX.Element {
+  const regional = useRegional();
+  const CURRENCY = regional.money;
   const [values, setValues] = useState<CodFormValues>(() => initialValues(defaultOfferQuantity));
   const initialQuantity = Number(defaultOfferQuantity ?? 1);
   const [variantSelections, setVariantSelections] = useState<Record<string, string>[]>(() =>
@@ -263,7 +264,7 @@ export function CodForm({
   }
 
   function handleBlur(field: keyof CodFormValues) {
-    const message = validateField(field, values[field]);
+    const message = validateField(field, values[field], regional);
     setErrors((current) => ({ ...current, [field]: message }));
   }
 
@@ -294,7 +295,7 @@ export function CodForm({
 
     const nextErrors: Partial<Record<keyof CodFormValues, string>> = {};
     for (const field of FIELD_ORDER) {
-      const message = validateField(field, values[field]);
+      const message = validateField(field, values[field], regional);
       if (message) nextErrors[field] = message;
     }
 
@@ -609,8 +610,7 @@ export function CodForm({
         inputMode="numeric"
         autoComplete="tel-national"
         enterKeyHint="next"
-        prefixText="+57"
-        placeholder="Ej. 3001234567"
+        prefixText={`+${regional.phoneCountryCode}`}
         maxLength={14}
         required
         value={values.phone}

@@ -15,7 +15,8 @@ from collections.abc import AsyncIterator
 from decimal import Decimal
 
 import pytest_asyncio
-from app.domains.orders.normalization import normalize_colombian_phone_key
+from app.core.regional import DEFAULT_REGIONAL
+from app.domains.orders.normalization import normalize_phone_key
 from prisma import Json
 
 from tests.conftest import requires_database
@@ -223,7 +224,7 @@ async def test_add_blacklist_entry_normalizes_a_phone_and_is_listed(
         assert body["entry_type"] == "phone"
         # Stored in the same form the fraud checks compare against, so spacing
         # in the submitted value cannot hide a match (Requirement 6.5).
-        assert body["value_normalized"] == normalize_colombian_phone_key(phone)
+        assert body["value_normalized"] == normalize_phone_key(phone, DEFAULT_REGIONAL.phone)
         assert body["reason"] == "Pedidos falsos"
         assert body["created_at"]
 
@@ -368,7 +369,7 @@ async def test_remove_blacklist_entry_preserves_historical_fraud_flags(
             "landingSlug": landing.slug,
             "customerName": "Cliente Historico",
             "phoneE164": f"+57{phone}",
-            "phoneNormalizedKey": normalize_colombian_phone_key(phone),
+            "phoneNormalizedKey": normalize_phone_key(phone, DEFAULT_REGIONAL.phone),
             "department": "Cundinamarca",
             "city": "Bogota",
             "address": "Calle 1 #2-3",

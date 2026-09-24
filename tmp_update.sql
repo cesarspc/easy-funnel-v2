@@ -1,1 +1,0 @@
-UPDATE landing_blocks SET config = '{"title": "Incluido en tu compra", "items": [{"name": "Elige la cantidad y toca Pedir ahora", "value": null, "tag": null}, {"name": "Escribes tus datos de entrega en el formulario", "value": null, "tag": null}, {"name": "Recibes el pedido y pagas en efectivo al mensajero", "value": null, "tag": null}], "accent_color": null}' WHERE id = 55;

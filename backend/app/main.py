@@ -7,7 +7,6 @@ Business rules live in `app.domains` and `app.services`.
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -78,7 +77,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=API_TITLE,
-        version=os.getenv("APP_VERSION", "0.1.0"),
+        version=settings.app_version,
         lifespan=lifespan,
     )
 

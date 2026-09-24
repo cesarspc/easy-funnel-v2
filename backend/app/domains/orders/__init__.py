@@ -1,8 +1,8 @@
-"""Orders domain: validation, Colombian phone normalization, status graph.
+"""Orders domain: validation, phone normalization, status graph.
 
 Implements Requirement 5:
 - Field validation/normalization (name, phone, department, city, address, quantity)
-- Colombian phone normalization producing canonical +57 + 10 digits form
+- Phone normalization to E.164 using the merchant-configured phone rules
 - Stable matching key for duplicate/blacklist/rate-limit
 - Centralized legal status-transition graph
 """
@@ -26,8 +26,8 @@ from app.domains.orders.normalization import (
     NAME_MIN,
     QUANTITY_MAX,
     QUANTITY_MIN,
-    normalize_colombian_phone,
-    normalize_colombian_phone_key,
+    normalize_phone,
+    normalize_phone_key,
     validate_address,
     validate_city,
     validate_department,
@@ -46,8 +46,8 @@ __all__ = [
     "validate_address",
     "validate_quantity",
     "validate_status",
-    "normalize_colombian_phone",
-    "normalize_colombian_phone_key",
+    "normalize_phone",
+    "normalize_phone_key",
     "ALLOWED_TRANSITIONS",
     "DEFAULT_ORDER_STATUS",
     "FLAGGED_FRAUD_STATUS",

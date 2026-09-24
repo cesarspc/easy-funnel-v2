@@ -52,8 +52,16 @@ set `APP_SITE_ADDRESS` to the real domain, `APP_PUBLIC_URL` to its HTTPS URL,
 TLS automatically.
 
 Store values initialize the database only once. Afterwards the merchant edits
-branding, homepage content, assets, contact information, SEO, and tracking IDs
-under **Admin → Tienda**; restarting containers does not revert those edits.
+branding, homepage content, assets, contact information, SEO, tracking IDs,
+market conventions (country, locale, currency, time zone, phone calling code
+and national-number pattern) and the fulfillment integration (provider, URL,
+timeout, write-only API key) under **Admin → Tienda**; restarting containers
+does not revert those edits.
+
+Infrastructure wiring in `docker-compose.yml` (database/Redis/S3 URLs, bucket
+name, JWT parameters, internal ports, Caddy upstreams, GeoIP paths) is also
+overridable from `.env`; the optional block at the end of `docker.env.example`
+lists every knob with its default.
 
 ### Clean database verification
 
@@ -124,9 +132,10 @@ pnpm test
 
 Copy `.env.example` to `.env` and fill in your values. The example file documents every variable with placeholder values. Frontend build-time variables (prefixed `VITE_`) contain no secrets — only public configuration like the API base URL.
 
-For MasterShop fulfillment, deploy the additive Prisma migration first with
-`MASTERSHOP_API_KEY` unset, configure each product/variant mapping in Admin,
-and only then add the key to the backend secret manager. Existing orders are
+For MasterShop fulfillment, configure each product/variant mapping in Admin,
+then set the provider, orders URL and API key under **Admin → Tienda**. The
+`FULFILLMENT_PROVIDER` / `MASTERSHOP_*` variables only seed those settings the
+first time a database starts without them. Existing orders are
 not backfilled; orders created during the staged rollout retain a failed sync
 record that can be reviewed and retried from Admin.
 

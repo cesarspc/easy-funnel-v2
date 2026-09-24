@@ -18,7 +18,7 @@ from tests.redis.fakes import FakeRedis, FakeUnavailableRedis
 def _service(redis: FakeRedis | FakeUnavailableRedis) -> LandingTrafficService:
     # Repositories only retain this object; every database call is replaced by
     # an AsyncMock in these protocol-level tests.
-    service = LandingTrafficService(object(), redis)  # type: ignore[arg-type]
+    service = LandingTrafficService(object(), redis, time_zone="America/Bogota")  # type: ignore[arg-type]
     service._views.persist_redis_snapshot = AsyncMock()  # type: ignore[method-assign]
     service._views.record_fallback = AsyncMock(return_value=1)  # type: ignore[method-assign]
     service._clicks.record_fallback = AsyncMock(return_value=1)  # type: ignore[method-assign]

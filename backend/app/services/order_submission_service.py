@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from prisma import Json, Prisma
 
+from app.core.regional import PhoneRules
 from app.db.repositories import (
     AuditLogRepository,
     FraudConfigRepository,
@@ -53,8 +54,8 @@ from app.domains.landings.offers import (
 from app.domains.orders import (
     DEFAULT_ORDER_STATUS,
     FLAGGED_FRAUD_STATUS,
-    normalize_colombian_phone,
-    normalize_colombian_phone_key,
+    normalize_phone,
+    normalize_phone_key,
     validate_address,
     validate_name,
     validate_quantity,
@@ -111,11 +112,14 @@ class OrderSubmissionService:
         db: Prisma,
         redis_client,
         geoip_resolver: GeoIpResolver,
+        *,
+        phone_rules: PhoneRules,
         fulfillment_enabled: bool = True,
     ) -> None:
         self._db = db
         self._redis = redis_client
         self._geoip = geoip_resolver
+        self._phone_rules = phone_rules
         self._fulfillment_enabled = fulfillment_enabled
 
     async def submit(
@@ -142,7 +146,7 @@ class OrderSubmissionService:
         Args:
             landing_slug: The landing page slug
             full_name: Customer's full name
-            phone: Colombian phone number
+            phone: Buyer phone number (validated with the configured phone rules)
             department: Customer's department
             city: Customer's city
             address: Customer's delivery address
@@ -173,8 +177,8 @@ class OrderSubmissionService:
             legacy_name_parts = validated_name.split(" ", 1)
             validated_first_name = legacy_name_parts[0]
             validated_last_name = legacy_name_parts[1] if len(legacy_name_parts) == 2 else ""
-        validated_phone = normalize_colombian_phone(phone)
-        validated_phone_key = normalize_colombian_phone_key(phone)
+        validated_phone = normalize_phone(phone, self._phone_rules)
+        validated_phone_key = normalize_phone_key(phone, self._phone_rules)
         supplied_address_parts = address1 is not None or address2 is not None
         if supplied_address_parts:
             validated_address1 = (address1 or "").strip()

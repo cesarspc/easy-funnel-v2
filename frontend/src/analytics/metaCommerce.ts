@@ -9,8 +9,7 @@
  */
 
 import type { PublicLanding, PublicLandingOffer } from "../api";
-
-const CURRENCY = "COP" as const;
+import { type RegionalSettings, toE164 } from "../features/store/regional";
 
 interface DataLayerWindow extends Window {
   dataLayer?: Record<string, unknown>[];
@@ -56,14 +55,14 @@ function offerForCheckout(landing: PublicLanding): PublicLandingOffer {
   };
 }
 
-function item(landing: PublicLanding, quantity: number, value: number) {
+function item(landing: PublicLanding, quantity: number, value: number, currency: string) {
   return {
     // SKU is the catalog-stable commerce identifier Meta should match.
     item_id: landing.product_sku,
     item_name: landing.product_name,
     price: value / quantity,
     quantity,
-    currency: CURRENCY,
+    currency,
   };
 }
 
@@ -76,22 +75,25 @@ function pushCommerceEvent(event: Record<string, unknown>) {
 }
 
 /** CTA activation: the existing GTM mapping emits Meta InitiateCheckout. */
-export function trackInitiateCheckout(landing: PublicLanding): void {
+export function trackInitiateCheckout(landing: PublicLanding, regional: RegionalSettings): void {
   const offer = offerForCheckout(landing);
   pushCommerceEvent({
     event: "begin_checkout",
     ecommerce: {
-      currency: CURRENCY,
+      currency: regional.currency,
       value: offer.total,
-      items: [item(landing, offer.quantity, offer.total)],
+      items: [item(landing, offer.quantity, offer.total, regional.currency)],
     },
   });
 }
 
 /** Persisted COD order: GTM emits Meta Purchase via Pixel + CAPI. */
-export function trackPurchase(landing: PublicLanding, purchase: PurchaseEventData): void {
-  const normalizedPhone = purchase.phone.replace(/\D/g, "").replace(/^57/, "");
-  const phone = `+57${normalizedPhone}`;
+export function trackPurchase(
+  landing: PublicLanding,
+  purchase: PurchaseEventData,
+  regional: RegionalSettings,
+): void {
+  const phone = toE164(regional, purchase.phone);
   const firstName = purchase.firstName.trim();
   const lastName = purchase.lastName.trim();
   const city = purchase.city.trim();
@@ -101,9 +103,9 @@ export function trackPurchase(landing: PublicLanding, purchase: PurchaseEventDat
     event: "purchase",
     ecommerce: {
       transaction_id: String(purchase.orderId),
-      currency: CURRENCY,
+      currency: regional.currency,
       value: purchase.value,
-      items: [item(landing, purchase.quantity, purchase.value)],
+      items: [item(landing, purchase.quantity, purchase.value, regional.currency)],
     },
     // Canonical fields feed the Meta tag's automatic data-layer mapping. The
     // billing aliases feed the User Data variables already present in the
@@ -114,7 +116,7 @@ export function trackPurchase(landing: PublicLanding, purchase: PurchaseEventDat
       last_name: lastName,
       city,
       state,
-      country: "co",
+      country: regional.countryCode.toLowerCase(),
       billing_phone: phone,
       billing_first_name: firstName,
       billing_last_name: lastName,

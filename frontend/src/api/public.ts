@@ -249,7 +249,7 @@ export interface OrderCreateRequest {
 export interface OrderCreateResponse {
   order_id: number;
   status: "pending" | "flagged_fraud";
-  /** Authoritative amount captured on the persisted order, in COP. */
+  /** Authoritative amount captured on the persisted order, in the store currency. */
   total_price: number;
 }
 
@@ -275,6 +275,18 @@ export interface StoreSettings {
   seo_description: string;
   gtm_container_id: string;
   meta_pixel_id: string;
+  /** ISO 3166-1 alpha-2 market country (e.g. "CO"). */
+  country_code: string;
+  /** BCP 47 locale used to format money, dates and numbers. */
+  locale: string;
+  /** ISO 4217 currency every price is expressed in. */
+  currency: string;
+  /** IANA time zone of the merchant's business calendar. */
+  time_zone: string;
+  /** Phone calling code without "+" (e.g. "57"). */
+  phone_country_code: string;
+  /** Regular expression the national phone number must match. */
+  phone_national_pattern: string;
 }
 
 export const publicApi = {

@@ -72,12 +72,7 @@ import type {
 import { Cta } from "../../components/Cta";
 import { safeColor } from "../../utils";
 import "./ConversionBlocks.css";
-
-const CURRENCY = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
+import { useRegional } from "../store/regional";
 
 export interface ConversionBlockViewProps {
   block: ConversionBlock;
@@ -722,6 +717,7 @@ function OfferPrice({
   joinBefore?: boolean;
   joinAfter?: boolean;
 }): JSX.Element {
+  const { money: CURRENCY } = useRegional();
   const loose = config as LooseConfig;
   const compareAt =
     typeof config.compare_at_price === "number" && config.compare_at_price > productPrice
@@ -1393,6 +1389,7 @@ function OffersPrice({
   images: OfferImageAsset[];
   palette: AccentPalette | null;
 }): JSX.Element | null {
+  const { money: CURRENCY } = useRegional();
   const visibleOffers = offers.filter((offer) => offer.quantity >= 1 && offer.quantity <= 3);
   if (visibleOffers.length === 0) return null;
   return (

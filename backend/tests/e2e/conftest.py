@@ -38,6 +38,7 @@ from app.db.client import connect_db, disconnect_db, get_db
 from app.main import app
 from app.redis.client import get_redis
 from app.services.geoip_resolver import get_geoip_resolver
+from app.services.platform_config import invalidate_platform_config
 from app.storage.dependencies import get_r2_client
 from httpx import ASGITransport, AsyncClient
 from prisma import Prisma
@@ -359,6 +360,23 @@ async def cod_flow() -> AsyncIterator[CodFlowHarness]:
     r2 = FakeR2Client()
     harness = CodFlowHarness(client=None, db=db, redis=redis, r2=r2)  # type: ignore[arg-type]
 
+    # Fulfillment is an Admin setting stored in `store_settings`. The COD flow
+    # tests exercise the MasterShop hand-off without a key, so every accepted
+    # order carries a durable, failed sync row; the previous values are
+    # restored afterwards.
+    previous_store = await db.storesettings.find_unique(where={"id": 1})
+    fulfillment = {
+        "fulfillmentProvider": "mastershop",
+        "mastershopOrdersUrl": "https://mastershop.invalid/api/orders",
+        "mastershopTimeoutSeconds": 1.0,
+        "mastershopApiKey": "",
+    }
+    await db.storesettings.upsert(
+        where={"id": 1},
+        data={"create": {"id": 1, **fulfillment}, "update": fulfillment},
+    )
+    invalidate_platform_config()
+
     app.dependency_overrides[get_redis] = lambda: redis
     app.dependency_overrides[get_geoip_resolver] = lambda: harness.geoip
     # R2 is not reachable from a test run, so the admin banner-upload endpoint
@@ -375,11 +393,19 @@ async def cod_flow() -> AsyncIterator[CodFlowHarness]:
         app.dependency_overrides.pop(get_geoip_resolver, None)
         app.dependency_overrides.pop(get_r2_client, None)
         await harness.cleanup()
+        if previous_store is None:
+            await db.storesettings.delete(where={"id": 1})
+        else:
+            await db.storesettings.update(
+                where={"id": 1},
+                data={key: getattr(previous_store, key) for key in fulfillment},
+            )
+        invalidate_platform_config()
         await disconnect_db()
 
 
 def unique_phone() -> str:
-    """Return a synthetic Colombian mobile number unique to this call.
+    """Return a synthetic mobile number (default phone rules) unique to this call.
 
     Uniqueness keeps duplicate/blacklist state from leaking between tests and
     between runs against a database that is not reset.

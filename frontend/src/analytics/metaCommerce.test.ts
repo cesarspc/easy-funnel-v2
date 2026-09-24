@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { PublicLanding } from "../api";
 import { trackInitiateCheckout, trackPurchase } from "./metaCommerce";
+import { DEFAULT_REGIONAL } from "../features/store/regional";
 
 const LANDING: PublicLanding = {
   landing_id: 7,
@@ -46,7 +47,7 @@ describe("Meta commerce dataLayer contract", () => {
   });
 
   it("pushes the configured default offer as begin_checkout", () => {
-    trackInitiateCheckout(LANDING);
+    trackInitiateCheckout(LANDING, DEFAULT_REGIONAL);
 
     expect(window.dataLayer).toEqual([
       { ecommerce: null },
@@ -79,7 +80,7 @@ describe("Meta commerce dataLayer contract", () => {
       phone: "+57 300 123 4567",
       city: " Medellín ",
       state: " Antioquia ",
-    });
+    }, DEFAULT_REGIONAL);
 
     expect(window.dataLayer?.[1]).toEqual({
       event: "purchase",
@@ -109,5 +110,32 @@ describe("Meta commerce dataLayer contract", () => {
         billing_last_name: "Gómez",
       },
     });
+  });
+
+  it("uses the store's configured market for currency, phone and country", () => {
+    trackPurchase(LANDING, {
+      orderId: 7,
+      quantity: 1,
+      value: 499,
+      firstName: "Ana",
+      lastName: "López",
+      phone: "55 1234 5678",
+      city: "CDMX",
+      state: "CDMX",
+    }, {
+      ...DEFAULT_REGIONAL,
+      countryCode: "MX",
+      currency: "MXN",
+      phoneCountryCode: "52",
+      phoneNationalPattern: "[0-9]{10}",
+    });
+
+    const event = window.dataLayer?.[1] as {
+      ecommerce: { currency: string };
+      user_data: { phone: string; country: string };
+    };
+    expect(event.ecommerce.currency).toBe("MXN");
+    expect(event.user_data.phone).toBe("+525512345678");
+    expect(event.user_data.country).toBe("mx");
   });
 });

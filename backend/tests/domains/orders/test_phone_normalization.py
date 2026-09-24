@@ -1,4 +1,4 @@
-"""Property tests for Colombian phone normalization (Requirement 5.7).
+"""Property tests for rule-driven phone normalization (Requirement 5.7).
 
 Required property (testing.md -> Required Properties #3): For any accepted
 phone representation, normalization is idempotent and equivalent
@@ -9,10 +9,21 @@ from __future__ import annotations
 
 from hypothesis import given, strategies as st
 
-from app.domains.orders.normalization import (
-    normalize_colombian_phone,
-    normalize_colombian_phone_key,
-)
+import pytest
+
+from app.core.regional import DEFAULT_REGIONAL, PhoneRules
+from app.domains.orders.errors import OrderValidationError
+from app.domains.orders.normalization import normalize_phone, normalize_phone_key
+
+_RULES = DEFAULT_REGIONAL.phone
+
+
+def normalize_colombian_phone(raw: str) -> str:
+    return normalize_phone(raw, _RULES)
+
+
+def normalize_colombian_phone_key(raw: str) -> str:
+    return normalize_phone_key(raw, _RULES)
 
 
 # Colombian mobile numbers: national numbers start with '3' and are 10 digits
@@ -144,3 +155,17 @@ def test_normalization_of_normalized_input(normalized: str) -> None:
     """Normalizing an already-normalized phone returns the same value."""
     result = normalize_colombian_phone(normalized)
     assert result == normalized
+
+
+def test_rules_are_configurable_per_market() -> None:
+    """Another market's calling code and national pattern are honored."""
+    mexico = PhoneRules(country_code="52", national_pattern=r"[0-9]{10}")
+    assert normalize_phone("+52 55 1234 5678", mexico) == "+525512345678"
+    assert normalize_phone_key("55-1234-5678", mexico) == "5512345678"
+    with pytest.raises(OrderValidationError):
+        normalize_phone("+52 55 1234", mexico)
+
+
+def test_default_rules_reject_non_mobile_colombian_numbers() -> None:
+    with pytest.raises(OrderValidationError):
+        normalize_phone("6011234567", _RULES)

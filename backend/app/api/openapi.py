@@ -35,9 +35,11 @@ API_SUMMARY = (
 
 # Rendered as the landing section of the published reference.
 API_DESCRIPTION = """
-Easy Funnel is a single-merchant, cash-on-delivery (COD) commerce platform for
-the Colombian market. A buyer arrives on a product landing page — usually from a
-paid ad, usually on a phone — reads the offer, and submits an order form. No
+Easy Funnel is a single-merchant, cash-on-delivery (COD) commerce platform. The
+market it serves (country, locale, currency, time zone and phone rules) is a
+merchant setting edited under `PATCH /api/admin/store`. A buyer arrives on a
+product landing page — usually from a paid ad, usually on a phone — reads the
+offer, and submits an order form. No
 payment is taken online: the merchant collects cash when the product is
 delivered, which is why so much of this API is about deciding whether an order
 is worth dispatching.
@@ -92,7 +94,7 @@ failures in business rules return, and it is what lets a client attach the
 message to the input that produced it:
 
 ```json
-{ "detail": { "field": "phone", "message": "Enter a valid Colombian mobile number." } }
+{ "detail": { "field": "phone", "message": "Invalid phone number for calling code +57." } }
 ```
 
 Schema-level validation performed before a handler runs (a missing body field, a
@@ -100,19 +102,20 @@ wrong type) returns FastAPI's standard `422` with a `detail` array instead.
 
 ## Conventions
 
-**Money** is Colombian pesos (COP). Amounts are exact decimals and are never
+**Money** is in the store's configured currency (`currency` on
+`GET /api/public/store`, ISO 4217). Amounts are exact decimals and are never
 floats in storage; totals that a buyer owes are always computed server-side and
 returned ready to display, so a client never adds up a price itself.
 
 **Timestamps** are UTC, ISO-8601. Analytics is the one place that deliberately
-does not use UTC: daily figures are bucketed on Colombia's calendar day
-(`America/Bogota`), because a merchant reading yesterday's orders means their
-yesterday.
+does not use UTC: daily figures are bucketed on the store's configured calendar
+day (`time_zone`, an IANA zone such as `America/Bogota`), because a merchant
+reading yesterday's orders means their yesterday.
 
 **Identifiers** are integers. Image and video assets are addressed by an opaque
 random key, never by a filename or anything derived from client input.
 
-**Language.** Buyer-facing copy stored through this API is Spanish, and
+**Language.** Buyer-facing copy is formatted with the store's `locale`, and
 delivery locations come from the bundled Colombian DIVIPOLA catalogue, which is
 authoritative: a department and municipality must match it exactly, and
 `GET /api/public/locations` is the list a client should populate from.
@@ -159,7 +162,7 @@ When a fulfillment provider is configured, the hand-off runs **after** the order
 has been committed locally. Accepting an order never depends on a third party
 being reachable; a failed hand-off is recorded as a durable, retryable row that
 the merchant can inspect and retry. Endpoints that mention MasterShop are inert
-while `FULFILLMENT_PROVIDER` is `none`.
+while the store's `fulfillment_provider` setting is `none`.
 
 ## Scope of this document
 
@@ -238,7 +241,7 @@ OPENAPI_TAGS: list[dict[str, Any]] = [
         "description": (
             "Aggregated operational figures: orders per day, per-landing traffic "
             "and conversion, and fraud-flag breakdowns. Daily buckets follow "
-            "Colombia's calendar day (`America/Bogota`), not UTC."
+            "the store's configured time zone, not UTC."
         ),
     },
     {

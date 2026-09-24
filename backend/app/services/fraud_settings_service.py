@@ -50,7 +50,8 @@ from app.domains.fraud.settings_validation import (
     validate_rate_limit_window_minutes,
 )
 from app.domains.orders.locations import validate_banned_cities
-from app.domains.orders.normalization import normalize_colombian_phone_key
+from app.domains.orders.normalization import normalize_phone_key
+from app.services.platform_config import load_platform_config
 
 ENTRY_TYPE_PHONE = "phone"
 
@@ -144,7 +145,8 @@ class FraudSettingsService:
         entry_type = validate_blacklist_entry_type(entry_type)
         reason = validate_blacklist_reason(reason)
         if entry_type == ENTRY_TYPE_PHONE:
-            value_normalized = normalize_colombian_phone_key(value)
+            phone_rules = (await load_platform_config(self._db)).regional.phone
+            value_normalized = normalize_phone_key(value, phone_rules)
         else:
             value_normalized = validate_blacklist_ip(value)
 

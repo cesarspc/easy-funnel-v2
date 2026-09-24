@@ -8,9 +8,9 @@ from typing import Any
 import httpx
 from prisma import Json, Prisma
 
-from app.core.settings import Settings
 from app.integrations.mastershop.client import MastershopClient, MastershopTransport
 from app.integrations.mastershop.payload import MastershopPayloadError, build_order_payload
+from app.services.platform_config import FulfillmentConfig
 
 
 class MastershopSyncService:
@@ -19,11 +19,11 @@ class MastershopSyncService:
     def __init__(
         self,
         db: Prisma,
-        settings: Settings,
+        config: FulfillmentConfig,
         transport: MastershopTransport | None = None,
     ) -> None:
         self._db = db
-        self._settings = settings
+        self._config = config
         self._transport = transport
 
     async def sync_order(self, order_id: int) -> Any:
@@ -52,7 +52,7 @@ class MastershopSyncService:
         # MasterShop; the provider's public material does not promise an
         # idempotency-key header.
         stale_before = datetime.now(UTC) - timedelta(
-            seconds=max(60.0, (self._settings.mastershop_timeout_seconds * 2) + 10)
+            seconds=max(60.0, (self._config.mastershop_timeout_seconds * 2) + 10)
         )
 
         claimed = await self._db.mastershopordersync.update_many(
@@ -113,14 +113,17 @@ class MastershopSyncService:
         await self._db.mastershopordersync.update(
             where={"orderId": order.id}, data={"requestBody": Json(payload)}
         )
-        api_key = (self._settings.mastershop_api_key or "").strip()
+        api_key = self._config.mastershop_api_key.strip()
         if not api_key:
-            return await self._fail(order.id, "MASTERSHOP_API_KEY is not configured.")
+            return await self._fail(order.id, "The MasterShop API key is not configured.")
+        orders_url = self._config.mastershop_orders_url.strip()
+        if not orders_url:
+            return await self._fail(order.id, "The MasterShop orders URL is not configured.")
 
         transport = self._transport or MastershopClient(
             api_key=api_key,
-            orders_url=self._settings.mastershop_orders_url,
-            timeout_seconds=self._settings.mastershop_timeout_seconds,
+            orders_url=orders_url,
+            timeout_seconds=self._config.mastershop_timeout_seconds,
         )
         try:
             response = await transport.create_order(payload)

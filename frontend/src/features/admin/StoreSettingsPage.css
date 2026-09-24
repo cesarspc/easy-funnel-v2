@@ -27,6 +27,7 @@
 }
 
 .store-settings input,
+.store-settings select,
 .store-settings textarea {
   width: 100%;
   padding: 0.7rem;
@@ -39,6 +40,7 @@
 }
 
 .store-settings input:focus-visible,
+.store-settings select:focus-visible,
 .store-settings textarea:focus-visible {
   border-color: var(--gf-signal-amber);
 }
@@ -57,6 +59,15 @@
   border: 1px solid var(--gf-hairline);
   border-radius: var(--gf-radius-md);
   background: var(--gf-paper-raised);
+}
+
+.store-settings fieldset > .store-settings__grid {
+  flex: 1 1 100%;
+}
+
+.store-settings input[type="checkbox"] {
+  width: auto;
+  margin-right: 0.4rem;
 }
 
 .store-settings legend {

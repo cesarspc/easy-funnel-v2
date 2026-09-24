@@ -15,8 +15,8 @@ import asyncio
 from datetime import UTC, datetime
 
 import app.services.analytics_query_service as analytics_query_module
-from app.core.business_time import colombia_today
-from app.domains.orders.normalization import normalize_colombian_phone_key
+from app.core.regional import DEFAULT_REGIONAL, business_today
+from app.domains.orders.normalization import normalize_phone_key
 from app.main import app
 from app.redis.client import get_redis
 
@@ -31,7 +31,7 @@ _USER_AGENT = "Mozilla/5.0 (E2E analytics test)"
 
 
 def _today() -> str:
-    return colombia_today().isoformat()
+    return business_today(DEFAULT_REGIONAL.time_zone).isoformat()
 
 
 def _order_payload(slug: str, phone: str) -> dict:
@@ -419,7 +419,9 @@ async def test_fraud_analytics_counts_flagged_orders_not_flags(
     # (blacklisted phone + GeoIP rule), which is still a single flagged order.
     await _submit_order(cod_flow, landing)
     phone = unique_phone()
-    await cod_flow.blacklist_phone(normalize_colombian_phone_key(phone), reason="Analitica")
+    await cod_flow.blacklist_phone(
+        normalize_phone_key(phone, DEFAULT_REGIONAL.phone), reason="Analitica"
+    )
     await cod_flow.add_geoip_rule("VE", action="flag")
     cod_flow.resolve_geoip_as("VE")
     flagged = await cod_flow.client.post(

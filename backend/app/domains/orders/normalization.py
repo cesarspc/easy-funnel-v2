@@ -1,66 +1,36 @@
-"""Colombian phone normalization and order field validation (Requirement 5.7)."""
+"""Phone normalization and order field validation (Requirement 5.7).
+
+Phone rules (calling code and national number pattern) are merchant settings;
+see `app.core.regional`.
+"""
 
 from __future__ import annotations
 
-import re
-
+from app.core.regional import PhoneRules, national_phone_digits
 from app.domains.orders.errors import OrderValidationError, InvalidOrderStatusTransition
 
-# Colombian mobile numbers: national numbers start with '3' and are 10 digits
-_PHONE_PATTERN = re.compile(r"^\+?57?3\d{9}$")
-_PHONE_DIGITS_PATTERN = re.compile(r"\d")
+
+def normalize_phone_key(raw: str, rules: PhoneRules) -> str:
+    """Return the national number used for duplicate/blacklist/rate-limit keys.
+
+    Accepts the national number with or without the calling code, with spaces,
+    hyphens, parentheses or a leading '+'.
+    """
+    national = national_phone_digits(raw, rules)
+    if national is None:
+        raise OrderValidationError(
+            "phone",
+            f"Invalid phone number for calling code +{rules.country_code}.",
+        )
+    return national
 
 
-def normalize_colombian_phone(raw: str) -> str:
-    """Normalize a Colombian phone number to +57 + 10 digits.
-
-    Accepts inputs with optional +57 or 57 prefix, with spaces, hyphens,
-    parentheses. Returns canonical +57 + 10 digits where the national number
-    begins with 3.
+def normalize_phone(raw: str, rules: PhoneRules) -> str:
+    """Normalize a phone number to E.164 (`+<calling code><national number>`).
 
     Normalization is idempotent: normalize(normalize(x)) == normalize(x).
     """
-    # Strip all non-digit characters, keeping only digits
-    digits = "".join(_PHONE_DIGITS_PATTERN.findall(raw)) if raw else ""
-    
-    # Remove country code if present
-    if digits.startswith("57"):
-        digits = digits[2:]
-    elif digits.startswith("+57"):
-        digits = digits[3:]
-    
-    # Validate: must be 10 digits starting with 3
-    if len(digits) != 10 or not digits.startswith("3"):
-        raise OrderValidationError(
-            "phone",
-            "Invalid Colombian phone number. Must be 10 digits starting with 3.",
-        )
-    
-    return f"+57{digits}"
-
-
-def normalize_colombian_phone_key(raw: str) -> str:
-    """Return the matching key for duplicate/blacklist/rate-limit lookups.
-
-    The key is the 10-digit national number (without +57 prefix).
-    """
-    # Strip all non-digit characters, keeping only digits
-    digits = "".join(_PHONE_DIGITS_PATTERN.findall(raw)) if raw else ""
-    
-    # Remove country code if present
-    if digits.startswith("57"):
-        digits = digits[2:]
-    elif digits.startswith("+57"):
-        digits = digits[3:]
-    
-    # Validate: must be 10 digits starting with 3
-    if len(digits) != 10 or not digits.startswith("3"):
-        raise OrderValidationError(
-            "phone",
-            "Invalid Colombian phone number. Must be 10 digits starting with 3.",
-        )
-    
-    return digits
+    return f"+{rules.country_code}{normalize_phone_key(raw, rules)}"
 
 
 # Field length bounds (Requirements 5.1-5.6)

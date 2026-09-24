@@ -552,6 +552,17 @@ model StoreSettings {
   seoDescription        String   @default("") @map("seo_description") @db.VarChar(180)
   gtmContainerId        String   @default("") @map("gtm_container_id") @db.VarChar(20)
   metaPixelId           String   @default("") @map("meta_pixel_id") @db.VarChar(30)
+  countryCode           String   @default("CO") @map("country_code") @db.VarChar(2)
+  locale                String   @default("es-CO") @map("locale") @db.VarChar(35)
+  currency              String   @default("COP") @map("currency") @db.VarChar(3)
+  timeZone              String   @default("America/Bogota") @map("time_zone") @db.VarChar(64)
+  phoneCountryCode      String   @default("57") @map("phone_country_code") @db.VarChar(4)
+  phoneNationalPattern  String   @default("3[0-9]{9}") @map("phone_national_pattern") @db.VarChar(100)
+  // NULL until seeded once from FULFILLMENT_PROVIDER / MASTERSHOP_* at startup.
+  fulfillmentProvider   String?  @map("fulfillment_provider") @db.VarChar(20)
+  mastershopOrdersUrl   String?  @map("mastershop_orders_url")
+  mastershopTimeoutSeconds Float? @map("mastershop_timeout_seconds")
+  mastershopApiKey      String?  @map("mastershop_api_key")
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

@@ -11,6 +11,7 @@ from app.core.auth_dependencies import require_admin
 from app.core.settings import Settings, get_settings
 from app.db.client import get_prisma
 from app.domains.images.errors import ImageValidationError
+from app.services.platform_config import fulfillment_from_store
 from app.services.store_settings_service import StoreSettingsService, StoreSettingsValidationError
 from app.storage.dependencies import get_r2_client
 from app.storage.r2_client import R2Client
@@ -41,6 +42,19 @@ class StoreResponse(BaseModel):
     seo_description: str
     gtm_container_id: str
     meta_pixel_id: str
+    country_code: str
+    locale: str
+    currency: str
+    time_zone: str
+    phone_country_code: str
+    phone_national_pattern: str
+
+
+class AdminStoreResponse(StoreResponse):
+    fulfillment_provider: str
+    mastershop_orders_url: str
+    mastershop_timeout_seconds: float
+    mastershop_api_key_configured: bool
 
 
 class StoreUpdateRequest(BaseModel):
@@ -62,6 +76,17 @@ class StoreUpdateRequest(BaseModel):
     seo_description: str | None = None
     gtm_container_id: str | None = None
     meta_pixel_id: str | None = None
+    country_code: str | None = None
+    locale: str | None = None
+    currency: str | None = None
+    time_zone: str | None = None
+    phone_country_code: str | None = None
+    phone_national_pattern: str | None = None
+    fulfillment_provider: str | None = None
+    mastershop_orders_url: str | None = None
+    mastershop_timeout_seconds: float | None = None
+    # Write-only: send a new value to replace the key, "" to clear it.
+    mastershop_api_key: str | None = None
 
 
 _FIELDS = {
@@ -73,11 +98,44 @@ _FIELDS = {
     "secondary_headline": "secondaryHeadline", "secondary_description": "secondaryDescription",
     "footer_text": "footerText", "seo_title": "seoTitle", "seo_description": "seoDescription",
     "gtm_container_id": "gtmContainerId", "meta_pixel_id": "metaPixelId",
+    "country_code": "countryCode", "locale": "locale", "currency": "currency",
+    "time_zone": "timeZone", "phone_country_code": "phoneCountryCode",
+    "phone_national_pattern": "phoneNationalPattern",
+}
+_ADMIN_FIELDS = {
+    "fulfillment_provider": "fulfillmentProvider",
+    "mastershop_orders_url": "mastershopOrdersUrl",
+    "mastershop_timeout_seconds": "mastershopTimeoutSeconds",
+    "mastershop_api_key": "mastershopApiKey",
 }
 
 
+def _public_values(store: Any) -> dict[str, Any]:
+    values = {
+        snake: list(getattr(store, camel) or []) if snake == "trust_items" else getattr(store, camel)
+        for snake, camel in _FIELDS.items()
+    }
+    return {
+        **values,
+        "logo_url": store.logoUrl,
+        "favicon_url": store.faviconUrl,
+        "homepage_image_url": store.homepageImageUrl,
+    }
+
+
 def serialize(store: Any) -> StoreResponse:
-    return StoreResponse(**{snake: (list(getattr(store, camel) or []) if snake == "trust_items" else getattr(store, camel)) for snake, camel in _FIELDS.items()}, logo_url=store.logoUrl, favicon_url=store.faviconUrl, homepage_image_url=store.homepageImageUrl)
+    return StoreResponse(**_public_values(store))
+
+
+def serialize_admin(store: Any) -> AdminStoreResponse:
+    fulfillment = fulfillment_from_store(store)
+    return AdminStoreResponse(
+        **_public_values(store),
+        fulfillment_provider=fulfillment.provider,
+        mastershop_orders_url=fulfillment.mastershop_orders_url,
+        mastershop_timeout_seconds=fulfillment.mastershop_timeout_seconds,
+        mastershop_api_key_configured=bool(fulfillment.mastershop_api_key.strip()),
+    )
 
 
 def validation_error(exc: Exception) -> HTTPException:
@@ -108,46 +166,54 @@ async def public_store() -> StoreResponse:
     return serialize(store)
 
 
-@admin_router.get("", response_model=StoreResponse, summary="Read storefront settings (admin)")
-async def admin_store(admin=Depends(require_admin)) -> StoreResponse:  # type: ignore[no-untyped-def] # noqa: B008
-    """Return the same storefront configuration the public endpoint serves.
+@admin_router.get("", response_model=AdminStoreResponse, summary="Read platform settings (admin)")
+async def admin_store(admin=Depends(require_admin)) -> AdminStoreResponse:  # type: ignore[no-untyped-def] # noqa: B008
+    """Return the storefront configuration plus operational parameters.
 
-    Separate from the public route so the editing surface reads through an
-    authenticated path and its access is audited like every other admin read.
+    Adds the fulfillment integration settings to what the public endpoint
+    serves. The provider API key is write-only: only whether one is configured
+    is reported.
     """
     del admin
     store = await StoreSettingsService(get_prisma()).get()
     if store is None:
         raise HTTPException(503, "Store is not configured.")
-    return serialize(store)
+    return serialize_admin(store)
 
 
-@admin_router.patch("", response_model=StoreResponse, summary="Update storefront settings")
-async def update_store(request: StoreUpdateRequest, admin=Depends(require_admin)) -> StoreResponse:  # type: ignore[no-untyped-def] # noqa: B008
+@admin_router.patch("", response_model=AdminStoreResponse, summary="Update platform settings")
+async def update_store(request: StoreUpdateRequest, admin=Depends(require_admin)) -> AdminStoreResponse:  # type: ignore[no-untyped-def] # noqa: B008
     """Update storefront settings and return the stored result.
 
     A partial update: only the fields present in the body are written, so a
     client can send one field without restating the rest. Values are validated
-    (colors, WhatsApp number format, e-mail, tracking identifiers, lengths) and a
+    (colors, WhatsApp number format, e-mail, tracking identifiers, locale,
+    currency, time zone, phone rules, fulfillment provider, lengths) and a
     rejection names the offending field.
 
-    These values seed from `STORE_*` environment variables **once**, on a fresh
-    database. After that this endpoint is the source of truth and a restart never
-    reverts what the merchant saved here.
+    These values seed from `STORE_*` / `FULFILLMENT_PROVIDER` / `MASTERSHOP_*`
+    environment variables **once**. After that this endpoint is the source of
+    truth and a restart never reverts what the merchant saved here.
     """
-    values = {_FIELDS[key]: value for key, value in request.model_dump(exclude_unset=True).items()}
+    fields = {**_FIELDS, **_ADMIN_FIELDS}
+    values = {
+        fields[key]: value
+        for key, value in request.model_dump(exclude_unset=True).items()
+        if key in fields
+    }
     try:
-        return serialize(await StoreSettingsService(get_prisma()).update(values, actor=admin.subject))
+        store = await StoreSettingsService(get_prisma()).update(values, actor=admin.subject)
+        return serialize_admin(store)
     except StoreSettingsValidationError as exc:
         raise validation_error(exc) from exc
 
 
 @admin_router.post(
     "/assets/{asset_kind}",
-    response_model=StoreResponse,
+    response_model=AdminStoreResponse,
     summary="Upload a brand image",
 )
-async def upload_store_asset(asset_kind: str, file: UploadFile = File(...), admin=Depends(require_admin), storage: R2Client = Depends(get_r2_client), settings: Settings = Depends(get_settings)) -> StoreResponse:  # type: ignore[no-untyped-def] # noqa: B008
+async def upload_store_asset(asset_kind: str, file: UploadFile = File(...), admin=Depends(require_admin), storage: R2Client = Depends(get_r2_client), settings: Settings = Depends(get_settings)) -> AdminStoreResponse:  # type: ignore[no-untyped-def] # noqa: B008
     """Replace one brand image and return the updated settings.
 
     `asset_kind` is one of `logo`, `favicon` or `homepage_image`. The upload is
@@ -157,6 +223,6 @@ async def upload_store_asset(asset_kind: str, file: UploadFile = File(...), admi
     """
     try:
         store = await StoreSettingsService(get_prisma()).upload_asset(asset_kind, await file.read(), storage, settings.storage_public_base_url, actor=admin.subject)
-        return serialize(store)
+        return serialize_admin(store)
     except (StoreSettingsValidationError, ImageValidationError) as exc:
         raise validation_error(exc) from exc

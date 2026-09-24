@@ -47,7 +47,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const loaded = await publicApi.getStore();
       setStore(loaded);
       setError(false);
-      document.documentElement.lang = "es-CO";
+      document.documentElement.lang = loaded.locale || document.documentElement.lang;
       document.title = loaded.seo_title || loaded.store_name;
       let description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
       if (!description) {

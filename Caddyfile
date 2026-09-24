@@ -5,11 +5,11 @@
 {$APP_SITE_ADDRESS::80} {
 	encode zstd gzip
 	handle /api/* {
-		reverse_proxy backend:8080
+		reverse_proxy {$BACKEND_UPSTREAM:backend:8080}
 	}
 	handle_path /media/* {
-		rewrite * /store{path}
-		reverse_proxy minio:9000
+		rewrite * /{$MEDIA_BUCKET:store}{path}
+		reverse_proxy {$MEDIA_UPSTREAM:minio:9000}
 	}
 	handle {
 		root * /srv

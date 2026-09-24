@@ -19,12 +19,13 @@ from app.db.client import get_prisma
 from app.db.repositories import AuditLogRepository, FraudConfigRepository
 from app.domains.orders import (
     OrderValidationError,
-    normalize_colombian_phone,
-    normalize_colombian_phone_key,
+    normalize_phone,
+    normalize_phone_key,
     validate_address,
     validate_name,
 )
 from app.domains.orders.locations import validate_delivery_location
+from app.services.platform_config import load_platform_config
 
 router = APIRouter(prefix="/api/admin/orders", tags=["admin", "orders"])
 
@@ -275,8 +276,9 @@ async def update_order_fulfillment(
         if not last_name:
             raise OrderValidationError("last_name", "Last name is required.")
         full_name = validate_name(f"{first_name} {last_name}")
-        phone_e164 = normalize_colombian_phone(request.phone)
-        phone_key = normalize_colombian_phone_key(request.phone)
+        phone_rules = (await load_platform_config(db)).regional.phone
+        phone_e164 = normalize_phone(request.phone, phone_rules)
+        phone_key = normalize_phone_key(request.phone, phone_rules)
         address1 = request.address1.strip()
         if not address1:
             raise OrderValidationError("address1", "Address line 1 is required.")
@@ -389,14 +391,14 @@ async def retry_mastershop_sync(
     resulting sync state.
 
     Safe to call repeatedly: an order that already synced is not sent twice.
-    Inert while `FULFILLMENT_PROVIDER` is `none`.
+    Inert while the fulfillment provider (Admin → Tienda) is `none`.
     """
-    from app.core.settings import get_settings
     from app.integrations.mastershop import MastershopSyncService
 
     db = get_prisma()
+    fulfillment = (await load_platform_config(db)).fulfillment
     try:
-        sync = await MastershopSyncService(db, get_settings()).sync_order(order_id)
+        sync = await MastershopSyncService(db, fulfillment).sync_order(order_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     await AuditLogRepository(db).record(
@@ -447,10 +449,10 @@ async def transition_order(
         )
 
     if order.status == "flagged_fraud" and updated.status == "pending":
-        from app.core.settings import get_settings
         from app.integrations.mastershop import MastershopSyncService
 
+        fulfillment = (await load_platform_config(db)).fulfillment
         with suppress(Exception):
-            await MastershopSyncService(db, get_settings()).sync_order(updated.id)
+            await MastershopSyncService(db, fulfillment).sync_order(updated.id)
 
     return {"order_id": updated.id, "status": updated.status}

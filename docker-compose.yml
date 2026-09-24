@@ -1,29 +1,49 @@
 name: easy-funnel
 
 x-backend-environment: &backend-environment
-  DATABASE_URL: postgresql://${POSTGRES_USER:-easy_funnel}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-easy_funnel}
-  REDIS_URL: redis://redis:6379/0
-  S3_ENDPOINT: http://minio:9000
-  S3_REGION: us-east-1
-  S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
-  S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
-  S3_BUCKET: store
-  S3_PUBLIC_BASE_URL: ${APP_PUBLIC_URL:-http://localhost:8088}/media
+  # Infrastructure wiring. Every value can be overridden from `.env`; the
+  # defaults point at the bundled services. Merchant-facing parameters (branding,
+  # market, currency, time zone, phone rules, fulfillment) are only *seeded*
+  # from the STORE_* / FULFILLMENT_* / MASTERSHOP_* values below and are then
+  # edited under Admin -> Tienda.
+  DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-easy_funnel}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-easy_funnel}}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}}
+  S3_BUCKET: ${S3_BUCKET:-store}
+  S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-${APP_PUBLIC_URL:-http://localhost:8088}/media}
   JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
-  GEOIP_DATABASE_PATH: /app/geoip/GeoLite2-Country.mmdb
-  CORS_ALLOWED_ORIGINS: ${APP_PUBLIC_URL:-http://localhost:8088}
+  JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+  JWT_EXPIRY_MINUTES: ${JWT_EXPIRY_MINUTES:-60}
+  JWT_ISSUER: ${JWT_ISSUER:-cod-commerce-platform}
+  JWT_AUDIENCE: ${JWT_AUDIENCE:-cod-commerce-admin}
+  GEOIP_DATABASE_PATH: ${GEOIP_DATABASE_PATH:-/app/geoip/GeoLite2-Country.mmdb}
+  GEOIP_UPDATE_URL: ${GEOIP_UPDATE_URL:-}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-${APP_PUBLIC_URL:-http://localhost:8088}}
   ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
   ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
   ADMIN_PASSWORD_RESET: ${ADMIN_PASSWORD_RESET:-false}
   FULFILLMENT_PROVIDER: ${FULFILLMENT_PROVIDER:-none}
   MASTERSHOP_API_KEY: ${MASTERSHOP_API_KEY:-}
+  MASTERSHOP_ORDERS_URL: ${MASTERSHOP_ORDERS_URL:-https://prod.api.mastershop.com/api/orders}
+  MASTERSHOP_TIMEOUT_SECONDS: ${MASTERSHOP_TIMEOUT_SECONDS:-5}
   STORE_NAME: ${STORE_NAME:-Mi Tienda}
   STORE_LEGAL_NAME: ${STORE_LEGAL_NAME:-}
   STORE_PRIMARY_COLOR: ${STORE_PRIMARY_COLOR:-#30503b}
   STORE_WHATSAPP_NUMBER: ${STORE_WHATSAPP_NUMBER:-}
   STORE_WHATSAPP_MESSAGE: ${STORE_WHATSAPP_MESSAGE:-Hola, me gustaría conocer más sobre tus productos.}
   STORE_SUPPORT_EMAIL: ${STORE_SUPPORT_EMAIL:-}
-  ENVIRONMENT: production
+  STORE_COUNTRY_CODE: ${STORE_COUNTRY_CODE:-CO}
+  STORE_LOCALE: ${STORE_LOCALE:-es-CO}
+  STORE_CURRENCY: ${STORE_CURRENCY:-COP}
+  STORE_TIME_ZONE: ${STORE_TIME_ZONE:-America/Bogota}
+  STORE_PHONE_COUNTRY_CODE: ${STORE_PHONE_COUNTRY_CODE:-57}
+  STORE_PHONE_NATIONAL_PATTERN: ${STORE_PHONE_NATIONAL_PATTERN:-3[0-9]{9}}
+  APP_VERSION: ${APP_VERSION:-0.1.0}
+  ENVIRONMENT: ${ENVIRONMENT:-production}
+  PORT: ${BACKEND_INTERNAL_PORT:-8080}
 
 services:
   postgres:
@@ -83,12 +103,13 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:-store}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >-
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
-        mc mb --ignore-existing local/store &&
-        mc anonymous set download local/store
+        mc mb --ignore-existing "local/$${S3_BUCKET}" &&
+        mc anonymous set download "local/$${S3_BUCKET}"
     restart: "no"
 
   backend:
@@ -104,7 +125,7 @@ services:
       minio-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:$${PORT:-8080}/health"]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -115,10 +136,13 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: /api
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     environment:
       APP_SITE_ADDRESS: ${APP_SITE_ADDRESS:-:80}
       ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+      BACKEND_UPSTREAM: backend:${BACKEND_INTERNAL_PORT:-8080}
+      MEDIA_UPSTREAM: ${MEDIA_UPSTREAM:-minio:9000}
+      MEDIA_BUCKET: ${S3_BUCKET:-store}
     depends_on:
       backend:
         condition: service_healthy

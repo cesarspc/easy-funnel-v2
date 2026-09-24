@@ -18,6 +18,7 @@ from app.domains.analytics.date_range import parse_date_range
 from app.domains.analytics.errors import AnalyticsValidationError
 from app.redis.client import get_redis
 from app.services.analytics_query_service import AnalyticsQueryService
+from app.services.platform_config import load_platform_config
 
 router = APIRouter(prefix="/api/admin/analytics", tags=["admin", "analytics"])
 
@@ -42,9 +43,10 @@ class FraudAnalyticsResponse(BaseModel):
     flagged_fraud_rate: float
 
 
-def _resolve_range(date_from: str, date_to: str):  # type: ignore[no-untyped-def]
+async def _resolve_range(date_from: str, date_to: str):  # type: ignore[no-untyped-def]
+    time_zone = (await load_platform_config(get_prisma())).regional.time_zone
     try:
-        return parse_date_range(date_from, date_to)
+        return parse_date_range(date_from, date_to, time_zone)
     except AnalyticsValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -59,7 +61,7 @@ async def get_orders_per_day(
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
 ) -> list[OrdersPerDayResponse]:
     """Return orders per calendar day for the inclusive range."""
-    date_range = _resolve_range(date_from, date_to)
+    date_range = await _resolve_range(date_from, date_to)
     results = await AnalyticsQueryService(get_prisma()).get_orders_per_day(date_range)
 
     return [
@@ -76,7 +78,7 @@ async def get_landing_analytics(
     redis: AsyncRedis = Depends(get_redis),  # noqa: B008 (FastAPI DI)
 ) -> list[LandingAnalyticsResponse]:
     """Return per-landing views, clicks, orders, and conversion rate."""
-    date_range = _resolve_range(date_from, date_to)
+    date_range = await _resolve_range(date_from, date_to)
     results = await AnalyticsQueryService(get_prisma(), redis).get_landing_analytics(
         date_range, landing_id=landing_id
     )
@@ -100,7 +102,7 @@ async def get_fraud_analytics(
     admin_user=Depends(require_admin),  # type: ignore  # noqa: B008 (FastAPI DI)
 ) -> list[FraudAnalyticsResponse]:
     """Return per-day flagged-order counts and flagged-fraud rate."""
-    date_range = _resolve_range(date_from, date_to)
+    date_range = await _resolve_range(date_from, date_to)
     results = await AnalyticsQueryService(get_prisma()).get_fraud_analytics(date_range)
 
     return [

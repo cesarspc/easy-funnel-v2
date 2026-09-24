@@ -14,43 +14,27 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { FraudAnalytics, LandingAnalytics, LandingSummary, OrdersPerDay } from "../../api";
 import { analyticsApi, ApiError, landingsApi } from "../../api";
 import "./AnalyticsPage.css";
-
-const PERCENT_FORMATTER = new Intl.NumberFormat("es-CO", {
-  style: "percent",
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-
-const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
-  day: "2-digit",
-  month: "short",
-  timeZone: "UTC",
-});
+import {
+  businessDateIso,
+  createDateFormatter,
+  createNumberFormatter,
+  type RegionalSettings,
+  useRegional,
+} from "../store/regional";
 
 const DEFAULT_RANGE_DAYS = 7;
-const ANALYTICS_TIME_ZONE = "America/Bogota";
 
-function dateInAnalyticsTimeZone(date: Date): string {
-  const parts = new Intl.DateTimeFormat("en", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: ANALYTICS_TIME_ZONE,
-  }).formatToParts(date);
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return `${value("year")}-${value("month")}-${value("day")}`;
-}
-
-function isoDaysAgo(days: number): string {
-  const [year, month, day] = dateInAnalyticsTimeZone(new Date()).split("-").map(Number);
+// Daily buckets follow the store's configured business time zone, matching
+// how the backend groups analytics.
+function isoDaysAgo(regional: RegionalSettings, days: number): string {
+  const [year, month, day] = businessDateIso(regional).split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   date.setUTCDate(date.getUTCDate() - days);
   return date.toISOString().slice(0, 10);
 }
 
-function todayIso(): string {
-  return dateInAnalyticsTimeZone(new Date());
+function todayIso(regional: RegionalSettings): string {
+  return businessDateIso(regional);
 }
 
 interface RangeForm {
@@ -121,10 +105,27 @@ function TrendChart({
 }
 
 export function AnalyticsPage() {
-  const [range, setRange] = useState<RangeForm>({
-    dateFrom: isoDaysAgo(DEFAULT_RANGE_DAYS),
-    dateTo: todayIso(),
-  });
+  const regional = useRegional();
+  const { PERCENT_FORMATTER, SHORT_DATE_FORMATTER } = useMemo(
+    () => ({
+      PERCENT_FORMATTER: createNumberFormatter(regional, {
+        style: "percent",
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }),
+      // Rows are calendar dates already bucketed server-side: render them as-is.
+      SHORT_DATE_FORMATTER: createDateFormatter(
+        regional,
+        { day: "2-digit", month: "short", timeZone: "UTC" },
+        { businessTimeZone: false },
+      ),
+    }),
+    [regional],
+  );
+  const [range, setRange] = useState<RangeForm>(() => ({
+    dateFrom: isoDaysAgo(regional, DEFAULT_RANGE_DAYS),
+    dateTo: todayIso(regional),
+  }));
   const [appliedRange, setAppliedRange] = useState<RangeForm>(range);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [rangeFieldErrors, setRangeFieldErrors] = useState<Record<string, string>>({});
@@ -190,7 +191,7 @@ export function AnalyticsPage() {
           label: SHORT_DATE_FORMATTER.format(new Date(`${row.date}T00:00:00Z`)),
           value: row.count,
         })),
-    [ordersPerDay],
+    [ordersPerDay, SHORT_DATE_FORMATTER],
   );
 
   const fraudChartPoints = useMemo(
@@ -201,7 +202,7 @@ export function AnalyticsPage() {
           label: SHORT_DATE_FORMATTER.format(new Date(`${row.date}T00:00:00Z`)),
           value: row.flagged_fraud_rate,
         })),
-    [fraudAnalytics],
+    [fraudAnalytics, SHORT_DATE_FORMATTER],
   );
 
   const ordersNewestFirst = useMemo(

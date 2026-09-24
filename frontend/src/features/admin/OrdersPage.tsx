@@ -11,6 +11,7 @@ import { Modal } from "../../components/Modal";
 import type { Order } from "../../api";
 import { ApiError, ordersApi } from "../../api";
 import "./OrdersPage.css";
+import { createDateFormatter, useRegional } from "../store/regional";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "Todos los estados" },
@@ -21,25 +22,6 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "cancelled", label: "Cancelado" },
   { value: "flagged_fraud", label: "Marcado para revisión" },
 ];
-
-const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  timeZone: "America/Bogota",
-});
-
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("es-CO", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "America/Bogota",
-});
-
-const CURRENCY = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
 
 interface Filters {
   status: string;
@@ -99,6 +81,22 @@ function variantSummary(order: Order): string {
 }
 
 export function OrdersPage() {
+  const regional = useRegional();
+  const CURRENCY = regional.money;
+  const { DATE_FORMATTER, DATE_TIME_FORMATTER } = useMemo(
+    () => ({
+      DATE_FORMATTER: createDateFormatter(regional, {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+      DATE_TIME_FORMATTER: createDateFormatter(regional, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    }),
+    [regional],
+  );
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);

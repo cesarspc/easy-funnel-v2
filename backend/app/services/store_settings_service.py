@@ -9,15 +9,34 @@ from typing import Any
 
 from prisma import Prisma
 
+from app.core.regional import (
+    RegionalValidationError,
+    validate_country_code,
+    validate_currency,
+    validate_locale,
+    validate_phone_country_code,
+    validate_phone_national_pattern,
+    validate_time_zone,
+)
 from app.core.settings import Settings
 from app.domains.images.validation import validate_source_image
+from app.services.platform_config import FULFILLMENT_PROVIDERS, invalidate_platform_config
 from app.storage.r2_client import R2Client, object_public_url
 
 _COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
-_PHONE = re.compile(r"^\+57[0-9]{10}$")
+_PHONE = re.compile(r"^\+[1-9][0-9]{6,14}$")
 _GTM = re.compile(r"^(|GTM-[A-Z0-9]+)$")
 _PIXEL = re.compile(r"^(|[0-9]{5,30})$")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_HTTP_URL = re.compile(r"^https?://[^\s/$.?#][^\s]*$", re.IGNORECASE)
+_REGIONAL_VALIDATORS = {
+    "countryCode": validate_country_code,
+    "locale": validate_locale,
+    "currency": validate_currency,
+    "timeZone": validate_time_zone,
+    "phoneCountryCode": validate_phone_country_code,
+    "phoneNationalPattern": validate_phone_national_pattern,
+}
 _ASSET_KINDS = {"logo", "favicon", "homepage_image"}
 _EXTENSIONS = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}
 _CONTENT_TYPES = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
@@ -64,7 +83,9 @@ def validate_store_update(values: dict[str, Any]) -> dict[str, Any]:
         elif field == "whatsappNumber":
             phone = _clean(value, field, 16)
             if phone and not _PHONE.fullmatch(phone):
-                raise StoreSettingsValidationError(field, "Use +57 followed by 10 digits.")
+                raise StoreSettingsValidationError(
+                    field, "Use international format: + followed by the country code and number."
+                )
             cleaned[field] = phone
         elif field == "supportEmail":
             email = _clean(value, field, 254).lower()
@@ -85,11 +106,55 @@ def validate_store_update(values: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(value, list) or len(value) > 3:
                 raise StoreSettingsValidationError(field, "Provide at most three trust items.")
             cleaned[field] = [_clean(item, field, 80, required=True) for item in value]
+        elif field in _REGIONAL_VALIDATORS:
+            try:
+                cleaned[field] = _REGIONAL_VALIDATORS[field](_clean(value, field, 100))
+            except RegionalValidationError as exc:
+                raise StoreSettingsValidationError(exc.field, exc.message) from exc
+        elif field == "fulfillmentProvider":
+            provider = _clean(value, field, 20, required=True).lower()
+            if provider not in FULFILLMENT_PROVIDERS:
+                raise StoreSettingsValidationError(
+                    field, f"Use one of: {', '.join(sorted(FULFILLMENT_PROVIDERS))}."
+                )
+            cleaned[field] = provider
+        elif field == "mastershopOrdersUrl":
+            url = _clean(value, field, 2048)
+            if url and not _HTTP_URL.fullmatch(url):
+                raise StoreSettingsValidationError(field, "Use a valid http(s) URL.")
+            cleaned[field] = url
+        elif field == "mastershopTimeoutSeconds":
+            if isinstance(value, bool) or not isinstance(value, int | float) or not 0 < value <= 30:
+                raise StoreSettingsValidationError(
+                    field, "Use a number of seconds between 0 and 30."
+                )
+            cleaned[field] = float(value)
+        elif field == "mastershopApiKey":
+            # Write-only secret: never echoed back by the API.
+            cleaned[field] = _clean(value, field, 512)
     return cleaned
 
 
+def _fulfillment_bootstrap(settings: Settings) -> dict[str, Any]:
+    return validate_store_update({
+        "fulfillmentProvider": settings.fulfillment_provider,
+        "mastershopOrdersUrl": settings.mastershop_orders_url,
+        "mastershopTimeoutSeconds": settings.mastershop_timeout_seconds,
+        "mastershopApiKey": settings.mastershop_api_key or "",
+    })
+
+
 async def ensure_store_settings(db: Prisma, settings: Settings) -> None:
-    if await db.storesettings.find_unique(where={"id": 1}) is not None:
+    """Create the singleton from bootstrap variables, or fill never-set fields.
+
+    Environment values are applied exactly once; afterwards the database row
+    is authoritative and a restart never reverts an Admin edit.
+    """
+    existing = await db.storesettings.find_unique(where={"id": 1})
+    if existing is not None:
+        if existing.fulfillmentProvider is None:
+            await db.storesettings.update(where={"id": 1}, data=_fulfillment_bootstrap(settings))
+            invalidate_platform_config()
         return
     data = validate_store_update({
         "storeName": settings.store_name,
@@ -99,8 +164,15 @@ async def ensure_store_settings(db: Prisma, settings: Settings) -> None:
         "whatsappMessage": settings.store_whatsapp_message,
         "supportEmail": settings.store_support_email,
         "seoTitle": settings.store_name,
+        "countryCode": settings.store_country_code,
+        "locale": settings.store_locale,
+        "currency": settings.store_currency,
+        "timeZone": settings.store_time_zone,
+        "phoneCountryCode": settings.store_phone_country_code,
+        "phoneNationalPattern": settings.store_phone_national_pattern,
     })
-    await db.storesettings.create(data={"id": 1, **data})
+    await db.storesettings.create(data={"id": 1, **data, **_fulfillment_bootstrap(settings)})
+    invalidate_platform_config()
 
 
 class StoreSettingsService:
@@ -115,6 +187,7 @@ class StoreSettingsService:
         async with self._db.tx() as tx:
             store = await tx.storesettings.update(where={"id": 1}, data=cleaned)
             await tx.auditlog.create(data={"actor": actor, "action": "store.settings.updated", "targetType": "store_settings", "targetId": "1", "result": "success"})
+        invalidate_platform_config()
         return store
 
     async def upload_asset(self, kind: str, raw: bytes, storage: R2Client, public_base: str, *, actor: str):  # type: ignore[no-untyped-def]

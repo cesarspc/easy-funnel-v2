@@ -35,6 +35,7 @@ from app.redis.client import get_redis
 from app.services.geoip_resolver import GeoIpResolver, get_geoip_resolver
 from app.services.landing_traffic_service import LandingTrafficService
 from app.services.order_submission_service import OrderSubmissionService
+from app.services.platform_config import load_platform_config
 from app.storage.r2_client import object_public_url, variant_public_url
 
 router = APIRouter(prefix="/api/public", tags=["public"])
@@ -466,7 +467,10 @@ async def record_landing_view(
             detail="Landing not found",
         )
 
-    await LandingTrafficService(db, redis).record_view(landing.id)
+    platform = await load_platform_config(db)
+    await LandingTrafficService(db, redis, time_zone=platform.regional.time_zone).record_view(
+        landing.id
+    )
     return {"view_recorded": True}
 
 
@@ -485,7 +489,10 @@ async def record_cta_click(
             detail="Landing not found",
         )
 
-    await LandingTrafficService(db, redis).record_cta_click(landing.id)
+    platform = await load_platform_config(db)
+    await LandingTrafficService(db, redis, time_zone=platform.regional.time_zone).record_cta_click(
+        landing.id
+    )
     return {"click_recorded": True}
 
 
@@ -531,12 +538,13 @@ async def create_order(
     503 on persistence failure (no partial order).
     """
     db = get_prisma()
-    settings = get_settings()
+    platform = await load_platform_config(db)
     service = OrderSubmissionService(
         db,
         redis,
         geoip,
-        fulfillment_enabled=settings.fulfillment_provider == "mastershop",
+        phone_rules=platform.regional.phone,
+        fulfillment_enabled=platform.fulfillment.mastershop_enabled,
     )
 
     try:
@@ -571,11 +579,11 @@ async def create_order(
     # The local order is already committed and remains authoritative. A
     # provider outage or even an unexpected integration bug must never turn a
     # successful COD checkout into a false 503 or create a duplicate retry.
-    if result.status == "pending" and settings.fulfillment_provider == "mastershop":
+    if result.status == "pending" and platform.fulfillment.mastershop_enabled:
         from app.integrations.mastershop import MastershopSyncService
 
         try:
-            await MastershopSyncService(db, get_settings()).sync_order(result.order_id)
+            await MastershopSyncService(db, platform.fulfillment).sync_order(result.order_id)
         except Exception:
             logger.exception(
                 "Post-commit MasterShop synchronization crashed",
@@ -606,7 +614,7 @@ class LocationCatalogResponse(BaseModel):
 
 @router.get("/locations", response_model=LocationCatalogResponse)
 async def get_public_locations(response: Response) -> LocationCatalogResponse:
-    """Return selectable Colombian locations with configured cities removed."""
+    """Return selectable delivery locations with configured cities removed."""
     config = await get_prisma().fraudconfig.find_unique(where={"id": 1})
     banned_cities = list(getattr(config, "bannedCities", None) or []) if config is not None else []
     response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600"

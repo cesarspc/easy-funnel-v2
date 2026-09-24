@@ -43,12 +43,7 @@ import {
 import { CodForm } from "./CodForm";
 import { ConversionBlockView } from "./ConversionBlocks";
 import "./LandingPage.css";
-
-const CURRENCY_FORMATTER = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
+import { useRegional } from "../store/regional";
 
 type LoadState = "loading" | "ready" | "not-found" | "error";
 type FormState = "closed" | "open";
@@ -56,6 +51,8 @@ type FormState = "closed" | "open";
 const PRICE_FLOW_TYPES = ["price_summary", "store_trust", "purchase_benefits"] as const;
 
 export function LandingPage(): JSX.Element {
+  const regional = useRegional();
+  const CURRENCY_FORMATTER = regional.money;
   const { slug } = useParams<{ slug: string }>();
   const [landing, setLanding] = useState<PublicLanding | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -130,7 +127,7 @@ export function LandingPage(): JSX.Element {
   function handleActivateCta() {
     if (!slug || !landing) return;
     void publicApi.recordCtaClick(slug);
-    trackInitiateCheckout(landing);
+    trackInitiateCheckout(landing, regional);
     setFormState("open");
   }
 
@@ -146,7 +143,7 @@ export function LandingPage(): JSX.Element {
         ...purchase,
         orderId: result.order_id,
         value: result.total_price,
-      });
+      }, regional);
     }
     setOrder(result);
     setFormState("closed");

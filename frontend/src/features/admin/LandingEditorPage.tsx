@@ -27,6 +27,7 @@ import { ApiError, landingsApi } from "../../api";
 import { LandingBlocksPanel } from "./LandingBlocksPanel";
 import { LoadTemplateDialog, SaveTemplateControl } from "./LandingTemplates";
 import "./LandingsPage.css";
+import { useRegional } from "../store/regional";
 
 const MAX_BANNERS = 15;
 
@@ -169,6 +170,7 @@ function thumbnailUrl(banner: LandingBanner): string | null {
 }
 
 export function LandingEditorPage() {
+  const { currency } = useRegional();
   const { landingId } = useParams<{ landingId: string }>();
   const id = Number(landingId);
 
@@ -1475,7 +1477,7 @@ export function LandingEditorPage() {
                         className="landings-field__label"
                         htmlFor={`landing-offer-discount-amount-${offer.quantity}`}
                       >
-                        Descuento fijo (COP)
+                        Descuento fijo ({currency})
                       </label>
                       <input
                         id={`landing-offer-discount-amount-${offer.quantity}`}
